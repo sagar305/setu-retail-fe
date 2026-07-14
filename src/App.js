@@ -7,6 +7,8 @@ import { OfflineProvider } from './context/OfflineContext';
 import indexedDB from './services/indexedDB';
 
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import POSBilling from './pages/POSBilling';
 import WeighingCounter from './pages/WeighingCounter';
@@ -52,6 +54,8 @@ function AppContent() {
     <ThemeProvider theme={theme}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route
           path="/dashboard"
           element={
