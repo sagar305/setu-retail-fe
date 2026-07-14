@@ -37,7 +37,7 @@ export const OfflineProvider = ({ children }) => {
         for (const item of syncQueue) {
           if (!item.synced) {
             try {
-              const { action, endpoint, data } = item;
+              const { endpoint, data } = item;
               await api.post(endpoint, data);
               await indexedDB.markSyncQueueItemAsSynced(item.id);
             } catch (error) {

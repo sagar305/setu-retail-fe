@@ -7,11 +7,10 @@ import {
   Menu,
   MenuItem,
   Badge,
-  TextField,
   Alert,
   IconButton,
 } from '@mui/material';
-import { Bell, ChevronDown, AlertCircle, X } from 'lucide-react';
+import { Bell, ChevronDown, X } from 'lucide-react';
 import OfflineSyncStatus from './OfflineSyncStatus';
 
 const TopBar = ({ title = 'Dashboard', isOffline = false }) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -29,7 +29,6 @@ import { AuthContext } from '../context/AuthContext';
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BarChart },

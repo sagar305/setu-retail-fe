@@ -25,15 +25,13 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
-  Paper,
   Alert,
 } from '@mui/material';
-import { Plus, Trash2, ShoppingCart, X, Save, RotateCcw, AlertCircle } from 'lucide-react';
+import { ShoppingCart, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { SSEContext } from '../context/SSEContext';
 import useOffline from '../hooks/useOffline';
-import OfflineSyncStatus from '../components/OfflineSyncStatus';
 
 const POSBilling = () => {
   const { getRecentEvents, isConnected } = useContext(SSEContext);
