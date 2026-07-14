@@ -1,46 +1,252 @@
-import React, { useState } from 'react';
-import { Box, Card, TextField, Button, Grid, Typography, Chip, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import { Plus, Trash2, ShoppingCart, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Box,
+  Card,
+  TextField,
+  Button,
+  Grid,
+  Typography,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Paper,
+} from '@mui/material';
+import { Plus, Trash2, ShoppingCart, X, Save, RotateCcw, AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
+import api from '../services/api';
 
 const POSBilling = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [showHeldBills, setShowHeldBills] = useState(false);
+  const [heldBills, setHeldBills] = useState([]);
+  const [showPayment, setShowPayment] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [splitPayments, setSplitPayments] = useState([]);
+  const [tenperPayment, setTenderPayment] = useState(0);
+  const barcodeRef = useRef(null);
 
-  const categories = ['All', 'Grocery', 'Dairy', 'Produce', 'Beverages', 'Personal Care'];
+  const categories = ['all', 'Grocery', 'Dairy', 'Produce', 'Beverages', 'Personal Care'];
+
+  useEffect(() => {
+    fetchProducts();
+    loadHeldBills();
+    if (barcodeRef.current) barcodeRef.current.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        // Focus on product search
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        setShowCustomerSearch(true);
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        // Open discount dialog
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        handleHoldBill();
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        setShowHeldBills(true);
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        if (cart.length > 0) setShowPayment(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [cart]);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products', { params: { limit: 100 } });
+      setProducts(response.data.products || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const loadHeldBills = () => {
+    const stored = sessionStorage.getItem('heldBills');
+    if (stored) {
+      setHeldBills(JSON.parse(stored));
+    }
+  };
+
+  const saveBillToHeld = () => {
+    const bill = {
+      id: Date.now(),
+      customer: selectedCustomer,
+      items: [...cart],
+      total: calculateTotal(),
+      timestamp: new Date(),
+    };
+    const updated = [...heldBills, bill];
+    setHeldBills(updated);
+    sessionStorage.setItem('heldBills', JSON.stringify(updated));
+  };
+
+  const handleHoldBill = () => {
+    if (cart.length === 0) return;
+    saveBillToHeld();
+    setCart([]);
+    setSelectedCustomer(null);
+  };
+
+  const handleRecallBill = (bill) => {
+    setCart(bill.items);
+    setSelectedCustomer(bill.customer);
+    setHeldBills(heldBills.filter((b) => b.id !== bill.id));
+    sessionStorage.setItem('heldBills', JSON.stringify(heldBills.filter((b) => b.id !== bill.id)));
+    setShowHeldBills(false);
+  };
+
+  const handleBarcodeInput = async (e) => {
+    if (e.key === 'Enter' && barcodeInput.trim()) {
+      const product = products.find((p) => p.barcode === barcodeInput || p.sku === barcodeInput);
+      if (product) {
+        handleAddToCart(product);
+      }
+      setBarcodeInput('');
+      if (barcodeRef.current) barcodeRef.current.focus();
+    }
+  };
 
   const handleAddToCart = (product) => {
-    const existing = cart.find(item => item.id === product.id);
+    const existing = cart.find((item) => item._id === product._id);
     if (existing) {
       existing.quantity += 1;
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([
+        ...cart,
+        {
+          ...product,
+          quantity: 1,
+          lineTotal: product.pricing.sellingPrice,
+        },
+      ]);
     }
   };
 
   const handleRemoveFromCart = (productId) => {
-    setCart(cart.filter(item => item.id !== productId));
+    setCart(cart.filter((item) => item._id !== productId));
   };
 
   const handleQuantityChange = (productId, quantity) => {
-    const item = cart.find(item => item.id === productId);
+    const item = cart.find((item) => item._id === productId);
     if (item) {
       item.quantity = Math.max(1, quantity);
+      item.lineTotal = item.pricing.sellingPrice * item.quantity;
     }
     setCart([...cart]);
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const calculateSubtotal = () => {
+    return cart.reduce((sum, item) => sum + (item.pricing.sellingPrice * item.quantity), 0);
+  };
+
+  const calculateTax = () => {
+    let tax = 0;
+    cart.forEach((item) => {
+      const taxRate = item.pricing.tax || 0;
+      tax += (item.pricing.sellingPrice * item.quantity * taxRate) / 100;
+    });
+    return tax;
+  };
+
+  const calculateDiscount = () => {
+    return (calculateSubtotal() * discountPercent) / 100;
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax() - calculateDiscount();
+  };
+
+  const handleCompletePayment = async () => {
+    if (cart.length === 0) return;
+
+    try {
+      const invoiceData = {
+        items: cart.map((item) => ({
+          productId: item._id,
+          quantity: item.quantity,
+          price: item.pricing.sellingPrice,
+        })),
+        customerId: selectedCustomer?._id,
+        discountPercentage: discountPercent,
+        paymentMethod,
+        amount: calculateTotal(),
+      };
+
+      const response = await api.post('/invoices', invoiceData);
+
+      alert(`Invoice created: ${response.data.invoiceNumber}`);
+      setCart([]);
+      setSelectedCustomer(null);
+      setDiscountPercent(0);
+      setShowPayment(false);
+      setSplitPayments([]);
+    } catch (error) {
+      alert('Error creating invoice: ' + error.message);
+    }
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <Layout title="POS Billing">
-      <Grid container spacing={2} sx={{ height: '100vh' }}>
-        <Grid item xs={12} md={7}>
-          <Card sx={{ padding: '20px', height: '100%', overflow: 'auto' }}>
+      <Grid container spacing={2} sx={{ minHeight: '85vh' }}>
+        <Grid item xs={12} md={8}>
+          <Card sx={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <TextField
+                ref={barcodeRef}
+                fullWidth
+                placeholder="Scan barcode (F2 search, F3 customer, F5 hold, F6 recall, F9 pay)"
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                onKeyPress={handleBarcodeInput}
+                size="small"
+                sx={{ mb: 1 }}
+              />
+            </Box>
+
             <TextField
               fullWidth
-              placeholder="Search by name, SKU or barcode..."
+              placeholder="Search by name, SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -48,10 +254,10 @@ const POSBilling = () => {
             />
 
             <Box sx={{ display: 'flex', gap: 1, mb: 2, overflow: 'auto' }}>
-              {categories.map(cat => (
+              {categories.map((cat) => (
                 <Chip
                   key={cat}
-                  label={cat}
+                  label={cat.toUpperCase()}
                   onClick={() => setSelectedCategory(cat)}
                   variant={selectedCategory === cat ? 'filled' : 'outlined'}
                   sx={{
@@ -62,28 +268,27 @@ const POSBilling = () => {
               ))}
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, flex: 1, overflowY: 'auto' }}>
+              {filteredProducts.map((product) => (
                 <Card
-                  key={i}
+                  key={product._id}
                   sx={{
                     padding: '12px',
                     textAlign: 'center',
                     cursor: 'pointer',
                     '&:hover': { boxShadow: 2 },
                   }}
-                  onClick={() =>
-                    handleAddToCart({
-                      id: i,
-                      name: `Product ${i}`,
-                      price: 100 + i * 10,
-                    })
-                  }
+                  onClick={() => handleAddToCart(product)}
                 >
                   <Box sx={{ backgroundColor: '#F2A03D', height: '60px', borderRadius: '6px', mb: 1 }} />
-                  <Typography variant="caption">{`Product ${i}`}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    ₹{100 + i * 10}
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
+                    {product.name.substring(0, 15)}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#9AA0C0', display: 'block' }}>
+                    {product.sku}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#F2A03D' }}>
+                    ₹{product.pricing.sellingPrice}
                   </Typography>
                 </Card>
               ))}
@@ -91,77 +296,293 @@ const POSBilling = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={5}>
-          <Card sx={{ padding: '20px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-              Cart ({cart.length} items)
+        <Grid item xs={12} md={4}>
+          <Card sx={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+              Cart ({cart.length})
             </Typography>
+
+            {selectedCustomer && (
+              <Box sx={{ mb: 2, p: 1, backgroundColor: '#E5F9F0', borderRadius: '6px' }}>
+                <Typography variant="caption" sx={{ color: '#2F8F5B', fontWeight: 600 }}>
+                  {selectedCustomer.name}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#9AA0C0', display: 'block' }}>
+                  {selectedCustomer.phone}
+                </Typography>
+              </Box>
+            )}
 
             {cart.length === 0 ? (
               <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9AA0C0' }}>
                 <ShoppingCart size={40} />
-                <Typography>Cart is empty</Typography>
               </Box>
             ) : (
               <>
-                <Table size="small" sx={{ flex: 1, mb: 2 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Product</TableCell>
-                      <TableCell>Qty</TableCell>
-                      <TableCell>Price</TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {cart.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell variant="small">{item.name}</TableCell>
-                        <TableCell>
-                          <TextField
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value))}
-                            size="small"
-                            sx={{ width: 50 }}
-                          />
-                        </TableCell>
-                        <TableCell>₹{item.price * item.quantity}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="text"
-                            size="small"
-                            onClick={() => handleRemoveFromCart(item.id)}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
+                <Box sx={{ flex: 1, overflowY: 'auto', mb: 2 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>Item</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Qty</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }} align="right">
+                          Total
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHead>
+                    <TableBody>
+                      {cart.map((item) => (
+                        <TableRow key={item._id} sx={{ '&:hover': { backgroundColor: '#F5F3ED' } }}>
+                          <TableCell>
+                            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                              {item.name.substring(0, 12)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleQuantityChange(item._id, parseInt(e.target.value))}
+                              size="small"
+                              sx={{ width: 50 }}
+                              inputProps={{ min: '1' }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                                ₹{(item.pricing.sellingPrice * item.quantity).toFixed(0)}
+                              </Typography>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => handleRemoveFromCart(item._id)}
+                                sx={{ minWidth: '20px', p: 0 }}
+                              >
+                                <X size={14} />
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
 
-                <Box sx={{ borderTop: '1px solid #ddd', pt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography>Subtotal:</Typography>
-                    <Typography>₹{cartTotal}</Typography>
+                <Divider sx={{ my: 1 }} />
+
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, fontSize: '13px' }}>
+                    <Typography variant="caption">Subtotal:</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      ₹{calculateSubtotal().toFixed(0)}
+                    </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '18px', mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, fontSize: '13px' }}>
+                    <Typography variant="caption">Tax:</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      ₹{calculateTax().toFixed(0)}
+                    </Typography>
+                  </Box>
+                  {discountPercent > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, fontSize: '13px' }}>
+                      <Typography variant="caption">Discount ({discountPercent}%):</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#2F8F5B' }}>
+                        -₹{calculateDiscount().toFixed(0)}
+                      </Typography>
+                    </Box>
+                  )}
+                  <Divider sx={{ my: 1 }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '16px' }}>
                     <Typography>Total:</Typography>
-                    <Typography sx={{ color: '#F2A03D' }}>₹{cartTotal}</Typography>
+                    <Typography sx={{ color: '#F2A03D' }}>₹{calculateTotal().toFixed(0)}</Typography>
                   </Box>
-                  <Button fullWidth variant="contained" sx={{ backgroundColor: '#F2A03D', color: '#000', fontWeight: 700, mb: 1 }}>
-                    Complete Sale
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setShowCustomerSearch(true)}
+                    sx={{ flex: 1, fontSize: '12px' }}
+                  >
+                    Customer (F3)
                   </Button>
-                  <Button fullWidth variant="outlined">
-                    Hold Bill
+                  <Button size="small" variant="outlined" onClick={handleHoldBill} sx={{ flex: 1, fontSize: '12px' }}>
+                    Hold (F5)
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setShowHeldBills(true)}
+                    sx={{ flex: 1, fontSize: '12px' }}
+                  >
+                    Recall (F6)
                   </Button>
                 </Box>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    backgroundColor: '#F2A03D',
+                    color: '#000',
+                    fontWeight: 700,
+                    mb: 1,
+                  }}
+                  onClick={() => setShowPayment(true)}
+                >
+                  Complete Sale (F9)
+                </Button>
               </>
             )}
+
+            <Button fullWidth variant="outlined" onClick={() => setCart([])}>
+              Clear Cart
+            </Button>
           </Card>
         </Grid>
       </Grid>
+
+      <Dialog open={showCustomerSearch} onClose={() => setShowCustomerSearch(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Search Customer</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            fullWidth
+            placeholder="Search by name or phone..."
+            value={customerSearchQuery}
+            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+            size="small"
+            onKeyUp={async (e) => {
+              if (customerSearchQuery.length > 2) {
+                try {
+                  const response = await api.get('/customers', { params: { search: customerSearchQuery } });
+                  setCustomers(response.data.customers || []);
+                } catch (error) {
+                  console.error('Error searching customers:', error);
+                }
+              }
+            }}
+          />
+          <List sx={{ mt: 2 }}>
+            {customers.map((customer) => (
+              <ListItem key={customer._id} disablePadding>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setShowCustomerSearch(false);
+                  }}
+                >
+                  <ListItemText
+                    primary={customer.name}
+                    secondary={`${customer.phone} • Rewards: ${customer.rewardPoints}`}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHeldBills} onClose={() => setShowHeldBills(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Held Bills</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <List>
+            {heldBills.map((bill) => (
+              <ListItem key={bill.id} disablePadding>
+                <ListItemButton
+                  onClick={() => handleRecallBill(bill)}
+                  secondary
+                  sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+                >
+                  <Box>
+                    <ListItemText
+                      primary={bill.customer?.name || 'Walk-in'}
+                      secondary={`${bill.items.length} items • ₹${bill.total.toFixed(0)}`}
+                    />
+                  </Box>
+                  <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+                    {new Date(bill.timestamp).toLocaleTimeString()}
+                  </Typography>
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPayment} onClose={() => setShowPayment(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Complete Payment</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ backgroundColor: '#F5F3ED', p: 2, borderRadius: '6px' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption">Subtotal:</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                  ₹{calculateSubtotal().toFixed(0)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption">Tax:</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                  ₹{calculateTax().toFixed(0)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption">Discount %:</Typography>
+                <TextField
+                  type="number"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                  size="small"
+                  sx={{ width: 80 }}
+                  inputProps={{ min: '0', max: '100' }}
+                />
+              </Box>
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '16px' }}>
+                <Typography>Amount Due:</Typography>
+                <Typography sx={{ color: '#F2A03D' }}>₹{calculateTotal().toFixed(0)}</Typography>
+              </Box>
+            </Box>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Payment Method</InputLabel>
+              <Select value={paymentMethod} label="Payment Method" onChange={(e) => setPaymentMethod(e.target.value)}>
+                <MenuItem value="cash">Cash</MenuItem>
+                <MenuItem value="card">Card</MenuItem>
+                <MenuItem value="upi">UPI</MenuItem>
+                <MenuItem value="wallet">Wallet</MenuItem>
+              </Select>
+            </FormControl>
+
+            {paymentMethod === 'cash' && (
+              <TextField
+                label="Amount Received"
+                type="number"
+                value={tenperPayment}
+                onChange={(e) => setTenderPayment(parseFloat(e.target.value) || 0)}
+                size="small"
+                fullWidth
+              />
+            )}
+
+            {tenperPayment > 0 && paymentMethod === 'cash' && (
+              <Box sx={{ backgroundColor: '#E5F9F0', p: 1, borderRadius: '6px' }}>
+                <Typography variant="caption" sx={{ color: '#2F8F5B', fontWeight: 600 }}>
+                  Change: ₹{(tenperPayment - calculateTotal()).toFixed(0)}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPayment(false)}>Cancel</Button>
+          <Button onClick={handleCompletePayment} variant="contained">
+            Pay ₹{calculateTotal().toFixed(0)}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Layout>
   );
 };
