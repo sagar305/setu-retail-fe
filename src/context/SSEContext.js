@@ -13,11 +13,11 @@ export const SSEProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
 
-      const eventSource = new EventSource('/api/sse/subscribe/tenant', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const url = token
+        ? `/api/sse/subscribe/tenant?token=${encodeURIComponent(token)}`
+        : '/api/sse/subscribe/tenant';
+
+      const eventSource = new EventSource(url);
 
       eventSource.onopen = () => {
         setIsConnected(true);

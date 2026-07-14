@@ -15,6 +15,8 @@ class IndexedDBService {
   }
 
   async init() {
+    if (this.db) return this.db;
+
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -64,6 +66,7 @@ class IndexedDBService {
   }
 
   async addItem(storeName, item) {
+    if (!this.db) throw new Error('IndexedDB not initialized');
     const transaction = this.db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     return new Promise((resolve, reject) => {
@@ -74,6 +77,7 @@ class IndexedDBService {
   }
 
   async putItem(storeName, item) {
+    if (!this.db) throw new Error('IndexedDB not initialized');
     const transaction = this.db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     return new Promise((resolve, reject) => {
@@ -94,6 +98,7 @@ class IndexedDBService {
   }
 
   async getAllItems(storeName) {
+    if (!this.db) throw new Error('IndexedDB not initialized');
     const transaction = this.db.transaction([storeName], 'readonly');
     const store = transaction.objectStore(storeName);
     return new Promise((resolve, reject) => {

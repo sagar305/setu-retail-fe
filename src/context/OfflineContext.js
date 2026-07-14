@@ -77,10 +77,15 @@ export const OfflineProvider = ({ children }) => {
 
   useEffect(() => {
     const checkUnsyncedItems = async () => {
-      const unsyncedInvoices = await indexedDB.getUnsyncedInvoices();
-      const syncQueue = await indexedDB.getSyncQueue();
-      const unsyncedQueue = syncQueue.filter((item) => !item.synced);
-      setUnsyncedCount(unsyncedInvoices.length + unsyncedQueue.length);
+      try {
+        await indexedDB.init();
+        const unsyncedInvoices = await indexedDB.getUnsyncedInvoices();
+        const syncQueue = await indexedDB.getSyncQueue();
+        const unsyncedQueue = syncQueue.filter((item) => !item.synced);
+        setUnsyncedCount(unsyncedInvoices.length + unsyncedQueue.length);
+      } catch (error) {
+        console.warn('IndexedDB not ready:', error);
+      }
     };
 
     checkUnsyncedItems();
