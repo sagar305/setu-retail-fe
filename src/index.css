@@ -1,0 +1,20 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F5F3ED;
+  color: #0E1124;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
