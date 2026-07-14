@@ -12,6 +12,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { Bell, ChevronDown, AlertCircle, X } from 'lucide-react';
+import OfflineSyncStatus from './OfflineSyncStatus';
 
 const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -70,6 +71,7 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <OfflineSyncStatus />
             <Button
               variant="outlined"
               endIcon={<ChevronDown size={16} />}

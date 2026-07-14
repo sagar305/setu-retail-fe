@@ -1,8 +1,10 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { SSEProvider } from './context/SSEContext';
+import { OfflineProvider } from './context/OfflineContext';
+import indexedDB from './services/indexedDB';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -177,12 +179,18 @@ function AppContent() {
 }
 
 function App() {
+  useEffect(() => {
+    indexedDB.init().catch((error) => console.error('IndexedDB init error:', error));
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
-        <SSEProvider>
-          <AppContent />
-        </SSEProvider>
+        <OfflineProvider>
+          <SSEProvider>
+            <AppContent />
+          </SSEProvider>
+        </OfflineProvider>
       </AuthProvider>
     </Router>
   );

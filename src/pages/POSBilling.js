@@ -32,9 +32,12 @@ import { Plus, Trash2, ShoppingCart, X, Save, RotateCcw, AlertCircle } from 'luc
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { SSEContext } from '../context/SSEContext';
+import useOffline from '../hooks/useOffline';
+import OfflineSyncStatus from '../components/OfflineSyncStatus';
 
 const POSBilling = () => {
   const { getRecentEvents, isConnected } = useContext(SSEContext);
+  const { isOnline, saveOfflineInvoice } = useOffline();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -215,9 +218,22 @@ const POSBilling = () => {
         amount: calculateTotal(),
       };
 
-      const response = await api.post('/invoices', invoiceData);
+      try {
+        const response = await api.post('/invoices', invoiceData);
+        alert(`Invoice created: ${response.data.invoiceNumber}`);
+      } catch (error) {
+        if (!isOnline) {
+          try {
+            const offlineInvoice = await saveOfflineInvoice(invoiceData);
+            alert(`Invoice saved offline (will sync when online): ${offlineInvoice._id}`);
+          } catch (offlineError) {
+            throw new Error('Failed to save invoice offline: ' + offlineError.message);
+          }
+        } else {
+          throw error;
+        }
+      }
 
-      alert(`Invoice created: ${response.data.invoiceNumber}`);
       setCart([]);
       setSelectedCustomer(null);
       setDiscountPercent(0);
