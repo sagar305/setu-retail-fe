@@ -49,10 +49,10 @@ const Sidebar = () => {
     <Drawer
       variant="permanent"
       sx={{
-        width: collapsed ? 80 : 230,
+        width: 230,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: collapsed ? 80 : 230,
+          width: 230,
           boxSizing: 'border-box',
           backgroundColor: '#0E1124',
           color: '#F2EFE7',
@@ -67,16 +67,12 @@ const Sidebar = () => {
           borderBottom: '1px solid rgba(27,31,59,0.16)',
         }}
       >
-        {!collapsed && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Setu.
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
-              RETAIL POS
-            </Typography>
-          </>
-        )}
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          Setu.
+        </Typography>
+        <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+          RETAIL POS
+        </Typography>
       </Box>
 
       <List sx={{ flex: 1 }}>
@@ -105,7 +101,7 @@ const Sidebar = () => {
               >
                 <Icon size={20} />
               </ListItemIcon>
-              {!collapsed && <ListItemText primary={item.label} />}
+              <ListItemText primary={item.label} />
             </ListItem>
           );
         })}
@@ -120,26 +116,22 @@ const Sidebar = () => {
       >
         {user && (
           <>
-            {!collapsed && (
-              <>
-                <Avatar sx={{ width: 48, height: 48, margin: '0 auto', mb: 1, backgroundColor: '#F2A03D' }}>
-                  {user.name?.charAt(0)}
-                </Avatar>
-                <Typography variant="body2">{user.name}</Typography>
-                <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
-                  Manager
-                </Typography>
-                <Button
-                  fullWidth
-                  variant="text"
-                  startIcon={<LogOut size={16} />}
-                  onClick={logout}
-                  sx={{ mt: 1, color: '#9AA0C0' }}
-                >
-                  Logout
-                </Button>
-              </>
-            )}
+            <Avatar sx={{ width: 48, height: 48, margin: '0 auto', mb: 1, backgroundColor: '#F2A03D' }}>
+              {user.name?.charAt(0)}
+            </Avatar>
+            <Typography variant="body2">{user.name}</Typography>
+            <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+              Manager
+            </Typography>
+            <Button
+              fullWidth
+              variant="text"
+              startIcon={<LogOut size={16} />}
+              onClick={logout}
+              sx={{ mt: 1, color: '#9AA0C0' }}
+            >
+              Logout
+            </Button>
           </>
         )}
       </Box>
