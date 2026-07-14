@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -9,27 +9,35 @@ import {
   Link as MUILink,
   Alert,
 } from '@mui/material';
-import { AuthContext } from '../context/AuthContext';
+import api from '../services/api';
 
-const Login = () => {
+const ForgotPassword = () => {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const response = await api.post('/auth/forgot-password', { email });
+      setSuccess(response.data.message || 'Password reset link sent to your email');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || 'Failed to send reset link');
     } finally {
       setLoading(false);
     }
@@ -58,7 +66,7 @@ const Login = () => {
             Setu Retail POS
           </Typography>
           <Typography variant="body2" sx={{ color: '#5F6478' }}>
-            Point of Sale System
+            Reset your password
           </Typography>
         </Box>
 
@@ -68,10 +76,17 @@ const Login = () => {
           </Alert>
         )}
 
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
             label="Email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -81,35 +96,6 @@ const Login = () => {
             size="small"
           />
 
-          <TextField
-            fullWidth
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            margin="normal"
-            required
-            variant="outlined"
-            size="small"
-          />
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', my: 2 }}>
-            <Box>
-              <input
-                type="checkbox"
-                id="rememberMe"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              <label htmlFor="rememberMe" style={{ marginLeft: '8px', fontSize: '13px' }}>
-                Remember me
-              </label>
-            </Box>
-            <MUILink href="/forgot-password" sx={{ fontSize: '13px' }}>
-              Forgot password?
-            </MUILink>
-          </Box>
-
           <Button
             fullWidth
             variant="contained"
@@ -118,6 +104,7 @@ const Login = () => {
               backgroundColor: '#1B1F3B',
               color: '#FFF',
               fontWeight: 600,
+              mt: 3,
               mb: 2,
               '&:hover': {
                 backgroundColor: '#26306B',
@@ -125,19 +112,27 @@ const Login = () => {
             }}
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Sending...' : 'Send Reset Link'}
           </Button>
         </form>
 
-        <Typography variant="body2" sx={{ textAlign: 'center' }}>
-          Don't have an account?{' '}
-          <MUILink component={Link} to="/signup" sx={{ fontWeight: 600 }}>
-            Sign up
-          </MUILink>
-        </Typography>
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Remember your password?{' '}
+            <MUILink component={Link} to="/login" sx={{ fontWeight: 600 }}>
+              Back to Login
+            </MUILink>
+          </Typography>
+          <Typography variant="body2">
+            Don't have an account?{' '}
+            <MUILink component={Link} to="/signup" sx={{ fontWeight: 600 }}>
+              Sign Up
+            </MUILink>
+          </Typography>
+        </Box>
       </Card>
     </Box>
   );
 };
 
-export default Login;
+export default ForgotPassword;
