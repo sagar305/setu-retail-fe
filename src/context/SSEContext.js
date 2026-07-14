@@ -13,10 +13,12 @@ export const SSEProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
 
-      const url = token
-        ? `/api/sse/subscribe/tenant?token=${encodeURIComponent(token)}`
-        : '/api/sse/subscribe/tenant';
+      if (!token) {
+        setIsConnected(false);
+        return;
+      }
 
+      const url = `/api/sse/subscribe/tenant?token=${encodeURIComponent(token)}`;
       const eventSource = new EventSource(url);
 
       eventSource.onopen = () => {
