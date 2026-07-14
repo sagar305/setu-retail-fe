@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AuthContext, AuthProvider } from './context/AuthContext';
+import { SSEProvider } from './context/SSEContext';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -179,7 +180,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <SSEProvider>
+          <AppContent />
+        </SSEProvider>
       </AuthProvider>
     </Router>
   );

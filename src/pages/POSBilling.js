@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
   Box,
   Card,
@@ -26,12 +26,15 @@ import {
   ListItemButton,
   ListItemText,
   Paper,
+  Alert,
 } from '@mui/material';
 import { Plus, Trash2, ShoppingCart, X, Save, RotateCcw, AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { SSEContext } from '../context/SSEContext';
 
 const POSBilling = () => {
+  const { getRecentEvents, isConnected } = useContext(SSEContext);
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -48,6 +51,7 @@ const POSBilling = () => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [splitPayments, setSplitPayments] = useState([]);
   const [tenperPayment, setTenderPayment] = useState(0);
+  const [recentInvoices, setRecentInvoices] = useState([]);
   const barcodeRef = useRef(null);
 
   const categories = ['all', 'Grocery', 'Dairy', 'Produce', 'Beverages', 'Personal Care'];
@@ -57,6 +61,11 @@ const POSBilling = () => {
     loadHeldBills();
     if (barcodeRef.current) barcodeRef.current.focus();
   }, []);
+
+  useEffect(() => {
+    const invoiceEvents = getRecentEvents('invoice:created');
+    setRecentInvoices(invoiceEvents);
+  }, [getRecentEvents]);
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -228,6 +237,26 @@ const POSBilling = () => {
 
   return (
     <Layout title="POS Billing">
+      {!isConnected && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Real-time sync disconnected. Reconnecting...
+        </Alert>
+      )}
+
+      {recentInvoices.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {recentInvoices.length > 0 && (
+            <Typography variant="body2">
+              <strong>Recent Invoices:</strong> {recentInvoices.slice(0, 3).map((inv, idx) => (
+                <span key={idx}>
+                  {inv.data.invoiceNumber} (₹{inv.data.amount}) {idx < 2 ? '• ' : ''}
+                </span>
+              ))}
+            </Typography>
+          )}
+        </Alert>
+      )}
+
       <Grid container spacing={2} sx={{ minHeight: '85vh' }}>
         <Grid item xs={12} md={8}>
           <Card sx={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100%' }}>
