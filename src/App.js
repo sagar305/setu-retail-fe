@@ -24,6 +24,7 @@ import Expenses from './pages/Expenses';
 import Notifications from './pages/Notifications';
 import RolesPermissions from './pages/RolesPermissions';
 import Settings from './pages/Settings';
+import Outlets from './pages/Outlets';
 
 const theme = createTheme({
   palette: {
@@ -173,6 +174,14 @@ function AppContent() {
           element={
             <PrivateRoute>
               <Settings />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/outlets"
+          element={
+            <PrivateRoute>
+              <Outlets />
             </PrivateRoute>
           }
         />
