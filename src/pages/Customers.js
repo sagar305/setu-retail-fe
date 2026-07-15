@@ -26,7 +26,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { Plus, Phone, Mail, Gift, Award, Trash2 } from 'lucide-react';
+import { Plus, Phone, Mail, Gift, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 
@@ -76,8 +76,11 @@ const Customers = () => {
   });
 
   useEffect(() => {
-    fetchCustomers();
-    fetchStats();
+    const loadData = async () => {
+      await fetchCustomers();
+      await fetchStats();
+    };
+    loadData();
   }, [searchQuery, membershipFilter, page, rowsPerPage]);
 
   const fetchCustomers = async () => {

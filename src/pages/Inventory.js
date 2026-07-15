@@ -21,7 +21,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { AlertCircle, TrendingDown } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 

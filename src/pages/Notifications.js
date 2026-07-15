@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Card, Typography, Box, Table, TableBody, TableCell, TableHead, TableRow, Button, Chip } from '@mui/material';
-import { Trash2, Eye } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState([
+  const [notifications] = useState([
     { id: 1, type: 'alert', message: 'Low stock: Product A', date: new Date(), read: false },
     { id: 2, type: 'success', message: 'Invoice created successfully', date: new Date(), read: true },
     { id: 3, type: 'info', message: 'Purchase order approved', date: new Date(), read: true },

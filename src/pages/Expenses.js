@@ -63,8 +63,11 @@ const Expenses = () => {
   });
 
   useEffect(() => {
-    fetchExpenses();
-    fetchStats();
+    const loadData = async () => {
+      await fetchExpenses();
+      await fetchStats();
+    };
+    loadData();
   }, [searchQuery, statusFilter, page, rowsPerPage]);
 
   const fetchExpenses = async () => {

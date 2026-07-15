@@ -3,7 +3,7 @@ import {
   Card, Typography, Box, Grid, Table, TableBody, TableCell, TableHead, TableRow,
   Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, TablePagination
 } from '@mui/material';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 
