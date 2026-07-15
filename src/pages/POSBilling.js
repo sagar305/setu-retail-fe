@@ -26,6 +26,7 @@ import {
   ListItemButton,
   ListItemText,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { ShoppingCart, X } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -37,6 +38,7 @@ const POSBilling = () => {
   const { getRecentEvents, isConnected } = useContext(SSEContext);
   const { isOnline, saveOfflineInvoice } = useOffline();
   const [products, setProducts] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,14 +50,14 @@ const POSBilling = () => {
   const [showHeldBills, setShowHeldBills] = useState(false);
   const [heldBills, setHeldBills] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
-  const [discountPercent, setDiscountPercent] = useState(0);
+  const [cartDiscount, setCartDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [splitPayments, setSplitPayments] = useState([]);
-  const [tenperPayment, setTenderPayment] = useState(0);
+  const [tenderPayment, setTenderPayment] = useState(0);
   const [recentInvoices, setRecentInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const [savingInvoice, setSavingInvoice] = useState(false);
   const barcodeRef = useRef(null);
-
-  const categories = ['all', 'Grocery', 'Dairy', 'Produce', 'Beverages', 'Personal Care'];
 
   useEffect(() => {
     fetchProducts();
@@ -70,15 +72,9 @@ const POSBilling = () => {
 
   useEffect(() => {
     const handleKeyPress = (e) => {
-      if (e.key === 'F2') {
-        e.preventDefault();
-        // Focus on product search
-      } else if (e.key === 'F3') {
+      if (e.key === 'F3') {
         e.preventDefault();
         setShowCustomerSearch(true);
-      } else if (e.key === 'F4') {
-        e.preventDefault();
-        // Open discount dialog
       } else if (e.key === 'F5') {
         e.preventDefault();
         handleHoldBill();
@@ -97,10 +93,25 @@ const POSBilling = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products', { params: { limit: 100 } });
-      setProducts(response.data.products || []);
+      setLoading(true);
+      const response = await api.get('/products');
+      const productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
+      setProducts(productsList);
+
+      const categorySet = new Set();
+      productsList.forEach(p => {
+        if (p.category) {
+          const categoryName = typeof p.category === 'string' ? p.category : p.category.name;
+          if (categoryName) {
+            categorySet.add(categoryName);
+          }
+        }
+      });
+      setAllCategories(Array.from(categorySet).sort());
     } catch (error) {
       console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -116,6 +127,7 @@ const POSBilling = () => {
       id: Date.now(),
       customer: selectedCustomer,
       items: [...cart],
+      cartDiscount,
       total: calculateTotal(),
       timestamp: new Date(),
     };
@@ -129,11 +141,13 @@ const POSBilling = () => {
     saveBillToHeld();
     setCart([]);
     setSelectedCustomer(null);
+    setCartDiscount(0);
   };
 
   const handleRecallBill = (bill) => {
     setCart(bill.items);
     setSelectedCustomer(bill.customer);
+    setCartDiscount(bill.cartDiscount || 0);
     setHeldBills(heldBills.filter((b) => b.id !== bill.id));
     sessionStorage.setItem('heldBills', JSON.stringify(heldBills.filter((b) => b.id !== bill.id)));
     setShowHeldBills(false);
@@ -158,9 +172,11 @@ const POSBilling = () => {
       setCart([
         ...cart,
         {
-          ...product,
+          _id: product._id,
+          name: product.name,
+          sku: product.sku,
+          pricing: product.pricing,
           quantity: 1,
-          lineTotal: product.pricing.sellingPrice,
         },
       ]);
     }
@@ -174,7 +190,6 @@ const POSBilling = () => {
     const item = cart.find((item) => item._id === productId);
     if (item) {
       item.quantity = Math.max(1, quantity);
-      item.lineTotal = item.pricing.sellingPrice * item.quantity;
     }
     setCart([...cart]);
   };
@@ -192,28 +207,49 @@ const POSBilling = () => {
     return tax;
   };
 
-  const calculateDiscount = () => {
-    return (calculateSubtotal() * discountPercent) / 100;
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax() - cartDiscount;
   };
 
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax() - calculateDiscount();
+  const searchCustomers = async (query) => {
+    if (query.length < 2) {
+      setCustomers([]);
+      return;
+    }
+    try {
+      setSearchingCustomers(true);
+      const response = await api.get('/customers', { params: { search: query } });
+      const customersList = Array.isArray(response.data) ? response.data : (response.data.customers || []);
+      setCustomers(customersList);
+    } catch (error) {
+      console.error('Error searching customers:', error);
+    } finally {
+      setSearchingCustomers(false);
+    }
   };
 
   const handleCompletePayment = async () => {
     if (cart.length === 0) return;
 
     try {
+      setSavingInvoice(true);
+
+      const subtotal = calculateSubtotal();
+      const taxAmount = calculateTax();
+      const grandTotal = calculateTotal();
+
       const invoiceData = {
         items: cart.map((item) => ({
           productId: item._id,
           quantity: item.quantity,
-          price: item.pricing.sellingPrice,
+          discount: 0,
         })),
-        customerId: selectedCustomer?._id,
-        discountPercentage: discountPercent,
-        paymentMethod,
-        amount: calculateTotal(),
+        customer: selectedCustomer?._id || null,
+        cartDiscount: cartDiscount,
+        payment: {
+          method: paymentMethod,
+          change: paymentMethod === 'cash' ? Math.max(0, tenderPayment - grandTotal) : 0,
+        },
       };
 
       try {
@@ -234,20 +270,39 @@ const POSBilling = () => {
 
       setCart([]);
       setSelectedCustomer(null);
-      setDiscountPercent(0);
+      setCartDiscount(0);
       setShowPayment(false);
-      setSplitPayments([]);
+      setTenderPayment(0);
+      setPaymentMethod('cash');
     } catch (error) {
       alert('Error creating invoice: ' + error.message);
+    } finally {
+      setSavingInvoice(false);
     }
   };
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+
+    let matchesCategory = true;
+    if (selectedCategory !== 'all') {
+      const categoryName = typeof p.category === 'string' ? p.category : p.category?.name;
+      matchesCategory = categoryName === selectedCategory;
+    }
+
     return matchesSearch && matchesCategory;
   });
+
+  if (loading) {
+    return (
+      <Layout title="POS Billing">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+          <CircularProgress />
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="POS Billing">
@@ -257,8 +312,14 @@ const POSBilling = () => {
         </Alert>
       )}
 
-      {recentInvoices.length > 0 && (
+      {!isOnline && (
         <Alert severity="info" sx={{ mb: 2 }}>
+          You are working in offline mode. Invoices will sync when you reconnect.
+        </Alert>
+      )}
+
+      {recentInvoices.length > 0 && (
+        <Alert severity="success" sx={{ mb: 2 }}>
           {recentInvoices.length > 0 && (
             <Typography variant="body2">
               <strong>Recent Invoices:</strong> {recentInvoices.slice(0, 3).map((inv, idx) => (
@@ -296,11 +357,20 @@ const POSBilling = () => {
               sx={{ mb: 2 }}
             />
 
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, overflow: 'auto' }}>
-              {categories.map((cat) => (
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, overflow: 'auto', pb: 1 }}>
+              <Chip
+                label="ALL"
+                onClick={() => setSelectedCategory('all')}
+                variant={selectedCategory === 'all' ? 'filled' : 'outlined'}
+                sx={{
+                  backgroundColor: selectedCategory === 'all' ? '#1B1F3B' : 'transparent',
+                  color: selectedCategory === 'all' ? '#FFF' : '#1B1F3B',
+                }}
+              />
+              {allCategories.map((cat) => (
                 <Chip
                   key={cat}
-                  label={cat.toUpperCase()}
+                  label={String(cat).toUpperCase()}
                   onClick={() => setSelectedCategory(cat)}
                   variant={selectedCategory === cat ? 'filled' : 'outlined'}
                   sx={{
@@ -427,11 +497,11 @@ const POSBilling = () => {
                       ₹{calculateTax().toFixed(0)}
                     </Typography>
                   </Box>
-                  {discountPercent > 0 && (
+                  {cartDiscount > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5, fontSize: '13px' }}>
-                      <Typography variant="caption">Discount ({discountPercent}%):</Typography>
+                      <Typography variant="caption">Discount:</Typography>
                       <Typography variant="caption" sx={{ fontWeight: 600, color: '#2F8F5B' }}>
-                        -₹{calculateDiscount().toFixed(0)}
+                        -₹{cartDiscount.toFixed(0)}
                       </Typography>
                     </Box>
                   )}
@@ -494,31 +564,36 @@ const POSBilling = () => {
             fullWidth
             placeholder="Search by name or phone..."
             value={customerSearchQuery}
-            onChange={(e) => setCustomerSearchQuery(e.target.value)}
-            size="small"
-            onKeyUp={async (e) => {
-              if (customerSearchQuery.length > 2) {
-                try {
-                  const response = await api.get('/customers', { params: { search: customerSearchQuery } });
-                  setCustomers(response.data.customers || []);
-                } catch (error) {
-                  console.error('Error searching customers:', error);
-                }
-              }
+            onChange={(e) => {
+              setCustomerSearchQuery(e.target.value);
+              searchCustomers(e.target.value);
             }}
+            size="small"
+            disabled={searchingCustomers}
           />
+          {searchingCustomers && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <CircularProgress size={30} />
+            </Box>
+          )}
           <List sx={{ mt: 2 }}>
+            {customers.length === 0 && customerSearchQuery.length > 0 && !searchingCustomers && (
+              <Typography variant="body2" sx={{ color: '#9AA0C0', p: 2, textAlign: 'center' }}>
+                No customers found
+              </Typography>
+            )}
             {customers.map((customer) => (
               <ListItem key={customer._id} disablePadding>
                 <ListItemButton
                   onClick={() => {
                     setSelectedCustomer(customer);
                     setShowCustomerSearch(false);
+                    setCustomerSearchQuery('');
                   }}
                 >
                   <ListItemText
-                    primary={customer.name}
-                    secondary={`${customer.phone} • Rewards: ${customer.rewardPoints}`}
+                    primary={customer.name || 'Walk-in Customer'}
+                    secondary={`${customer.phone} • Points: ${customer.rewardPoints || 0}`}
                   />
                 </ListItemButton>
               </ListItem>
@@ -571,15 +646,15 @@ const POSBilling = () => {
                   ₹{calculateTax().toFixed(0)}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="caption">Discount %:</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="caption">Discount (₹):</Typography>
                 <TextField
                   type="number"
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                  value={cartDiscount}
+                  onChange={(e) => setCartDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
                   size="small"
-                  sx={{ width: 80 }}
-                  inputProps={{ min: '0', max: '100' }}
+                  sx={{ width: 100 }}
+                  inputProps={{ min: '0', step: '1' }}
                 />
               </Box>
               <Divider sx={{ my: 1 }} />
@@ -595,7 +670,6 @@ const POSBilling = () => {
                 <MenuItem value="cash">Cash</MenuItem>
                 <MenuItem value="card">Card</MenuItem>
                 <MenuItem value="upi">UPI</MenuItem>
-                <MenuItem value="wallet">Wallet</MenuItem>
               </Select>
             </FormControl>
 
@@ -603,26 +677,31 @@ const POSBilling = () => {
               <TextField
                 label="Amount Received"
                 type="number"
-                value={tenperPayment}
+                value={tenderPayment}
                 onChange={(e) => setTenderPayment(parseFloat(e.target.value) || 0)}
                 size="small"
                 fullWidth
+                inputProps={{ min: '0', step: '1' }}
               />
             )}
 
-            {tenperPayment > 0 && paymentMethod === 'cash' && (
-              <Box sx={{ backgroundColor: '#E5F9F0', p: 1, borderRadius: '6px' }}>
+            {tenderPayment > 0 && paymentMethod === 'cash' && (
+              <Box sx={{ backgroundColor: '#E5F9F0', p: 2, borderRadius: '6px' }}>
                 <Typography variant="caption" sx={{ color: '#2F8F5B', fontWeight: 600 }}>
-                  Change: ₹{(tenperPayment - calculateTotal()).toFixed(0)}
+                  Change: ₹{(tenderPayment - calculateTotal()).toFixed(0)}
                 </Typography>
               </Box>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPayment(false)}>Cancel</Button>
-          <Button onClick={handleCompletePayment} variant="contained">
-            Pay ₹{calculateTotal().toFixed(0)}
+          <Button onClick={() => setShowPayment(false)} disabled={savingInvoice}>Cancel</Button>
+          <Button
+            onClick={handleCompletePayment}
+            variant="contained"
+            disabled={savingInvoice || (paymentMethod === 'cash' && tenderPayment < calculateTotal())}
+          >
+            {savingInvoice ? 'Processing...' : `Pay ₹${calculateTotal().toFixed(0)}`}
           </Button>
         </DialogActions>
       </Dialog>
