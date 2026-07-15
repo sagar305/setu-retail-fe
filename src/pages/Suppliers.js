@@ -19,7 +19,7 @@ import {
   Divider,
   TablePagination,
 } from '@mui/material';
-import { Plus, Phone, Mail, DollarSign, Trash2 } from 'lucide-react';
+import { Plus, Phone, Mail, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';

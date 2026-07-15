@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Typography,
@@ -46,12 +46,7 @@ const Outlets = () => {
     isActive: true,
   });
 
-  useEffect(() => {
-    fetchOutlets();
-    fetchEmployees();
-  }, [searchQuery]);
-
-  const fetchOutlets = async () => {
+  const fetchOutlets = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -65,9 +60,9 @@ const Outlets = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery]);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       const response = await api.get('/employees');
       const employeesList = Array.isArray(response.data) ? response.data : (response.data.employees || []);
@@ -75,7 +70,12 @@ const Outlets = () => {
     } catch (err) {
       console.error('Error fetching employees:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOutlets();
+    fetchEmployees();
+  }, [fetchOutlets, fetchEmployees]);
 
   const handleOpenForm = (outlet = null) => {
     setError('');

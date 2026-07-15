@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Card, Typography, Box, Grid, Table, TableBody, TableCell, TableHead, TableRow,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions, Chip, TablePagination
+  Button, Chip, TablePagination
 } from '@mui/material';
 import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';

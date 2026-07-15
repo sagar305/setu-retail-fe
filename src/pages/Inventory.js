@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Card,
   Typography,
@@ -51,12 +51,7 @@ const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
 
-  useEffect(() => {
-    fetchInventory();
-    fetchStats();
-  }, [searchQuery, filterType, selectedOutlet]);
-
-  const fetchInventory = async () => {
+  const fetchInventory = useCallback(async () => {
     try {
       const params = { search: searchQuery };
       if (filterType === 'low-stock') params.lowStockOnly = true;
@@ -66,9 +61,9 @@ const Inventory = () => {
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
-  };
+  }, [searchQuery, filterType, selectedOutlet]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
       const response = await api.get('/inventory/stats', { params });
@@ -76,7 +71,12 @@ const Inventory = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  };
+  }, [selectedOutlet]);
+
+  useEffect(() => {
+    fetchInventory();
+    fetchStats();
+  }, [fetchInventory, fetchStats]);
 
   const handleOpenAdjust = (item) => {
     setSelectedItem(item);
@@ -110,8 +110,6 @@ const Inventory = () => {
     }
     return { label: 'In Stock', color: '#2F8F5B', bgColor: '#E5F9F0' };
   };
-
-  const filteredInventory = filterType === 'all' ? inventory : inventory.filter(item => item.currentStock === 0);
 
   return (
     <Layout title="Inventory">

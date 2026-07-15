@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Card, Typography, Box, Table, TableBody, TableCell, TableHead, TableRow, Button, Chip, CircularProgress, Alert } from '@mui/material';
 import { Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -11,11 +11,7 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [selectedOutlet]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -29,7 +25,11 @@ const Notifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedOutlet]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const handleDeleteNotification = async (notificationId) => {
     try {

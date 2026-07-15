@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -61,11 +61,55 @@ const POSBilling = () => {
   const [savingInvoice, setSavingInvoice] = useState(false);
   const barcodeRef = useRef(null);
 
-  useEffect(() => {
-    fetchProducts();
-    loadHeldBills();
-    if (barcodeRef.current) barcodeRef.current.focus();
+  const fetchProductsCallback = useCallback(() => {
+    try {
+      setLoading(true);
+      api.get('/products').then((response) => {
+        let productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
+
+        if (selectedOutlet) {
+          productsList = productsList.filter(p => {
+            if (!p.assignedOutlets || p.assignedOutlets.length === 0) {
+              return true;
+            }
+            const assignedOutletIds = p.assignedOutlets.map(o => typeof o === 'string' ? o : o._id);
+            return assignedOutletIds.includes(selectedOutlet._id);
+          });
+        }
+
+        setProducts(productsList);
+
+        const categorySet = new Set();
+        productsList.forEach(p => {
+          if (p.category) {
+            const categoryName = typeof p.category === 'string' ? p.category : p.category.name;
+            if (categoryName) {
+              categorySet.add(categoryName);
+            }
+          }
+        });
+        setAllCategories(Array.from(categorySet).sort());
+      }).finally(() => {
+        setLoading(false);
+      });
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setLoading(false);
+    }
   }, [selectedOutlet]);
+
+  const loadHeldBillsCallback = useCallback(() => {
+    const stored = sessionStorage.getItem('heldBills');
+    if (stored) {
+      setHeldBills(JSON.parse(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProductsCallback();
+    loadHeldBillsCallback();
+    if (barcodeRef.current) barcodeRef.current.focus();
+  }, [fetchProductsCallback, loadHeldBillsCallback]);
 
   useEffect(() => {
     const invoiceEvents = getRecentEvents('invoice:created');
@@ -92,49 +136,6 @@ const POSBilling = () => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [cart]);
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/products');
-      let productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
-
-      // Filter products by selected outlet if outlet context is available
-      if (selectedOutlet) {
-        productsList = productsList.filter(p => {
-          if (!p.assignedOutlets || p.assignedOutlets.length === 0) {
-            return true; // Show products not assigned to any outlet
-          }
-          const assignedOutletIds = p.assignedOutlets.map(o => typeof o === 'string' ? o : o._id);
-          return assignedOutletIds.includes(selectedOutlet._id);
-        });
-      }
-
-      setProducts(productsList);
-
-      const categorySet = new Set();
-      productsList.forEach(p => {
-        if (p.category) {
-          const categoryName = typeof p.category === 'string' ? p.category : p.category.name;
-          if (categoryName) {
-            categorySet.add(categoryName);
-          }
-        }
-      });
-      setAllCategories(Array.from(categorySet).sort());
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadHeldBills = () => {
-    const stored = sessionStorage.getItem('heldBills');
-    if (stored) {
-      setHeldBills(JSON.parse(stored));
-    }
-  };
 
   const saveBillToHeld = () => {
     const bill = {
@@ -249,8 +250,6 @@ const POSBilling = () => {
     try {
       setSavingInvoice(true);
 
-      const subtotal = calculateSubtotal();
-      const taxAmount = calculateTax();
       const grandTotal = calculateTotal();
 
       const invoiceData = {

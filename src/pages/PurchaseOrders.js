@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Card, Typography, Box, Grid, Table, TableBody, TableCell, TableHead, TableRow,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions, Chip, TextField, TablePagination
+  Button, Chip, TablePagination
 } from '@mui/material';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';

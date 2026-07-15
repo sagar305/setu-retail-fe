@@ -14,13 +14,11 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material';
 import { Save } from 'lucide-react';
 import Layout from '../components/Layout';
-import api from '../services/api';
 
 const SettingSection = ({ title, children }) => (
   <Box sx={{ mb: 3 }}>

@@ -3,14 +3,13 @@ import {
   Card, Typography, Box, Table, TableBody, TableCell, TableHead, TableRow, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, FormGroup, FormControlLabel, Checkbox, Chip, Grid
 } from '@mui/material';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';
-import api from '../services/api';
 
 const RolesPermissions = () => {
-  const [roles, setRoles] = useState([]);
+  const [roles] = useState([]);
   const [openForm, setOpenForm] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '', permissions: {} });
 
   const modules = [
@@ -23,11 +22,6 @@ const RolesPermissions = () => {
 
   const handleSaveRole = async () => {
     try {
-      if (selectedRole) {
-        // await api.put(`/roles/${selectedRole._id}`, formData);
-      } else {
-        // await api.post('/roles', formData);
-      }
       setOpenForm(false);
       alert('Role saved!');
     } catch (error) {

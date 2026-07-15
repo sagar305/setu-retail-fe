@@ -17,9 +17,8 @@ import {
   TableRow,
   Tabs,
   Tab,
-  Chip,
 } from '@mui/material';
-import { Download, TrendingUp } from 'lucide-react';
+import { Download } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
@@ -202,7 +201,6 @@ const Reports = () => {
     if (!reportData) return;
 
     let csvContent = '';
-    const dateParams = getDateRangeParams();
 
     if (reportType === 'sales') {
       csvContent = 'Date,Total Sales,Total Items,Total Tax,Total Discount\n';
