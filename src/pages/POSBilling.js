@@ -32,10 +32,12 @@ import { ShoppingCart, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { SSEContext } from '../context/SSEContext';
+import { OutletContext } from '../context/OutletContext';
 import useOffline from '../hooks/useOffline';
 
 const POSBilling = () => {
   const { getRecentEvents, isConnected } = useContext(SSEContext);
+  const { selectedOutlet } = useContext(OutletContext);
   const { isOnline, saveOfflineInvoice } = useOffline();
   const [products, setProducts] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
@@ -63,7 +65,7 @@ const POSBilling = () => {
     fetchProducts();
     loadHeldBills();
     if (barcodeRef.current) barcodeRef.current.focus();
-  }, []);
+  }, [selectedOutlet]);
 
   useEffect(() => {
     const invoiceEvents = getRecentEvents('invoice:created');
@@ -95,7 +97,19 @@ const POSBilling = () => {
     try {
       setLoading(true);
       const response = await api.get('/products');
-      const productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
+      let productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
+
+      // Filter products by selected outlet if outlet context is available
+      if (selectedOutlet) {
+        productsList = productsList.filter(p => {
+          if (!p.assignedOutlets || p.assignedOutlets.length === 0) {
+            return true; // Show products not assigned to any outlet
+          }
+          const assignedOutletIds = p.assignedOutlets.map(o => typeof o === 'string' ? o : o._id);
+          return assignedOutletIds.includes(selectedOutlet._id);
+        });
+      }
+
       setProducts(productsList);
 
       const categorySet = new Set();
@@ -125,6 +139,7 @@ const POSBilling = () => {
   const saveBillToHeld = () => {
     const bill = {
       id: Date.now(),
+      outlet: selectedOutlet,
       customer: selectedCustomer,
       items: [...cart],
       cartDiscount,
@@ -245,6 +260,7 @@ const POSBilling = () => {
           discount: 0,
         })),
         customer: selectedCustomer?._id || null,
+        outlet: selectedOutlet?._id || null,
         cartDiscount: cartDiscount,
         payment: {
           method: paymentMethod,

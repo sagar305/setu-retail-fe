@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { SSEProvider } from './context/SSEContext';
 import { OfflineProvider } from './context/OfflineContext';
+import { OutletProvider } from './context/OutletContext';
 import indexedDB from './services/indexedDB';
 
 import Login from './pages/Login';
@@ -217,11 +218,13 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <OfflineProvider>
-          <SSEProvider>
-            <AppContent />
-          </SSEProvider>
-        </OfflineProvider>
+        <OutletProvider>
+          <OfflineProvider>
+            <SSEProvider>
+              <AppContent />
+            </SSEProvider>
+          </OfflineProvider>
+        </OutletProvider>
       </AuthProvider>
     </Router>
   );

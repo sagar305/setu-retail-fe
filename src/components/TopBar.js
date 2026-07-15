@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -11,19 +11,20 @@ import {
   IconButton,
 } from '@mui/material';
 import { Bell, ChevronDown, X } from 'lucide-react';
+import { OutletContext } from '../context/OutletContext';
 import OfflineSyncStatus from './OfflineSyncStatus';
 
 const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
+  const { outlets, selectedOutlet, selectOutlet } = useContext(OutletContext);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [outlet, setOutlet] = useState('MG Road (HQ)');
   const [showOfflineAlert, setShowOfflineAlert] = useState(isOffline);
 
   const handleOutletChange = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleOutletSelect = (outletName) => {
-    setOutlet(outletName);
+  const handleOutletSelect = (outlet) => {
+    selectOutlet(outlet);
     setAnchorEl(null);
   };
 
@@ -71,34 +72,32 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
 
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <OfflineSyncStatus />
-            <Button
-              variant="outlined"
-              endIcon={<ChevronDown size={16} />}
-              onClick={handleOutletChange}
-              sx={{
-                borderColor: 'rgba(27,31,59,0.08)',
-                color: '#0E1124',
-                '&:hover': {
-                  borderColor: 'rgba(27,31,59,0.16)',
-                },
-              }}
-            >
-              {outlet}
-            </Button>
+            {selectedOutlet && (
+              <Button
+                variant="outlined"
+                endIcon={<ChevronDown size={16} />}
+                onClick={handleOutletChange}
+                sx={{
+                  borderColor: 'rgba(27,31,59,0.08)',
+                  color: '#0E1124',
+                  '&:hover': {
+                    borderColor: 'rgba(27,31,59,0.16)',
+                  },
+                }}
+              >
+                {selectedOutlet.name}
+              </Button>
+            )}
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
               onClose={() => setAnchorEl(null)}
             >
-              <MenuItem onClick={() => handleOutletSelect('MG Road (HQ)')}>
-                MG Road (HQ)
-              </MenuItem>
-              <MenuItem onClick={() => handleOutletSelect('Indiranagar')}>
-                Indiranagar
-              </MenuItem>
-              <MenuItem onClick={() => handleOutletSelect('Whitefield')}>
-                Whitefield
-              </MenuItem>
+              {outlets.map((outlet) => (
+                <MenuItem key={outlet._id} onClick={() => handleOutletSelect(outlet)}>
+                  {outlet.name} ({outlet.city})
+                </MenuItem>
+              ))}
             </Menu>
 
             <Button
