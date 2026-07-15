@@ -203,17 +203,18 @@ const Dashboard = () => {
 
   return (
     <Layout title="Dashboard">
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-          Dashboard
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#64748b' }}>
-          Welcome back, {user?.name}
-        </Typography>
-      </Box>
+      <Box sx={{ px: 3, pt: 3 }}>
+        {/* Header */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+            Dashboard
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748b' }}>
+            Welcome back, {user?.name}
+          </Typography>
+        </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* Top Metrics Row 1 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -511,6 +512,7 @@ const Dashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Layout>
   );
 };
