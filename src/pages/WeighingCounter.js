@@ -123,11 +123,15 @@ const WeighingCounter = () => {
 
   const searchProducts = () => {
     if (searchQuery.trim()) {
-      const filtered = products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const filtered = products.filter((p) => {
+        const name = p.name || '';
+        const sku = p.sku || '';
+        const query = searchQuery || '';
+        return (
+          name.toLowerCase().includes(query.toLowerCase()) ||
+          sku.toLowerCase().includes(query.toLowerCase())
+        );
+      });
       if (filtered.length > 0) {
         setSelectedProduct(filtered[0]);
       } else {

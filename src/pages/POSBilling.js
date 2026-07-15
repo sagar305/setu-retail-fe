@@ -297,8 +297,11 @@ const POSBilling = () => {
   };
 
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const name = p.name || '';
+    const sku = p.sku || '';
+    const query = searchQuery || '';
+    const matchesSearch = name.toLowerCase().includes(query.toLowerCase()) ||
+      sku.toLowerCase().includes(query.toLowerCase());
 
     let matchesCategory = true;
     if (selectedCategory !== 'all') {

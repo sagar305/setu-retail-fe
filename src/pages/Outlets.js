@@ -166,10 +166,15 @@ const Outlets = () => {
     }
   };
 
-  const filteredOutlets = outlets.filter((outlet) =>
-    outlet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    outlet.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredOutlets = outlets.filter((outlet) => {
+    const name = outlet.name || '';
+    const city = outlet.city || '';
+    const query = searchQuery || '';
+    return (
+      name.toLowerCase().includes(query.toLowerCase()) ||
+      city.toLowerCase().includes(query.toLowerCase())
+    );
+  });
 
   if (loading && outlets.length === 0) {
     return (
