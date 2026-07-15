@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   Typography,
@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Download, TrendingUp } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const SimpleBarChart = ({ data, height = 300 }) => {
@@ -71,6 +72,7 @@ const SimpleBarChart = ({ data, height = 300 }) => {
 };
 
 const Reports = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [reportType, setReportType] = useState('sales');
   const [dateRange, setDateRange] = useState('thisMonth');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -135,12 +137,15 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReportData();
-  }, [reportType, dateRange, customStartDate, customEndDate]);
+  }, [reportType, dateRange, customStartDate, customEndDate, selectedOutlet]);
 
   const fetchReportData = async () => {
     try {
       setLoading(true);
       const dateParams = getDateRangeParams();
+      if (selectedOutlet) {
+        dateParams.outletId = selectedOutlet._id;
+      }
 
       let response;
       if (reportType === 'sales') {
@@ -156,7 +161,8 @@ const Reports = () => {
           );
         }
       } else if (reportType === 'inventory') {
-        response = await api.get('/inventory/stats');
+        const inventoryParams = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+        response = await api.get('/inventory/stats', { params: inventoryParams });
         setReportData(response.data);
         setChartData([
           { label: 'In Stock', value: response.data.inStockCount || 0 },
@@ -164,7 +170,8 @@ const Reports = () => {
           { label: 'Out of Stock', value: response.data.outOfStockCount || 0 },
         ]);
       } else if (reportType === 'customers') {
-        response = await api.get('/customers/stats/all');
+        const customerParams = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+        response = await api.get('/customers/stats/all', { params: customerParams });
         setReportData(response.data);
         setChartData([
           { label: 'Total Customers', value: response.data.totalCustomers || 0 },

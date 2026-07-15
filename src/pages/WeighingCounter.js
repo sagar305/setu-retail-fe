@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Box,
   Card,
@@ -15,9 +15,11 @@ import {
   Divider,
 } from '@mui/material';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const WeighingCounter = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [weight, setWeight] = useState(0);
   const [scales, setScales] = useState([]);
   const [selectedScale, setSelectedScale] = useState('');
@@ -34,11 +36,12 @@ const WeighingCounter = () => {
   useEffect(() => {
     fetchScales();
     fetchProducts();
-  }, []);
+  }, [selectedOutlet]);
 
   const fetchScales = async () => {
     try {
-      const response = await api.get('/scales');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/scales', { params });
       setScales(response.data.scales);
       if (response.data.scales.length > 0) {
         setSelectedScale(response.data.scales[0]._id);
@@ -50,8 +53,11 @@ const WeighingCounter = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products?limit=1000&skip=0');
-      setProducts(response.data.products.filter((p) => p.productType === 'weight_based'));
+      const params = { limit: 1000, skip: 0 };
+      if (selectedOutlet) params.outletId = selectedOutlet._id;
+      const response = await api.get('/products', { params });
+      const productsList = Array.isArray(response.data) ? response.data : (response.data.products || []);
+      setProducts(productsList.filter((p) => p.productType === 'weight_based'));
     } catch (err) {
       setError('Failed to fetch products');
     }

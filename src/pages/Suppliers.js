@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   Typography,
@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Plus, Phone, Mail, DollarSign, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -35,6 +36,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Suppliers = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [suppliers, setSuppliers] = useState([]);
   const [stats, setStats] = useState({});
   const [openForm, setOpenForm] = useState(false);
@@ -56,13 +58,13 @@ const Suppliers = () => {
   useEffect(() => {
     fetchSuppliers();
     fetchStats();
-  }, [searchQuery, page, rowsPerPage]);
+  }, [searchQuery, page, rowsPerPage, selectedOutlet]);
 
   const fetchSuppliers = async () => {
     try {
-      const response = await api.get('/suppliers', {
-        params: { search: searchQuery, skip: page * rowsPerPage, limit: rowsPerPage },
-      });
+      const params = { search: searchQuery, skip: page * rowsPerPage, limit: rowsPerPage };
+      if (selectedOutlet) params.outletId = selectedOutlet._id;
+      const response = await api.get('/suppliers', { params });
       setSuppliers(response.data.suppliers || []);
       setTotal(response.data.total || 0);
     } catch (error) {
@@ -72,7 +74,8 @@ const Suppliers = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/suppliers/stats/all');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/suppliers/stats/all', { params });
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);

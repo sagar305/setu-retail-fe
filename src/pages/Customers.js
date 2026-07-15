@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   Typography,
@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { Plus, Phone, Mail, Gift, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -42,6 +43,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Customers = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [customers, setCustomers] = useState([]);
   const [stats, setStats] = useState({});
   const [openForm, setOpenForm] = useState(false);
@@ -81,7 +83,7 @@ const Customers = () => {
       await fetchStats();
     };
     loadData();
-  }, [searchQuery, membershipFilter, page, rowsPerPage]);
+  }, [searchQuery, membershipFilter, page, rowsPerPage, selectedOutlet]);
 
   const fetchCustomers = async () => {
     try {
@@ -94,6 +96,9 @@ const Customers = () => {
       };
       if (membershipFilter !== 'all') {
         params.membership = membershipFilter;
+      }
+      if (selectedOutlet) {
+        params.outletId = selectedOutlet._id;
       }
       const response = await api.get('/customers', { params });
       const customersList = Array.isArray(response.data) ? response.data : (response.data.customers || []);
@@ -109,7 +114,8 @@ const Customers = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/customers/stats/all');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/customers/stats/all', { params });
       setStats(response.data || {});
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -118,7 +124,8 @@ const Customers = () => {
 
   const fetchPurchaseHistory = async (customerId) => {
     try {
-      const response = await api.get(`/customers/${customerId}/history`);
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get(`/customers/${customerId}/history`, { params });
       setPurchaseHistory(response.data.history || []);
     } catch (error) {
       console.error('Error fetching purchase history:', error);

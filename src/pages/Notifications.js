@@ -1,19 +1,59 @@
-import React, { useState } from 'react';
-import { Card, Typography, Box, Table, TableBody, TableCell, TableHead, TableRow, Button, Chip } from '@mui/material';
+import React, { useState, useEffect, useContext } from 'react';
+import { Card, Typography, Box, Table, TableBody, TableCell, TableHead, TableRow, Button, Chip, CircularProgress, Alert } from '@mui/material';
 import { Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
+import api from '../services/api';
 
 const Notifications = () => {
-  const [notifications] = useState([
-    { id: 1, type: 'alert', message: 'Low stock: Product A', date: new Date(), read: false },
-    { id: 2, type: 'success', message: 'Invoice created successfully', date: new Date(), read: true },
-    { id: 3, type: 'info', message: 'Purchase order approved', date: new Date(), read: true },
-  ]);
+  const { selectedOutlet } = useContext(OutletContext);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [selectedOutlet]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/notifications', { params });
+      const notificationsList = Array.isArray(response.data) ? response.data : (response.data.notifications || []);
+      setNotifications(notificationsList);
+    } catch (err) {
+      setError('Failed to load notifications');
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      await api.delete(`/notifications/${notificationId}`);
+      await fetchNotifications();
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
 
   const getTypeColor = (type) => {
     const colors = { alert: '#C24A3D', success: '#2F8F5B', info: '#1B1F3B', warning: '#F2A03D' };
     return colors[type] || '#9AA0C0';
   };
+
+  if (loading) {
+    return (
+      <Layout title="Notifications">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+          <CircularProgress />
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Notifications">
@@ -25,30 +65,38 @@ const Notifications = () => {
           )}
         </Box>
 
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#F5F3ED' }}>
-              <TableCell sx={{ fontWeight: 700 }}>TYPE</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>MESSAGE</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>DATE</TableCell>
-              <TableCell sx={{ fontWeight: 700 }} align="center">ACTION</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {notifications.map((notif) => (
-              <TableRow key={notif.id} sx={{ backgroundColor: !notif.read ? '#F5F3ED' : 'transparent' }}>
-                <TableCell>
-                  <Chip label={notif.type.toUpperCase()} size="small" sx={{ color: getTypeColor(notif.type) }} />
-                </TableCell>
-                <TableCell sx={{ fontWeight: !notif.read ? 700 : 400 }}>{notif.message}</TableCell>
-                <TableCell>{notif.date.toLocaleDateString()}</TableCell>
-                <TableCell align="center">
-                  <Button variant="text" size="small"><Trash2 size={16} /></Button>
-                </TableCell>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        {notifications.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 4, color: '#9AA0C0' }}>
+            No notifications
+          </Box>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#F5F3ED' }}>
+                <TableCell sx={{ fontWeight: 700 }}>TYPE</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>MESSAGE</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>DATE</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">ACTION</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {notifications.map((notif) => (
+                <TableRow key={notif._id} sx={{ backgroundColor: !notif.read ? '#F5F3ED' : 'transparent' }}>
+                  <TableCell>
+                    <Chip label={notif.type.toUpperCase()} size="small" sx={{ color: getTypeColor(notif.type) }} />
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: !notif.read ? 700 : 400 }}>{notif.message}</TableCell>
+                  <TableCell>{new Date(notif.date).toLocaleDateString()}</TableCell>
+                  <TableCell align="center">
+                    <Button variant="text" size="small" onClick={() => handleDeleteNotification(notif._id)}><Trash2 size={16} /></Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Card>
     </Layout>
   );

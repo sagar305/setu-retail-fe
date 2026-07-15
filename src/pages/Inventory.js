@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   Typography,
@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -37,6 +38,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Inventory = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [inventory, setInventory] = useState([]);
   const [stats, setStats] = useState({});
   const [openAdjust, setOpenAdjust] = useState(false);
@@ -52,12 +54,13 @@ const Inventory = () => {
   useEffect(() => {
     fetchInventory();
     fetchStats();
-  }, [searchQuery, filterType]);
+  }, [searchQuery, filterType, selectedOutlet]);
 
   const fetchInventory = async () => {
     try {
       const params = { search: searchQuery };
       if (filterType === 'low-stock') params.lowStockOnly = true;
+      if (selectedOutlet) params.outletId = selectedOutlet._id;
       const response = await api.get('/inventory', { params });
       setInventory(response.data || []);
     } catch (error) {
@@ -67,7 +70,8 @@ const Inventory = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/inventory/stats');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/inventory/stats', { params });
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);

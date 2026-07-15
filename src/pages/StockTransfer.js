@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card, Typography, Box, Grid, Table, TableBody, TableCell, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, Chip, TablePagination
 } from '@mui/material';
 import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -15,6 +16,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const StockTransfer = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [transfers, setTransfers] = useState([]);
   const [stats, setStats] = useState({});
   const [page, setPage] = useState(0);
@@ -25,13 +27,13 @@ const StockTransfer = () => {
   useEffect(() => {
     fetchTransfers();
     fetchStats();
-  }, [statusFilter, page, rowsPerPage]);
+  }, [statusFilter, page, rowsPerPage, selectedOutlet]);
 
   const fetchTransfers = async () => {
     try {
-      const response = await api.get('/stock-transfers', {
-        params: { status: statusFilter === 'all' ? undefined : statusFilter, skip: page * rowsPerPage, limit: rowsPerPage }
-      });
+      const params = { status: statusFilter === 'all' ? undefined : statusFilter, skip: page * rowsPerPage, limit: rowsPerPage };
+      if (selectedOutlet) params.outletId = selectedOutlet._id;
+      const response = await api.get('/stock-transfers', { params });
       setTransfers(response.data.transfers || []);
       setTotal(response.data.total || 0);
     } catch (error) {
@@ -41,7 +43,8 @@ const StockTransfer = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/stock-transfers/stats/all');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/stock-transfers/stats/all', { params });
       setStats(response.data);
     } catch (error) {
       console.error('Error:', error);

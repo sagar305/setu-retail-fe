@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -24,6 +24,7 @@ import {
 import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AuthContext } from '../context/AuthContext';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, change, isPositive = true, color = '#22c55e' }) => (
@@ -51,6 +52,7 @@ const StatCard = ({ label, value, change, isPositive = true, color = '#22c55e' }
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
+  const { selectedOutlet } = useContext(OutletContext);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
@@ -85,13 +87,14 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboard();
     fetchOutlets();
-  }, []);
+  }, [selectedOutlet]);
 
   const fetchDashboard = async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get('/dashboard');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/dashboard', { params });
       setData(response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard');

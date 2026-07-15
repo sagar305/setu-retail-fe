@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Card,
   Typography,
@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import Layout from '../components/Layout';
+import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -40,6 +41,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Expenses = () => {
+  const { selectedOutlet } = useContext(OutletContext);
   const [expenses, setExpenses] = useState([]);
   const [stats, setStats] = useState({});
   const [openForm, setOpenForm] = useState(false);
@@ -68,7 +70,7 @@ const Expenses = () => {
       await fetchStats();
     };
     loadData();
-  }, [searchQuery, statusFilter, page, rowsPerPage]);
+  }, [searchQuery, statusFilter, page, rowsPerPage, selectedOutlet]);
 
   const fetchExpenses = async () => {
     try {
@@ -80,6 +82,9 @@ const Expenses = () => {
         skip: page * rowsPerPage,
         limit: rowsPerPage,
       };
+      if (selectedOutlet) {
+        params.outletId = selectedOutlet._id;
+      }
       const response = await api.get('/expenses', { params });
       const expensesList = Array.isArray(response.data) ? response.data : (response.data.expenses || []);
       setExpenses(expensesList);
@@ -94,7 +99,8 @@ const Expenses = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/expenses/stats/all');
+      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
+      const response = await api.get('/expenses/stats/all', { params });
       setStats(response.data || {});
     } catch (err) {
       console.error('Error fetching stats:', err);
