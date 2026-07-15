@@ -23,6 +23,8 @@ import {
   Select,
   MenuItem,
   TablePagination,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { Plus, Phone, Mail, Gift, Award, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -51,7 +53,10 @@ const Customers = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showRewardDialog, setShowRewardDialog] = useState(false);
+  const [showCreditDialog, setShowCreditDialog] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -78,6 +83,7 @@ const Customers = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
+      setError('');
       const params = {
         search: searchQuery,
         skip: page * rowsPerPage,
@@ -87,10 +93,12 @@ const Customers = () => {
         params.membership = membershipFilter;
       }
       const response = await api.get('/customers', { params });
-      setCustomers(response.data.customers || []);
-      setTotal(response.data.total || 0);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
+      const customersList = Array.isArray(response.data) ? response.data : (response.data.customers || []);
+      setCustomers(customersList);
+      setTotal(response.data.total || customersList.length);
+    } catch (err) {
+      setError('Failed to load customers');
+      console.error('Error fetching customers:', err);
     } finally {
       setLoading(false);
     }
@@ -99,9 +107,9 @@ const Customers = () => {
   const fetchStats = async () => {
     try {
       const response = await api.get('/customers/stats/all');
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      setStats(response.data || {});
+    } catch (err) {
+      console.error('Error fetching stats:', err);
     }
   };
 
@@ -136,62 +144,74 @@ const Customers = () => {
 
   const handleSaveCustomer = async () => {
     try {
+      setError('');
       if (selectedCustomer) {
         await api.put(`/customers/${selectedCustomer._id}`, formData);
       } else {
         await api.post('/customers', formData);
       }
       setOpenForm(false);
-      fetchCustomers();
-      fetchStats();
-    } catch (error) {
-      console.error('Error saving customer:', error);
+      await fetchCustomers();
+      await fetchStats();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save customer');
+      console.error('Error saving customer:', err);
     }
   };
 
   const handleAddRewardPoints = async () => {
     if (!selectedCustomer || rewardData.points === 0) return;
     try {
+      setError('');
       await api.post(`/customers/${selectedCustomer._id}/reward-points`, rewardData);
       setRewardData({ points: 0, reason: '' });
-      fetchCustomers();
-      handleViewDetail(selectedCustomer._id);
-    } catch (error) {
-      console.error('Error adding reward points:', error);
+      setShowRewardDialog(false);
+      await fetchCustomers();
+      await handleViewDetail(selectedCustomer._id);
+    } catch (err) {
+      setError('Failed to add reward points');
+      console.error('Error adding reward points:', err);
     }
   };
 
   const handleAddStoreCredit = async () => {
     if (!selectedCustomer || creditData.amount === 0) return;
     try {
+      setError('');
       await api.post(`/customers/${selectedCustomer._id}/store-credit`, creditData);
       setCreditData({ amount: 0, reason: '' });
-      fetchCustomers();
-      handleViewDetail(selectedCustomer._id);
-    } catch (error) {
-      console.error('Error adding store credit:', error);
+      setShowCreditDialog(false);
+      await fetchCustomers();
+      await handleViewDetail(selectedCustomer._id);
+    } catch (err) {
+      setError('Failed to add store credit');
+      console.error('Error adding store credit:', err);
     }
   };
 
   const handleViewDetail = async (customerId) => {
     try {
+      setError('');
       const response = await api.get(`/customers/${customerId}`);
       setSelectedCustomer(response.data);
-      fetchPurchaseHistory(customerId);
+      await fetchPurchaseHistory(customerId);
       setShowDetail(true);
-    } catch (error) {
-      console.error('Error fetching customer detail:', error);
+    } catch (err) {
+      setError('Failed to load customer details');
+      console.error('Error fetching customer detail:', err);
     }
   };
 
   const handleDeleteCustomer = async (customerId) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
+        setError('');
         await api.delete(`/customers/${customerId}`);
-        fetchCustomers();
+        await fetchCustomers();
         setShowDetail(false);
-      } catch (error) {
-        console.error('Error deleting customer:', error);
+      } catch (err) {
+        setError('Failed to delete customer');
+        console.error('Error deleting customer:', err);
       }
     }
   };
@@ -225,6 +245,7 @@ const Customers = () => {
               }}
               size="small"
               fullWidth
+              disabled={loading}
             />
             <FormControl size="small" sx={{ minWidth: '150px' }}>
               <InputLabel>Membership</InputLabel>
@@ -235,76 +256,100 @@ const Customers = () => {
                   setMembershipFilter(e.target.value);
                   setPage(0);
                 }}
+                disabled={loading}
               >
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="new">New</MenuItem>
-                <MenuItem value="regular">Regular</MenuItem>
-                <MenuItem value="vip">VIP</MenuItem>
+                <MenuItem value="silver">Silver</MenuItem>
+                <MenuItem value="gold">Gold</MenuItem>
               </Select>
             </FormControl>
           </Box>
-          <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => handleOpenForm()}>
+          <Button
+            variant="contained"
+            startIcon={<Plus size={16} />}
+            onClick={() => handleOpenForm()}
+            disabled={loading}
+          >
             Add Customer
           </Button>
         </Box>
 
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#F5F3ED' }}>
-              <TableCell sx={{ fontWeight: 700 }}>NAME</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>PHONE</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>EMAIL</TableCell>
-              <TableCell sx={{ fontWeight: 700 }} align="right">
-                REWARDS
-              </TableCell>
-              <TableCell sx={{ fontWeight: 700 }} align="right">
-                CREDIT
-              </TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>TIER</TableCell>
-              <TableCell sx={{ fontWeight: 700 }} align="center">
-                ACTION
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {customers.map((customer) => (
-              <TableRow key={customer._id} sx={{ '&:hover': { backgroundColor: '#F5F3ED' } }}>
-                <TableCell>{customer.name}</TableCell>
-                <TableCell sx={{ fontFamily: 'JetBrains Mono', fontSize: '12px' }}>
-                  {customer.phone}
-                </TableCell>
-                <TableCell>{customer.email}</TableCell>
-                <TableCell align="right" sx={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                  {customer.rewardPoints}
-                </TableCell>
-                <TableCell align="right" sx={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                  ₹{customer.creditBalance?.toFixed(0) || 0}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={(customer.membership?.tier || 'new').toUpperCase()}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      color: customer.membership?.tier === 'vip' ? '#F2A03D' : '#1B1F3B',
-                      borderColor: customer.membership?.tier === 'vip' ? '#F2A03D' : '#1B1F3B',
-                    }}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => handleViewDetail(customer._id)}
-                    sx={{ color: '#1B1F3B' }}
-                  >
-                    View
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        {loading && customers.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#F5F3ED' }}>
+                  <TableCell sx={{ fontWeight: 700 }}>NAME</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>PHONE</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>EMAIL</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="right">
+                    REWARDS
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="right">
+                    CREDIT
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>TIER</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">
+                    ACTION
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {customers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4, color: '#9AA0C0' }}>
+                      No customers found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  customers.map((customer) => (
+                    <TableRow key={customer._id} sx={{ '&:hover': { backgroundColor: '#F5F3ED' } }}>
+                      <TableCell sx={{ fontWeight: 600 }}>{customer.name || 'Walk-in'}</TableCell>
+                      <TableCell sx={{ fontFamily: 'JetBrains Mono', fontSize: '12px' }}>
+                        {customer.phone}
+                      </TableCell>
+                      <TableCell>{customer.email || '-'}</TableCell>
+                      <TableCell align="right" sx={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                        {customer.rewardPoints || 0}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                        ₹{(customer.creditBalance || 0).toFixed(0)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={(customer.membership?.tier || 'new').toUpperCase()}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            color: customer.membership?.tier === 'gold' ? '#F2A03D' : '#1B1F3B',
+                            borderColor: customer.membership?.tier === 'gold' ? '#F2A03D' : '#1B1F3B',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Button
+                          variant="text"
+                          size="small"
+                          onClick={() => handleViewDetail(customer._id)}
+                          sx={{ color: '#1B1F3B' }}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </>
+        )}
 
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
@@ -454,7 +499,7 @@ const Customers = () => {
                     startIcon={<Gift size={14} />}
                     onClick={() => {
                       setRewardData({ points: 0, reason: '' });
-                      // Would open a dialog in production
+                      setShowRewardDialog(true);
                     }}
                     sx={{ flex: 1 }}
                   >
@@ -465,7 +510,7 @@ const Customers = () => {
                     variant="outlined"
                     onClick={() => {
                       setCreditData({ amount: 0, reason: '' });
-                      // Would open a dialog in production
+                      setShowCreditDialog(true);
                     }}
                     sx={{ flex: 1 }}
                   >
@@ -528,6 +573,70 @@ const Customers = () => {
           </Box>
         )}
       </Drawer>
+
+      <Dialog open={showRewardDialog} onClose={() => setShowRewardDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Reward Points</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Points"
+              type="number"
+              value={rewardData.points}
+              onChange={(e) => setRewardData({ ...rewardData, points: parseInt(e.target.value) || 0 })}
+              size="small"
+              inputProps={{ min: '0' }}
+            />
+            <TextField
+              fullWidth
+              label="Reason"
+              value={rewardData.reason}
+              onChange={(e) => setRewardData({ ...rewardData, reason: e.target.value })}
+              size="small"
+              multiline
+              rows={2}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRewardDialog(false)}>Cancel</Button>
+          <Button onClick={handleAddRewardPoints} variant="contained">
+            Add Points
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={showCreditDialog} onClose={() => setShowCreditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Store Credit</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Amount"
+              type="number"
+              value={creditData.amount}
+              onChange={(e) => setCreditData({ ...creditData, amount: parseFloat(e.target.value) || 0 })}
+              size="small"
+              inputProps={{ min: '0', step: '0.01' }}
+            />
+            <TextField
+              fullWidth
+              label="Reason"
+              value={creditData.reason}
+              onChange={(e) => setCreditData({ ...creditData, reason: e.target.value })}
+              size="small"
+              multiline
+              rows={2}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCreditDialog(false)}>Cancel</Button>
+          <Button onClick={handleAddStoreCredit} variant="contained">
+            Add Credit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Layout>
   );
 };
