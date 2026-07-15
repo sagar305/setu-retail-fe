@@ -251,15 +251,5 @@ const Dashboard = () => {
     </Box>
   );
 };
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-          Recent Transactions
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#5F6478' }}>
-          No transactions yet
-        </Typography>
-      </Card>
-    </Layout>
-  );
-};
 
 export default Dashboard;
