@@ -83,7 +83,7 @@ const Customers = () => {
       await fetchStats();
     };
     loadData();
-  }, [searchQuery, membershipFilter, page, rowsPerPage, selectedOutlet]);
+  }, [searchQuery, membershipFilter, page, rowsPerPage]);
 
   const fetchCustomers = async () => {
     try {
@@ -96,9 +96,6 @@ const Customers = () => {
       };
       if (membershipFilter !== 'all') {
         params.membership = membershipFilter;
-      }
-      if (selectedOutlet) {
-        params.outletId = selectedOutlet._id;
       }
       const response = await api.get('/customers', { params });
       const customersList = Array.isArray(response.data) ? response.data : (response.data.customers || []);
@@ -114,8 +111,7 @@ const Customers = () => {
 
   const fetchStats = async () => {
     try {
-      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
-      const response = await api.get('/customers/stats/all', { params });
+      const response = await api.get('/customers/stats/all');
       setStats(response.data || {});
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -124,8 +120,7 @@ const Customers = () => {
 
   const fetchPurchaseHistory = async (customerId) => {
     try {
-      const params = selectedOutlet ? { outletId: selectedOutlet._id } : {};
-      const response = await api.get(`/customers/${customerId}/history`, { params });
+      const response = await api.get(`/customers/${customerId}/history`);
       setPurchaseHistory(response.data.history || []);
     } catch (error) {
       console.error('Error fetching purchase history:', error);
