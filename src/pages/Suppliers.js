@@ -55,6 +55,7 @@ const Suppliers = () => {
     address: { street: '', city: '', state: '', pincode: '' },
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchSuppliers();
     fetchStats();

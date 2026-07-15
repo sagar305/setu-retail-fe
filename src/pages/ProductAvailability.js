@@ -36,6 +36,7 @@ const ProductAvailability = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOutlets, setSelectedOutlets] = useState([]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const loadData = async () => {
       await fetchProducts();

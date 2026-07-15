@@ -134,6 +134,7 @@ const Reports = () => {
     };
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchReportData();
   }, [reportType, dateRange, customStartDate, customEndDate, selectedOutlet]);

@@ -33,6 +33,7 @@ const WeighingCounter = () => {
   const [barcodeImage, setBarcodeImage] = useState(null);
   const [generatingBarcode, setGeneratingBarcode] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchScales();
     fetchProducts();

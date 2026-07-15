@@ -24,6 +24,7 @@ const PurchaseOrders = () => {
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchPOs();
     fetchStats();
