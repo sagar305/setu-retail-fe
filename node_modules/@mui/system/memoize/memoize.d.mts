@@ -1,1 +1,0 @@
-export default function memoize<ArgType extends keyof any = any, ReturnType = any>(fn: (arg: ArgType) => ReturnType): (arg: ArgType) => ReturnType;
