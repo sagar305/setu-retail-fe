@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Layout from '../components/Layout';
 import { AuthContext } from '../context/AuthContext';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
@@ -201,7 +202,7 @@ const Dashboard = () => {
   };
 
   return (
-    <Box sx={{ p: 3, backgroundColor: '#f5f3ed', minHeight: '100vh' }}>
+    <Layout title="Dashboard">
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
@@ -510,7 +511,7 @@ const Dashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Layout>
   );
 };
 
