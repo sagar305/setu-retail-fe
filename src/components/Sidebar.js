@@ -31,16 +31,20 @@ const Sidebar = () => {
   const location = useLocation();
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: BarChart },
-    { path: '/pos-billing', label: 'POS Billing', icon: ShoppingCart },
-    { path: '/weighing-counter', label: 'Weighing Counter', icon: Box },
-    { path: '/product-master', label: 'Product Master', icon: Package },
-    { path: '/inventory', label: 'Inventory', icon: Boxes },
-    { path: '/purchase-orders', label: 'Purchase Orders', icon: FileText },
-    { path: '/stock-transfer', label: 'Stock Transfer', icon: ArrowRightLeft },
-    { path: '/customers', label: 'Customers', icon: Users },
-    { path: '/suppliers', label: 'Suppliers', icon: User },
-    { path: '/settings', label: 'Settings', icon: Settings },
+    { path: '/dashboard', label: 'Dashboard', icon: BarChart, section: 'Main' },
+    { path: '/pos-billing', label: 'POS Billing', icon: ShoppingCart, section: 'Operations' },
+    { path: '/weighing-counter', label: 'Weighing Counter', icon: Box, section: 'Operations' },
+    { path: '/inventory', label: 'Inventory', icon: Boxes, section: 'Operations' },
+    { path: '/product-master', label: 'Product Master', icon: Package, section: 'Catalog' },
+    { path: '/categories', label: 'Categories', icon: Package, section: 'Catalog' },
+    { path: '/product-availability', label: 'Product Availability', icon: Package, section: 'Catalog' },
+    { path: '/purchase-orders', label: 'Purchase Orders', icon: FileText, section: 'Procurement' },
+    { path: '/stock-transfer', label: 'Stock Transfer', icon: ArrowRightLeft, section: 'Procurement' },
+    { path: '/customers', label: 'Customers', icon: Users, section: 'Management' },
+    { path: '/outlets', label: 'Outlets', icon: Users, section: 'Management' },
+    { path: '/employees', label: 'Employees', icon: User, section: 'Management' },
+    { path: '/suppliers', label: 'Suppliers', icon: User, section: 'Management' },
+    { path: '/settings', label: 'Settings', icon: Settings, section: 'Admin' },
   ];
 
   const isActive = (path) => location.pathname === path;

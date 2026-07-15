@@ -12,8 +12,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
@@ -46,9 +54,37 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
+  const [outlets, setOutlets] = useState([]);
+  const [openOutletForm, setOpenOutletForm] = useState(false);
+  const [openEmployeeForm, setOpenEmployeeForm] = useState(false);
+  const [savingOutlet, setSavingOutlet] = useState(false);
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [outletError, setOutletError] = useState('');
+  const [employeeError, setEmployeeError] = useState('');
+
+  const [outletFormData, setOutletFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    description: '',
+    isActive: true,
+  });
+
+  const [employeeFormData, setEmployeeFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'cashier',
+    salary: 0,
+  });
 
   useEffect(() => {
     fetchDashboard();
+    fetchOutlets();
   }, []);
 
   const fetchDashboard = async () => {
@@ -61,6 +97,77 @@ const Dashboard = () => {
       setError(err.response?.data?.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOutlets = async () => {
+    try {
+      const response = await api.get('/outlets');
+      const outletsList = Array.isArray(response.data) ? response.data : (response.data.outlets || []);
+      setOutlets(outletsList);
+    } catch (err) {
+      console.error('Error fetching outlets:', err);
+    }
+  };
+
+  const handleSaveOutlet = async () => {
+    try {
+      if (!outletFormData.name || !outletFormData.phone) {
+        setOutletError('Please fill in outlet name and phone');
+        return;
+      }
+
+      setSavingOutlet(true);
+      setOutletError('');
+
+      await api.post('/outlets', outletFormData);
+
+      setOpenOutletForm(false);
+      setOutletFormData({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        description: '',
+        isActive: true,
+      });
+      await fetchOutlets();
+    } catch (err) {
+      setOutletError(err.response?.data?.message || 'Failed to save outlet');
+      console.error('Error saving outlet:', err);
+    } finally {
+      setSavingOutlet(false);
+    }
+  };
+
+  const handleSaveEmployee = async () => {
+    try {
+      if (!employeeFormData.name || !employeeFormData.email) {
+        setEmployeeError('Please fill in name and email');
+        return;
+      }
+
+      setSavingEmployee(true);
+      setEmployeeError('');
+
+      await api.post('/employees', employeeFormData);
+
+      setOpenEmployeeForm(false);
+      setEmployeeFormData({
+        name: '',
+        email: '',
+        phone: '',
+        role: 'cashier',
+        salary: 0,
+      });
+    } catch (err) {
+      setEmployeeError(err.response?.data?.message || 'Failed to save employee');
+      console.error('Error saving employee:', err);
+    } finally {
+      setSavingEmployee(false);
     }
   };
 
@@ -150,7 +257,7 @@ const Dashboard = () => {
               {data.metrics.lowStockCount}
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748b' }}>
-              Across 4 outlets
+              Across {outlets.length} outlets
             </Typography>
           </Card>
         </Grid>
@@ -168,6 +275,52 @@ const Dashboard = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Quick Actions and Outlets Section */}
+      <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={() => setOpenOutletForm(true)}
+          sx={{ backgroundColor: '#2F8F5B' }}
+        >
+          New Outlet
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={() => setOpenEmployeeForm(true)}
+          sx={{ backgroundColor: '#1B5E8F' }}
+        >
+          New Employee
+        </Button>
+      </Box>
+
+      {/* Outlets Summary */}
+      {outlets.length > 0 && (
+        <Card sx={{ p: 3, backgroundColor: '#FFFFFF', borderRadius: '9px', mb: 3 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, mb: 2 }}>
+            Your Outlets ({outlets.length})
+          </Typography>
+          <Grid container spacing={2}>
+            {outlets.slice(0, 4).map((outlet) => (
+              <Grid item xs={12} sm={6} md={3} key={outlet._id}>
+                <Card sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #2F8F5B' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    {outlet.name}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                    {outlet.city}, {outlet.state}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: '#9AA0C0', mt: 1 }}>
+                    {outlet.phone}
+                  </Typography>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Card>
+      )}
 
       {/* Charts */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -248,6 +401,109 @@ const Dashboard = () => {
           </Table>
         </TableContainer>
       </Card>
+
+      {/* Add Outlet Dialog */}
+      <Dialog open={openOutletForm} onClose={() => setOpenOutletForm(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Outlet</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {outletError && <Alert severity="error">{outletError}</Alert>}
+            <TextField
+              fullWidth
+              label="Outlet Name *"
+              value={outletFormData.name}
+              onChange={(e) => setOutletFormData({ ...outletFormData, name: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Phone *"
+              value={outletFormData.phone}
+              onChange={(e) => setOutletFormData({ ...outletFormData, phone: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={outletFormData.email}
+              onChange={(e) => setOutletFormData({ ...outletFormData, email: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="City"
+              value={outletFormData.city}
+              onChange={(e) => setOutletFormData({ ...outletFormData, city: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="State"
+              value={outletFormData.state}
+              onChange={(e) => setOutletFormData({ ...outletFormData, state: e.target.value })}
+              size="small"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={outletFormData.isActive}
+                  onChange={(e) => setOutletFormData({ ...outletFormData, isActive: e.target.checked })}
+                />
+              }
+              label="Active"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenOutletForm(false)} disabled={savingOutlet}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveOutlet} variant="contained" disabled={savingOutlet}>
+            {savingOutlet ? 'Saving...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Employee Dialog */}
+      <Dialog open={openEmployeeForm} onClose={() => setOpenEmployeeForm(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Employee</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {employeeError && <Alert severity="error">{employeeError}</Alert>}
+            <TextField
+              fullWidth
+              label="Name *"
+              value={employeeFormData.name}
+              onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Email *"
+              type="email"
+              value={employeeFormData.email}
+              onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })}
+              size="small"
+            />
+            <TextField
+              fullWidth
+              label="Phone"
+              value={employeeFormData.phone}
+              onChange={(e) => setEmployeeFormData({ ...employeeFormData, phone: e.target.value })}
+              size="small"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEmployeeForm(false)} disabled={savingEmployee}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveEmployee} variant="contained" disabled={savingEmployee}>
+            {savingEmployee ? 'Saving...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

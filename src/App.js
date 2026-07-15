@@ -13,6 +13,8 @@ import Dashboard from './pages/Dashboard';
 import POSBilling from './pages/POSBilling';
 import WeighingCounter from './pages/WeighingCounter';
 import ProductMaster from './pages/ProductMaster';
+import Categories from './pages/Categories';
+import ProductAvailability from './pages/ProductAvailability';
 import Inventory from './pages/Inventory';
 import PurchaseOrders from './pages/PurchaseOrders';
 import StockTransfer from './pages/StockTransfer';
@@ -86,6 +88,22 @@ function AppContent() {
           element={
             <PrivateRoute>
               <ProductMaster />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <PrivateRoute>
+              <Categories />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/product-availability"
+          element={
+            <PrivateRoute>
+              <ProductAvailability />
             </PrivateRoute>
           }
         />
