@@ -64,6 +64,7 @@ const Dashboard = () => {
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [outletError, setOutletError] = useState('');
   const [employeeError, setEmployeeError] = useState('');
+  const [employeeTempPassword, setEmployeeTempPassword] = useState(null);
 
   const [outletFormData, setOutletFormData] = useState({
     name: '',
@@ -157,7 +158,11 @@ const Dashboard = () => {
       setSavingEmployee(true);
       setEmployeeError('');
 
-      await api.post('/employees', employeeFormData);
+      const response = await api.post('/users', employeeFormData);
+      setEmployeeTempPassword({
+        email: employeeFormData.email,
+        password: response.data.tempPassword,
+      });
 
       setOpenEmployeeForm(false);
       setEmployeeFormData({
@@ -201,6 +206,17 @@ const Dashboard = () => {
     return `₹${num.toLocaleString('en-IN')}`;
   };
 
+  // Builds "▲ 12% vs yesterday" from the API-computed change; hides when no prior data
+  const trendProps = (change, comparedTo) => {
+    if (change === undefined || change === null) return {};
+    const up = change >= 0;
+    return {
+      change: `${up ? '▲' : '▼'} ${Math.abs(change)}% ${comparedTo}`,
+      isPositive: up,
+      color: up ? '#22c55e' : '#ef4444',
+    };
+  };
+
   return (
     <Layout title="Dashboard">
       <Box sx={{ px: 3, pt: 3 }}>
@@ -215,27 +231,34 @@ const Dashboard = () => {
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {employeeTempPassword && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setEmployeeTempPassword(null)}>
+            Employee created. Temporary password for <strong>{employeeTempPassword.email}</strong>:{' '}
+            <strong style={{ fontFamily: 'JetBrains Mono, monospace' }}>{employeeTempPassword.password}</strong>
+            {' '}— share it with them so they can log in (shown only once).
+          </Alert>
+        )}
 
       {/* Top Metrics Row 1 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Today's Sales" value={formatCurrency(data.sales.today)} change="▲ 12% vs yesterday" />
+          <StatCard label="Today's Sales" value={formatCurrency(data.sales.today)} {...trendProps(data.changes?.today, 'vs yesterday')} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="This Week" value={formatCurrency(data.sales.week)} change="▲ 8% vs last week" />
+          <StatCard label="This Week" value={formatCurrency(data.sales.week)} {...trendProps(data.changes?.week, 'vs last week')} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="This Month" value={formatCurrency(data.sales.month)} change="▲ 11% vs last month" />
+          <StatCard label="This Month" value={formatCurrency(data.sales.month)} {...trendProps(data.changes?.month, 'vs last month')} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="This Year" value={formatCurrency(data.sales.year)} change="▲ 18% vs last year" />
+          <StatCard label="This Year" value={formatCurrency(data.sales.year)} {...trendProps(data.changes?.year, 'vs last year')} />
         </Grid>
       </Grid>
 
       {/* Financial Metrics Row 2 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Profit (Today)" value={formatCurrency(data.financial.profit)} subtitle="31.9% margin" color="#ef4444" />
+          <StatCard label="Profit (Month)" value={formatCurrency(data.financial.profit)} change="Revenue minus expenses" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard label="Revenue (Month)" value={formatCurrency(data.financial.revenue)} change="Before expenses" />
@@ -244,17 +267,22 @@ const Dashboard = () => {
           <StatCard label="Expenses (Month)" value={formatCurrency(data.financial.expenses)} change="Rent, salary, utilities" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Pending Payments" value={data.financial.pendingPayments} change={`Owed to 2 suppliers`} color="#f59e0b" />
+          <StatCard
+            label="Pending Payments"
+            value={formatCurrency(data.financial.pendingPayments)}
+            change={data.financial.pendingSuppliersCount > 0 ? `Owed to ${data.financial.pendingSuppliersCount} supplier${data.financial.pendingSuppliersCount > 1 ? 's' : ''}` : 'No dues'}
+            color="#f59e0b"
+          />
         </Grid>
       </Grid>
 
       {/* Operational Metrics Row 3 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Transactions" value={data.metrics.transactions} change="▲ 6% vs yesterday" />
+          <StatCard label="Transactions" value={data.metrics.transactions} {...trendProps(data.changes?.transactions, 'vs yesterday')} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Avg Basket" value={formatCurrency(data.metrics.avgBasket)} change="▼ 2% vs yesterday" isPositive={false} color="#ef4444" />
+          <StatCard label="Avg Basket" value={formatCurrency(data.metrics.avgBasket)} {...trendProps(data.changes?.avgBasket, 'vs yesterday')} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ p: 3, backgroundColor: '#FFFFFF', borderRadius: '9px' }}>

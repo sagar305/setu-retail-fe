@@ -33,9 +33,12 @@ import Layout from '../components/Layout';
 import api from '../services/api';
 import { SSEContext } from '../context/SSEContext';
 import { OutletContext } from '../context/OutletContext';
+import { useFeedback } from '../context/FeedbackContext';
 import useOffline from '../hooks/useOffline';
 
 const POSBilling = () => {
+  const { toast } = useFeedback();
+  const [receipt, setReceipt] = useState(null);
   const { getRecentEvents, isConnected } = useContext(SSEContext);
   const { selectedOutlet } = useContext(OutletContext);
   const { isOnline, saveOfflineInvoice } = useOffline();
@@ -267,14 +270,34 @@ const POSBilling = () => {
         },
       };
 
+      // Snapshot the sale before the cart is cleared so the receipt can render it
+      const receiptData = {
+        items: cart.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.pricing.sellingPrice,
+          total: item.pricing.sellingPrice * item.quantity,
+        })),
+        subtotal: calculateSubtotal(),
+        tax: calculateTax(),
+        discount: cartDiscount,
+        total: grandTotal,
+        paymentMethod,
+        tendered: paymentMethod === 'cash' ? tenderPayment : grandTotal,
+        change: paymentMethod === 'cash' ? Math.max(0, tenderPayment - grandTotal) : 0,
+        customerName: selectedCustomer?.name || 'Walk-in Customer',
+        outletName: selectedOutlet?.name || '',
+        date: new Date().toLocaleString('en-IN'),
+      };
+
       try {
         const response = await api.post('/invoices', invoiceData);
-        alert(`Invoice created: ${response.data.invoiceNumber}`);
+        setReceipt({ ...receiptData, invoiceNumber: response.data.invoiceNumber, offline: false });
       } catch (error) {
         if (!isOnline) {
           try {
             const offlineInvoice = await saveOfflineInvoice(invoiceData);
-            alert(`Invoice saved offline (will sync when online): ${offlineInvoice._id}`);
+            setReceipt({ ...receiptData, invoiceNumber: offlineInvoice._id, offline: true });
           } catch (offlineError) {
             throw new Error('Failed to save invoice offline: ' + offlineError.message);
           }
@@ -290,10 +313,60 @@ const POSBilling = () => {
       setTenderPayment(0);
       setPaymentMethod('cash');
     } catch (error) {
-      alert('Error creating invoice: ' + error.message);
+      toast('Error creating invoice: ' + error.message, 'error');
     } finally {
       setSavingInvoice(false);
     }
+  };
+
+  const printReceipt = () => {
+    if (!receipt) return;
+    const rows = receipt.items
+      .map(
+        (item) =>
+          `<tr><td>${item.name}</td><td style="text-align:center">${item.quantity}</td><td style="text-align:right">₹${item.price.toFixed(2)}</td><td style="text-align:right">₹${item.total.toFixed(2)}</td></tr>`
+      )
+      .join('');
+    const html = `
+      <html>
+        <head>
+          <title>Receipt ${receipt.invoiceNumber}</title>
+          <style>
+            body { font-family: monospace; width: 280px; margin: 0 auto; font-size: 12px; }
+            h2, p.center { text-align: center; margin: 4px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+            th { text-align: left; border-bottom: 1px dashed #000; padding: 2px 0; }
+            td { padding: 2px 0; }
+            .totals td { border-top: 1px dashed #000; }
+            .grand { font-weight: bold; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <h2>Setu Retail POS</h2>
+          ${receipt.outletName ? `<p class="center">${receipt.outletName}</p>` : ''}
+          <p class="center">${receipt.date}</p>
+          <p class="center">Invoice: ${receipt.invoiceNumber}</p>
+          <p class="center">Customer: ${receipt.customerName}</p>
+          <table>
+            <thead><tr><th>Item</th><th>Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amt</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tbody class="totals">
+              <tr><td colspan="3">Subtotal</td><td style="text-align:right">₹${receipt.subtotal.toFixed(2)}</td></tr>
+              <tr><td colspan="3">Tax</td><td style="text-align:right">₹${receipt.tax.toFixed(2)}</td></tr>
+              ${receipt.discount > 0 ? `<tr><td colspan="3">Discount</td><td style="text-align:right">-₹${receipt.discount.toFixed(2)}</td></tr>` : ''}
+              <tr class="grand"><td colspan="3">TOTAL</td><td style="text-align:right">₹${receipt.total.toFixed(2)}</td></tr>
+              <tr><td colspan="3">Paid (${receipt.paymentMethod})</td><td style="text-align:right">₹${receipt.tendered.toFixed(2)}</td></tr>
+              ${receipt.change > 0 ? `<tr><td colspan="3">Change</td><td style="text-align:right">₹${receipt.change.toFixed(2)}</td></tr>` : ''}
+            </tbody>
+          </table>
+          <p class="center">Thank you! Visit again.</p>
+        </body>
+      </html>`;
+    const printWindow = window.open('', '', 'width=320,height=600');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   };
 
   const filteredProducts = products.filter((p) => {
@@ -720,6 +793,86 @@ const POSBilling = () => {
             disabled={savingInvoice || (paymentMethod === 'cash' && tenderPayment < calculateTotal())}
           >
             {savingInvoice ? 'Processing...' : `Pay ₹${calculateTotal().toFixed(0)}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Post-sale receipt */}
+      <Dialog open={Boolean(receipt)} onClose={() => setReceipt(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
+          <Typography component="span" sx={{ fontSize: 40, display: 'block' }}>✅</Typography>
+          Sale Complete
+        </DialogTitle>
+        <DialogContent>
+          {receipt && (
+            <Box sx={{ mt: 1 }}>
+              {receipt.offline && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Saved offline — this bill will sync automatically once the internet is back.
+                </Alert>
+              )}
+              <Box sx={{ textAlign: 'center', mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#9AA0C0' }}>Invoice</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {receipt.invoiceNumber}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+                  {receipt.date} • {receipt.customerName}
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 1 }} />
+              {receipt.items.map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="body2">
+                    {item.name} × {item.quantity}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    ₹{item.total.toFixed(2)}
+                  </Typography>
+                </Box>
+              ))}
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Subtotal</Typography>
+                <Typography variant="body2">₹{receipt.subtotal.toFixed(2)}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Tax</Typography>
+                <Typography variant="body2">₹{receipt.tax.toFixed(2)}</Typography>
+              </Box>
+              {receipt.discount > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Discount</Typography>
+                  <Typography variant="body2" sx={{ color: '#2F8F5B' }}>-₹{receipt.discount.toFixed(2)}</Typography>
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Total</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#F2A03D' }}>
+                  ₹{receipt.total.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                  Paid ({receipt.paymentMethod})
+                </Typography>
+                <Typography variant="body2">₹{receipt.tendered.toFixed(2)}</Typography>
+              </Box>
+              {receipt.change > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>Change to return</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>₹{receipt.change.toFixed(2)}</Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button fullWidth variant="outlined" onClick={printReceipt}>
+            Print Receipt
+          </Button>
+          <Button fullWidth variant="contained" onClick={() => setReceipt(null)}>
+            New Sale
           </Button>
         </DialogActions>
       </Dialog>

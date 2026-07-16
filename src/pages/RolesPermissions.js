@@ -7,10 +7,12 @@ import {
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const emptyForm = { name: '', description: '', permissions: {} };
 
 const RolesPermissions = () => {
+  const { toast, confirm } = useFeedback();
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,10 +132,17 @@ const RolesPermissions = () => {
   };
 
   const handleDeleteRole = async (roleId) => {
-    if (!window.confirm('Are you sure you want to delete this role?')) return;
+    const ok = await confirm({
+      title: 'Delete role?',
+      message: 'Employees using this role will lose its permissions.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       setError('');
       await api.delete(`/roles/${roleId}`);
+      toast('Role deleted');
       await fetchRoles();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete role');

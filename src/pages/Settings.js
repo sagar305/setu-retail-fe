@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { Save } from 'lucide-react';
 import Layout from '../components/Layout';
+import api from '../services/api';
 
 const SettingSection = ({ title, children }) => (
   <Box sx={{ mb: 3 }}>
@@ -115,12 +116,21 @@ const Settings = () => {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      // Load settings from API if available
-      // For now, we'll use default values
-      // const response = await api.get('/settings');
-      setLoading(false);
+      const response = await api.get('/settings');
+      const s = response.data || {};
+      if (s.business) setBusinessSettings((prev) => ({ ...prev, ...s.business }));
+      if (s.branding) setBrandingSettings((prev) => ({ ...prev, ...s.branding }));
+      if (s.tax) setTaxSettings((prev) => ({ ...prev, ...s.tax }));
+      if (s.inventory) setInventorySettings((prev) => ({ ...prev, ...s.inventory }));
+      if (s.printer) setPrinterSettings((prev) => ({ ...prev, ...s.printer }));
+      if (s.cashDrawer) setCashDrawerSettings((prev) => ({ ...prev, ...s.cashDrawer }));
+      if (s.localization) setLocalizationSettings((prev) => ({ ...prev, ...s.localization }));
+      if (s.audit) setAuditSettings((prev) => ({ ...prev, ...s.audit }));
+      if (s.barcodeScale) setBarcodeScaleSettings((prev) => ({ ...prev, ...s.barcodeScale }));
     } catch (err) {
+      setError('Failed to load settings');
       console.error('Error loading settings:', err);
+    } finally {
       setLoading(false);
     }
   };
@@ -131,10 +141,20 @@ const Settings = () => {
       setError('');
       setSuccess('');
 
-      // In a real app, you would call the API to save settings
-      // await api.put(`/settings/${section}`, settingsData);
+      const payloads = {
+        business: { business: businessSettings },
+        branding: { branding: brandingSettings },
+        'tax-inventory': { tax: taxSettings, inventory: inventorySettings },
+        printer: { printer: printerSettings },
+        'cash-drawer': { cashDrawer: cashDrawerSettings },
+        localization: { localization: localizationSettings },
+        'audit-security': { audit: auditSettings },
+        'barcode-scale': { barcodeScale: barcodeScaleSettings },
+      };
 
-      setSuccess(`${section} settings saved successfully!`);
+      await api.put('/settings', payloads[section]);
+
+      setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save settings');

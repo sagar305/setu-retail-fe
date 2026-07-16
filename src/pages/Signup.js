@@ -10,8 +10,10 @@ import {
   Alert,
 } from '@mui/material';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const Signup = () => {
+  const { toast } = useFeedback();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -54,7 +56,7 @@ const Signup = () => {
         password: formData.password,
       });
 
-      alert('Account created successfully! Please login.');
+      toast('Account created successfully! Please login.');
       navigate('/login');
     } catch (err) {
       setError(err.response?.data?.message || 'Signup failed');

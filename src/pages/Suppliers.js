@@ -23,6 +23,7 @@ import { Plus, Phone, Mail, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
   <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px' }}>
@@ -36,6 +37,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Suppliers = () => {
+  const { toast, confirm } = useFeedback();
   const { selectedOutlet } = useContext(OutletContext);
   const [suppliers, setSuppliers] = useState([]);
   const [stats, setStats] = useState({});
@@ -115,14 +117,21 @@ const Suppliers = () => {
   };
 
   const handleDeleteSupplier = async (supplierId) => {
-    if (window.confirm('Delete this supplier?')) {
-      try {
-        await api.delete(`/suppliers/${supplierId}`);
-        fetchSuppliers();
-        setShowDetail(false);
-      } catch (error) {
-        console.error('Error deleting supplier:', error);
-      }
+    const ok = await confirm({
+      title: 'Delete supplier?',
+      message: 'This supplier and their payment records link will be removed.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/suppliers/${supplierId}`);
+      toast('Supplier deleted');
+      fetchSuppliers();
+      setShowDetail(false);
+    } catch (error) {
+      toast('Failed to delete supplier', 'error');
+      console.error('Error deleting supplier:', error);
     }
   };
 

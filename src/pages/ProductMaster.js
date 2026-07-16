@@ -29,8 +29,10 @@ import {
 import { Plus, Edit2, Copy, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const ProductMaster = () => {
+  const { toast, confirm } = useFeedback();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,14 +209,20 @@ const ProductMaster = () => {
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await api.delete(`/products/${productId}`);
-        await fetchProducts();
-      } catch (err) {
-        setError('Failed to delete product');
-        console.error('Error deleting product:', err);
-      }
+    const ok = await confirm({
+      title: 'Delete product?',
+      message: 'This product will no longer appear in billing or inventory. This cannot be undone.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/products/${productId}`);
+      toast('Product deleted');
+      await fetchProducts();
+    } catch (err) {
+      setError('Failed to delete product');
+      console.error('Error deleting product:', err);
     }
   };
 

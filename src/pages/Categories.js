@@ -21,8 +21,10 @@ import {
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const Categories = () => {
+  const { toast, confirm } = useFeedback();
   const [categories, setCategories] = useState([]);
   const [openForm, setOpenForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -101,15 +103,21 @@ const Categories = () => {
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        setError('');
-        await api.delete(`/categories/${categoryId}`);
-        await fetchCategories();
-      } catch (err) {
-        setError('Failed to delete category');
-        console.error('Error deleting category:', err);
-      }
+    const ok = await confirm({
+      title: 'Delete category?',
+      message: 'Products in this category will keep working but lose this grouping.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      setError('');
+      await api.delete(`/categories/${categoryId}`);
+      toast('Category deleted');
+      await fetchCategories();
+    } catch (err) {
+      setError('Failed to delete category');
+      console.error('Error deleting category:', err);
     }
   };
 

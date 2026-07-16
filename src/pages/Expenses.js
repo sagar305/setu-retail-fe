@@ -28,6 +28,7 @@ import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
   <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px' }}>
@@ -41,6 +42,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Expenses = () => {
+  const { toast, confirm } = useFeedback();
   const { selectedOutlet } = useContext(OutletContext);
   const [expenses, setExpenses] = useState([]);
   const [stats, setStats] = useState({});
@@ -161,16 +163,22 @@ const Expenses = () => {
   };
 
   const handleDeleteExpense = async (expenseId) => {
-    if (window.confirm('Are you sure you want to delete this expense?')) {
-      try {
-        setError('');
-        await api.delete(`/expenses/${expenseId}`);
-        await fetchExpenses();
-        await fetchStats();
-      } catch (err) {
-        setError('Failed to delete expense');
-        console.error('Error deleting expense:', err);
-      }
+    const ok = await confirm({
+      title: 'Delete expense?',
+      message: 'This expense entry will be removed from your records.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      setError('');
+      await api.delete(`/expenses/${expenseId}`);
+      toast('Expense deleted');
+      await fetchExpenses();
+      await fetchStats();
+    } catch (err) {
+      setError('Failed to delete expense');
+      console.error('Error deleting expense:', err);
     }
   };
 

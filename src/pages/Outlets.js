@@ -21,8 +21,10 @@ import {
 import { Plus, Edit2, Trash2, Users } from 'lucide-react';
 import Layout from '../components/Layout';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const Outlets = () => {
+  const { toast, confirm } = useFeedback();
   const [outlets, setOutlets] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [openForm, setOpenForm] = useState(false);
@@ -64,8 +66,8 @@ const Outlets = () => {
 
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await api.get('/employees');
-      const employeesList = Array.isArray(response.data) ? response.data : (response.data.employees || []);
+      const response = await api.get('/users');
+      const employeesList = Array.isArray(response.data) ? response.data : (response.data.users || []);
       setEmployees(employeesList);
     } catch (err) {
       console.error('Error fetching employees:', err);
@@ -136,15 +138,21 @@ const Outlets = () => {
   };
 
   const handleDeleteOutlet = async (outletId) => {
-    if (window.confirm('Are you sure you want to delete this outlet?')) {
-      try {
-        setError('');
-        await api.delete(`/outlets/${outletId}`);
-        await fetchOutlets();
-      } catch (err) {
-        setError('Failed to delete outlet');
-        console.error('Error deleting outlet:', err);
-      }
+    const ok = await confirm({
+      title: 'Delete outlet?',
+      message: 'This outlet will be removed. This action cannot be undone.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      setError('');
+      await api.delete(`/outlets/${outletId}`);
+      toast('Outlet deleted');
+      await fetchOutlets();
+    } catch (err) {
+      setError('Failed to delete outlet');
+      console.error('Error deleting outlet:', err);
     }
   };
 
@@ -155,14 +163,23 @@ const Outlets = () => {
 
   const handleAssignEmployee = async (outletId, employeeId) => {
     try {
-      // This would typically call an API to assign an employee to an outlet
-      // For now, we'll just show a success message
-      alert('Employee assigned successfully');
-      setShowEmployeeManager(false);
-      await fetchOutlets();
+      await api.put(`/users/${employeeId}`, { outlet: outletId });
+      toast('Employee assigned to outlet');
+      await fetchEmployees();
     } catch (err) {
-      setError('Failed to assign employee');
+      toast(err.response?.data?.message || 'Failed to assign employee', 'error');
       console.error('Error assigning employee:', err);
+    }
+  };
+
+  const handleUnassignEmployee = async (employeeId) => {
+    try {
+      await api.put(`/users/${employeeId}`, { outlet: null });
+      toast('Employee unassigned');
+      await fetchEmployees();
+    } catch (err) {
+      toast(err.response?.data?.message || 'Failed to unassign employee', 'error');
+      console.error('Error unassigning employee:', err);
     }
   };
 
@@ -415,35 +432,54 @@ const Outlets = () => {
                   No employees available
                 </Typography>
               ) : (
-                employees.map((emp) => (
-                  <Card
-                    key={emp._id}
-                    sx={{
-                      p: 2,
-                      mb: 1,
-                      cursor: 'pointer',
-                      '&:hover': { backgroundColor: '#F5F3ED' },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {emp.name}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
-                          {emp.email || emp.phone}
-                        </Typography>
+                employees.map((emp) => {
+                  const assignedHere = emp.outlet?._id === selectedOutlet._id || emp.outlet === selectedOutlet._id;
+                  return (
+                    <Card
+                      key={emp._id}
+                      sx={{
+                        p: 2,
+                        mb: 1,
+                        backgroundColor: assignedHere ? '#E5F9F0' : 'inherit',
+                        '&:hover': { backgroundColor: assignedHere ? '#E5F9F0' : '#F5F3ED' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {emp.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+                            {emp.email || emp.phone}
+                          </Typography>
+                          {emp.outlet?.name && !assignedHere && (
+                            <Typography variant="caption" sx={{ display: 'block', color: '#F2A03D' }}>
+                              Currently at {emp.outlet.name}
+                            </Typography>
+                          )}
+                        </Box>
+                        {assignedHere ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleUnassignEmployee(emp._id)}
+                          >
+                            Remove
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleAssignEmployee(selectedOutlet._id, emp._id)}
+                          >
+                            Assign
+                          </Button>
+                        )}
                       </Box>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleAssignEmployee(selectedOutlet._id, emp._id)}
-                      >
-                        Assign
-                      </Button>
-                    </Box>
-                  </Card>
-                ))
+                    </Card>
+                  );
+                })
               )}
             </Box>
 

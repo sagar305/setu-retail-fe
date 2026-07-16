@@ -5,6 +5,7 @@ import { AuthContext, AuthProvider } from './context/AuthContext';
 import { SSEProvider } from './context/SSEContext';
 import { OfflineProvider } from './context/OfflineContext';
 import { OutletProvider } from './context/OutletContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import indexedDB from './services/indexedDB';
 
 import Login from './pages/Login';
@@ -56,6 +57,7 @@ const PrivateRoute = ({ children }) => {
 function AppContent() {
   return (
     <ThemeProvider theme={theme}>
+      <FeedbackProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -206,6 +208,7 @@ function AppContent() {
         />
         <Route path="/" element={<Navigate to="/dashboard" />} />
       </Routes>
+      </FeedbackProvider>
     </ThemeProvider>
   );
 }

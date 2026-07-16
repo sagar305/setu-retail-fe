@@ -30,6 +30,7 @@ import { Plus, Phone, Mail, Gift, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
   <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px' }}>
@@ -43,6 +44,7 @@ const StatCard = ({ label, value, color = '#1B1F3B' }) => (
 );
 
 const Customers = () => {
+  const { toast, confirm } = useFeedback();
   const { selectedOutlet } = useContext(OutletContext);
   const [customers, setCustomers] = useState([]);
   const [stats, setStats] = useState({});
@@ -208,16 +210,22 @@ const Customers = () => {
   };
 
   const handleDeleteCustomer = async (customerId) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        setError('');
-        await api.delete(`/customers/${customerId}`);
-        await fetchCustomers();
-        setShowDetail(false);
-      } catch (err) {
-        setError('Failed to delete customer');
-        console.error('Error deleting customer:', err);
-      }
+    const ok = await confirm({
+      title: 'Delete customer?',
+      message: 'This customer and their purchase history link will be removed. This cannot be undone.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      setError('');
+      await api.delete(`/customers/${customerId}`);
+      toast('Customer deleted');
+      await fetchCustomers();
+      setShowDetail(false);
+    } catch (err) {
+      setError('Failed to delete customer');
+      console.error('Error deleting customer:', err);
     }
   };
 
