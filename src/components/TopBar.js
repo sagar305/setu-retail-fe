@@ -1,4 +1,5 @@
 import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -12,12 +13,23 @@ import {
 } from '@mui/material';
 import { Bell, ChevronDown, X } from 'lucide-react';
 import { OutletContext } from '../context/OutletContext';
+import { AuthContext } from '../context/AuthContext';
 import OfflineSyncStatus from './OfflineSyncStatus';
 
 const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
   const { outlets, selectedOutlet, selectOutlet } = useContext(OutletContext);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [showOfflineAlert, setShowOfflineAlert] = useState(isOffline);
+
+  const getInitials = (name) =>
+    (name || 'User')
+      .split(' ')
+      .map((n) => n.charAt(0))
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
 
   const handleOutletChange = (event) => {
     setAnchorEl(event.currentTarget);
@@ -102,13 +114,14 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
 
             <Button
               variant="text"
+              onClick={() => navigate('/notifications')}
               sx={{
                 minWidth: 'auto',
                 padding: 0,
                 color: '#0E1124',
               }}
             >
-              <Badge badgeContent={3} color="error">
+              <Badge color="error" variant="dot">
                 <Bell size={20} />
               </Badge>
             </Button>
@@ -126,7 +139,7 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
                 color: '#FFF',
               }}
             >
-              RK
+              {getInitials(user?.name)}
             </Box>
           </Box>
         </Toolbar>

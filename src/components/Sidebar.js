@@ -22,6 +22,11 @@ import {
   User,
   Settings,
   LogOut,
+  Scale,
+  Receipt,
+  TrendingUp,
+  Bell,
+  Shield,
 } from 'lucide-react';
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
@@ -33,7 +38,7 @@ const Sidebar = () => {
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: BarChart, section: 'Main' },
     { path: '/pos-billing', label: 'POS Billing', icon: ShoppingCart, section: 'Operations' },
-    { path: '/weighing-counter', label: 'Weighing Counter', icon: Box, section: 'Operations' },
+    { path: '/weighing-counter', label: 'Weighing Counter', icon: Scale, section: 'Operations' },
     { path: '/inventory', label: 'Inventory', icon: Boxes, section: 'Operations' },
     { path: '/product-master', label: 'Product Master', icon: Package, section: 'Catalog' },
     { path: '/categories', label: 'Categories', icon: Package, section: 'Catalog' },
@@ -44,6 +49,10 @@ const Sidebar = () => {
     { path: '/outlets', label: 'Outlets', icon: Users, section: 'Management' },
     { path: '/employees', label: 'Employees', icon: User, section: 'Management' },
     { path: '/suppliers', label: 'Suppliers', icon: User, section: 'Management' },
+    { path: '/expenses', label: 'Expenses', icon: Receipt, section: 'Finance' },
+    { path: '/reports', label: 'Reports', icon: TrendingUp, section: 'Reports' },
+    { path: '/notifications', label: 'Notifications', icon: Bell, section: 'Admin' },
+    { path: '/roles-permissions', label: 'Roles & Permissions', icon: Shield, section: 'Admin' },
     { path: '/settings', label: 'Settings', icon: Settings, section: 'Admin' },
   ];
 
@@ -124,8 +133,8 @@ const Sidebar = () => {
               {user.name?.charAt(0)}
             </Avatar>
             <Typography variant="body2">{user.name}</Typography>
-            <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
-              Manager
+            <Typography variant="caption" sx={{ color: '#9AA0C0', textTransform: 'capitalize' }}>
+              {user.role?.name || user.role || 'User'}
             </Typography>
             <Button
               fullWidth
