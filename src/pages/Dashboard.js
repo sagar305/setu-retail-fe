@@ -28,8 +28,8 @@ import { AuthContext } from '../context/AuthContext';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
 
-const StatCard = ({ label, value, change, isPositive = true, color = '#22c55e' }) => (
-  <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px', boxShadow: '0 1px 3px rgba(27,31,59,0.08)' }}>
+const StatCard = ({ label, value, change, caption, isPositive = true, color = '#22c55e' }) => (
+  <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px', boxShadow: '0 1px 3px rgba(27,31,59,0.08)', height: '100%' }}>
     <Typography variant="caption" sx={{ color: '#9AA0C0', fontWeight: 600, textTransform: 'uppercase' }}>
       {label}
     </Typography>
@@ -47,6 +47,11 @@ const StatCard = ({ label, value, change, isPositive = true, color = '#22c55e' }
           {change}
         </Typography>
       </Box>
+    )}
+    {!change && caption && (
+      <Typography variant="caption" sx={{ color: '#9AA0C0' }}>
+        {caption}
+      </Typography>
     )}
   </Card>
 );
@@ -220,15 +225,9 @@ const Dashboard = () => {
   return (
     <Layout title="Dashboard">
       <Box sx={{ px: 3, pt: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-            Dashboard
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#64748b' }}>
-            Welcome back, {user?.name}
-          </Typography>
-        </Box>
+        <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
+          Welcome back, {user?.name} — here's how your business is doing today.
+        </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {employeeTempPassword && (
@@ -258,20 +257,19 @@ const Dashboard = () => {
       {/* Financial Metrics Row 2 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Profit (Month)" value={formatCurrency(data.financial.profit)} change="Revenue minus expenses" />
+          <StatCard label="Profit (Month)" value={formatCurrency(data.financial.profit)} caption="Revenue minus expenses" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Revenue (Month)" value={formatCurrency(data.financial.revenue)} change="Before expenses" />
+          <StatCard label="Revenue (Month)" value={formatCurrency(data.financial.revenue)} caption="Before expenses" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="Expenses (Month)" value={formatCurrency(data.financial.expenses)} change="Rent, salary, utilities" />
+          <StatCard label="Expenses (Month)" value={formatCurrency(data.financial.expenses)} caption="Rent, salary, utilities" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             label="Pending Payments"
             value={formatCurrency(data.financial.pendingPayments)}
-            change={data.financial.pendingSuppliersCount > 0 ? `Owed to ${data.financial.pendingSuppliersCount} supplier${data.financial.pendingSuppliersCount > 1 ? 's' : ''}` : 'No dues'}
-            color="#f59e0b"
+            caption={data.financial.pendingSuppliersCount > 0 ? `Owed to ${data.financial.pendingSuppliersCount} supplier${data.financial.pendingSuppliersCount > 1 ? 's' : ''}` : 'No dues'}
           />
         </Grid>
       </Grid>
@@ -318,15 +316,13 @@ const Dashboard = () => {
           variant="contained"
           startIcon={<Plus size={16} />}
           onClick={() => setOpenOutletForm(true)}
-          sx={{ backgroundColor: '#2F8F5B' }}
         >
           New Outlet
         </Button>
         <Button
-          variant="contained"
+          variant="outlined"
           startIcon={<Plus size={16} />}
           onClick={() => setOpenEmployeeForm(true)}
-          sx={{ backgroundColor: '#1B5E8F' }}
         >
           New Employee
         </Button>

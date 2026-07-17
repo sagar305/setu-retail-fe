@@ -484,9 +484,40 @@ const POSBilling = () => {
                   }}
                   onClick={() => handleAddToCart(product)}
                 >
-                  <Box sx={{ backgroundColor: '#F2A03D', height: '60px', borderRadius: '6px', mb: 1 }} />
-                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
-                    {product.name.substring(0, 15)}
+                  <Box
+                    sx={{
+                      backgroundColor: '#FDF3E3',
+                      color: '#F2A03D',
+                      height: '60px',
+                      borderRadius: '6px',
+                      mb: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '22px',
+                    }}
+                  >
+                    {(product.name || '?')
+                      .split(' ')
+                      .map((w) => w.replace(/[^a-zA-Z0-9]/g, '').charAt(0))
+                      .join('')
+                      .substring(0, 2)
+                      .toUpperCase() || '?'}
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: 1.3,
+                      minHeight: '2.6em',
+                    }}
+                  >
+                    {product.name}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#9AA0C0', display: 'block' }}>
                     {product.sku}

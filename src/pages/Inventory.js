@@ -25,6 +25,7 @@ import { AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { formatINR } from '../utils/format';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
   <Card sx={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '9px' }}>
@@ -124,7 +125,7 @@ const Inventory = () => {
           <StatCard label="OUT OF STOCK" value={stats.outOfStockCount || 0} color="#C24A3D" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="STOCK VALUE" value={`₹${(stats.totalStockValue || 0).toFixed(0)}`} />
+          <StatCard label="STOCK VALUE" value={formatINR(stats.totalStockValue)} />
         </Grid>
       </Grid>
 

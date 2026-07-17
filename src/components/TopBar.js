@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -15,6 +15,7 @@ import { Bell, ChevronDown, X } from 'lucide-react';
 import { OutletContext } from '../context/OutletContext';
 import { AuthContext } from '../context/AuthContext';
 import OfflineSyncStatus from './OfflineSyncStatus';
+import api from '../services/api';
 
 const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
   const { outlets, selectedOutlet, selectOutlet } = useContext(OutletContext);
@@ -22,6 +23,20 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [showOfflineAlert, setShowOfflineAlert] = useState(isOffline);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/notifications')
+      .then((response) => {
+        if (!cancelled) setUnreadCount(response.data.unread || 0);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getInitials = (name) =>
     (name || 'User')
@@ -121,7 +136,7 @@ const TopBar = ({ title = 'Dashboard', isOffline = false }) => {
                 color: '#0E1124',
               }}
             >
-              <Badge color="error" variant="dot">
+              <Badge color="error" badgeContent={unreadCount} max={9}>
                 <Bell size={20} />
               </Badge>
             </Button>

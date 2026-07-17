@@ -50,7 +50,7 @@ const Sidebar = () => {
     { path: '/employees', label: 'Employees', icon: User, section: 'Management' },
     { path: '/suppliers', label: 'Suppliers', icon: User, section: 'Management' },
     { path: '/expenses', label: 'Expenses', icon: Receipt, section: 'Finance' },
-    { path: '/reports', label: 'Reports', icon: TrendingUp, section: 'Reports' },
+    { path: '/reports', label: 'Reports', icon: TrendingUp, section: 'Finance' },
     { path: '/notifications', label: 'Notifications', icon: Bell, section: 'Admin' },
     { path: '/roles-permissions', label: 'Roles & Permissions', icon: Shield, section: 'Admin' },
     { path: '/settings', label: 'Settings', icon: Settings, section: 'Admin' },
@@ -88,34 +88,63 @@ const Sidebar = () => {
         </Typography>
       </Box>
 
-      <List sx={{ flex: 1 }}>
-        {menuItems.map((item) => {
+      <List
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          pt: 0,
+          '&::-webkit-scrollbar': { width: 6 },
+          '&::-webkit-scrollbar-thumb': { backgroundColor: '#1B1F3B', borderRadius: 3 },
+        }}
+      >
+        {menuItems.map((item, idx) => {
           const Icon = item.icon;
           const active = isActive(item.path);
+          const showSectionHeader = idx === 0 || menuItems[idx - 1].section !== item.section;
           return (
-            <ListItem
-              key={item.path}
-              component={Link}
-              to={item.path}
-              sx={{
-                backgroundColor: active ? '#1B1F3B' : 'transparent',
-                borderLeft: active ? '3px solid #F2A03D' : '3px solid transparent',
-                color: active ? '#F2EFE7' : '#9AA0C0',
-                '&:hover': {
-                  backgroundColor: '#1B1F3B',
-                },
-              }}
-            >
-              <ListItemIcon
+            <React.Fragment key={item.path}>
+              {showSectionHeader && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    px: 2,
+                    pt: idx === 0 ? 1.5 : 2,
+                    pb: 0.5,
+                    color: '#5F6478',
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {item.section}
+                </Typography>
+              )}
+              <ListItem
+                component={Link}
+                to={item.path}
                 sx={{
-                  minWidth: 40,
-                  color: 'inherit',
+                  py: 0.75,
+                  backgroundColor: active ? '#1B1F3B' : 'transparent',
+                  borderLeft: active ? '3px solid #F2A03D' : '3px solid transparent',
+                  color: active ? '#F2EFE7' : '#9AA0C0',
+                  '&:hover': {
+                    backgroundColor: '#1B1F3B',
+                  },
                 }}
               >
-                <Icon size={20} />
-              </ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItem>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 36,
+                    color: 'inherit',
+                  }}
+                >
+                  <Icon size={18} />
+                </ListItemIcon>
+                <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '13.5px' }} />
+              </ListItem>
+            </React.Fragment>
           );
         })}
       </List>

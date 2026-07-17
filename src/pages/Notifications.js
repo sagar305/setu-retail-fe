@@ -82,18 +82,22 @@ const Notifications = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {notifications.map((notif) => (
-                <TableRow key={notif._id} sx={{ backgroundColor: !notif.read ? '#F5F3ED' : 'transparent' }}>
-                  <TableCell>
-                    <Chip label={notif.type.toUpperCase()} size="small" sx={{ color: getTypeColor(notif.type) }} />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: !notif.read ? 700 : 400 }}>{notif.message}</TableCell>
-                  <TableCell>{new Date(notif.date).toLocaleDateString()}</TableCell>
-                  <TableCell align="center">
-                    <Button variant="text" size="small" onClick={() => handleDeleteNotification(notif._id)}><Trash2 size={16} /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {notifications.map((notif) => {
+                const id = notif._id || notif.id;
+                const when = notif.date || notif.createdAt;
+                return (
+                  <TableRow key={id} sx={{ backgroundColor: !notif.read ? '#F5F3ED' : 'transparent' }}>
+                    <TableCell>
+                      <Chip label={(notif.type || 'info').toUpperCase()} size="small" sx={{ color: getTypeColor(notif.type) }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: !notif.read ? 700 : 400 }}>{notif.message}</TableCell>
+                    <TableCell>{when ? new Date(when).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</TableCell>
+                    <TableCell align="center">
+                      <Button variant="text" size="small" onClick={() => handleDeleteNotification(id)}><Trash2 size={16} /></Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

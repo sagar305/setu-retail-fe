@@ -22,6 +22,7 @@ import { Download } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { formatINR } from '../utils/format';
 
 const SimpleBarChart = ({ data, height = 300 }) => {
   if (!data || data.length === 0) {
@@ -297,7 +298,7 @@ const Reports = () => {
                       TOTAL SALES
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#F2A03D' }}>
-                      ₹{reportData.totalSales?.toFixed(0) || 0}
+                      {formatINR(reportData.totalSales)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -317,7 +318,7 @@ const Reports = () => {
                       TOTAL TAX
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#2F8F5B' }}>
-                      ₹{reportData.totalTax?.toFixed(0) || 0}
+                      {formatINR(reportData.totalTax)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -327,7 +328,7 @@ const Reports = () => {
                       TOTAL DISCOUNT
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#C24A3D' }}>
-                      ₹{reportData.totalDiscount?.toFixed(0) || 0}
+                      {formatINR(reportData.totalDiscount)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -342,7 +343,7 @@ const Reports = () => {
                       TOTAL REVENUE
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#F2A03D' }}>
-                      ₹{reportData.totalRevenue?.toFixed(0) || 0}
+                      {formatINR(reportData.totalRevenue)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -377,7 +378,7 @@ const Reports = () => {
                       STOCK VALUE
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#2F8F5B' }}>
-                      ₹{reportData.totalStockValue?.toFixed(0) || 0}
+                      {formatINR(reportData.totalStockValue)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -402,7 +403,7 @@ const Reports = () => {
                       AVG PURCHASE
                     </Typography>
                     <Typography variant="h5" sx={{ fontWeight: 700, my: 1, color: '#F2A03D' }}>
-                      ₹{reportData.averagePurchaseValue?.toFixed(0) || 0}
+                      {formatINR(reportData.averagePurchaseValue)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -452,7 +453,7 @@ const Reports = () => {
                       <TableRow key={idx} sx={{ '&:hover': { backgroundColor: '#F5F3ED' } }}>
                         <TableCell>{new Date(item.date).toLocaleDateString()}</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>
-                          ₹{(item.totalAmount || 0).toFixed(0)}
+                          {formatINR(item.totalAmount)}
                         </TableCell>
                         <TableCell align="right">{item.itemCount || 0}</TableCell>
                       </TableRow>
@@ -463,7 +464,7 @@ const Reports = () => {
                         <TableCell>{item.productName}</TableCell>
                         <TableCell align="right">{item.quantity || 0}</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>
-                          ₹{(item.revenue || 0).toFixed(0)}
+                          {formatINR(item.revenue)}
                         </TableCell>
                       </TableRow>
                     ))}

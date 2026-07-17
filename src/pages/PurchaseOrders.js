@@ -7,6 +7,7 @@ import { Plus, Edit2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { formatINR } from '../utils/format';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
   <Card sx={{ padding: '24px' }}>
@@ -70,7 +71,7 @@ const PurchaseOrders = () => {
           <StatCard label="RECEIVED" value={stats.receivedCount || 0} color="#2F8F5B" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="TOTAL VALUE" value={`₹${(stats.totalPurchaseValue || 0).toFixed(0)}`} />
+          <StatCard label="TOTAL VALUE" value={formatINR(stats.totalPurchaseValue)} />
         </Grid>
       </Grid>
 
@@ -99,7 +100,7 @@ const PurchaseOrders = () => {
               <TableRow key={po._id}>
                 <TableCell sx={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{po.poNumber}</TableCell>
                 <TableCell>{po.supplier?.name}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>₹{(po.grandTotal || 0).toFixed(0)}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{formatINR(po.grandTotal)}</TableCell>
                 <TableCell><Chip label={po.status.toUpperCase()} sx={{ color: getStatusColor(po.status) }} size="small" /></TableCell>
                 <TableCell align="center"><Button variant="text" size="small"><Edit2 size={16} /></Button></TableCell>
               </TableRow>

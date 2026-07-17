@@ -28,6 +28,7 @@ import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { formatINR } from '../utils/format';
 import { useFeedback } from '../context/FeedbackContext';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -243,7 +244,7 @@ const Expenses = () => {
     <Layout title="Expenses">
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="TOTAL EXPENSES" value={`₹${(stats.totalExpenses || 0).toFixed(0)}`} />
+          <StatCard label="TOTAL EXPENSES" value={formatINR(stats.totalExpenses)} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard label="PENDING" value={stats.pendingCount || 0} color="#F2A03D" />

@@ -30,6 +30,7 @@ import { Plus, Phone, Mail, Gift, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { OutletContext } from '../context/OutletContext';
 import api from '../services/api';
+import { formatINR, formatNumber } from '../utils/format';
 import { useFeedback } from '../context/FeedbackContext';
 
 const StatCard = ({ label, value, color = '#1B1F3B' }) => (
@@ -236,13 +237,13 @@ const Customers = () => {
           <StatCard label="TOTAL CUSTOMERS" value={stats.totalCustomers || 0} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="TOTAL REWARDS" value={stats.totalRewardPoints || 0} color="#F2A03D" />
+          <StatCard label="TOTAL REWARDS" value={formatNumber(stats.totalRewardPoints)} color="#F2A03D" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="STORE CREDIT" value={`₹${(stats.totalStoreCredit || 0).toFixed(0)}`} color="#2F8F5B" />
+          <StatCard label="STORE CREDIT" value={formatINR(stats.totalStoreCredit)} color="#2F8F5B" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard label="AVG PURCHASE" value={`₹${(stats.averagePurchaseValue || 0).toFixed(0)}`} />
+          <StatCard label="AVG PURCHASE" value={formatINR(stats.averagePurchaseValue)} />
         </Grid>
       </Grid>
 
