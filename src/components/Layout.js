@@ -7,7 +7,7 @@ const Layout = ({ children, title, isOffline }) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh' }}>
         <TopBar title={title} isOffline={isOffline} />
         <Box
           sx={{
@@ -15,8 +15,6 @@ const Layout = ({ children, title, isOffline }) => {
             backgroundColor: '#F5F3ED',
             padding: '20px',
             overflowY: 'auto',
-            maxWidth: '1240px',
-            margin: '0 auto',
             width: '100%',
           }}
         >
