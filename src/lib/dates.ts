@@ -3,7 +3,10 @@
  * means the same thing regardless of timezone or DST. All arithmetic goes
  * through UTC to keep day counts exact.
  */
-export type DateKey = string;
+import { MONTH_LABELS, WEEKDAY_LABELS, strings } from '@/i18n/strings';
+import type { DateKey, TimeKey } from '@/types';
+
+export type { DateKey, TimeKey };
 
 export function toDateKey(date: Date): DateKey {
   const y = date.getFullYear();
@@ -62,27 +65,36 @@ export function weeksBetween(from: DateKey, to: DateKey): number {
   return Math.round(daysBetween(startOfWeek(from), startOfWeek(to)) / 7);
 }
 
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_LABELS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 export function weekdayLabel(index: number): string {
   return WEEKDAY_LABELS[index] ?? '';
 }
 
-/** "Today", "Tomorrow", "Yesterday", or e.g. "Mon, 4 Sep". */
+/** "Aaj", "Kal", "Beeta kal", or e.g. "Som, 4 Sep". */
 export function formatRelativeDay(key: DateKey, reference: DateKey = todayKey()): string {
   const diff = daysBetween(reference, key);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff === -1) return 'Yesterday';
+  if (diff === 0) return strings.days.today;
+  if (diff === 1) return strings.days.tomorrow;
+  if (diff === -1) return strings.days.yesterday;
   return formatDay(key);
 }
 
-/** e.g. "Mon, 4 Sep". */
+/** e.g. "Som, 4 Sep". */
 export function formatDay(key: DateKey): string {
   const [, m, d] = parts(key);
   return `${weekdayLabel(dayOfWeek(key))}, ${d} ${MONTH_LABELS[m - 1]}`;
+}
+
+/** Combines a day and an HH:MM time into a real Date in the device's timezone. */
+export function toLocalDateTime(key: DateKey, time: TimeKey): Date {
+  const [y, m, d] = parts(key);
+  const [hour, minute] = time.split(':').map(Number);
+  return new Date(y, m - 1, d, hour, minute, 0, 0);
+}
+
+/** Formats HH:MM as a 12-hour label, e.g. "9:05 AM". */
+export function formatTime(time: TimeKey): string {
+  const [hour, minute] = time.split(':').map(Number);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${`${minute}`.padStart(2, '0')} ${suffix}`;
 }

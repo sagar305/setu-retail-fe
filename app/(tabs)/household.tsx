@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Button, EmptyState, Screen, SectionHeader } from '@/components';
+import { strings } from '@/i18n/strings';
 import { todayKey } from '@/lib/dates';
 import { useChores } from '@/store/ChoresProvider';
 import { memberStats } from '@/store/selectors';
@@ -22,25 +23,33 @@ export default function HouseholdScreen() {
   };
 
   const confirmRemove = (id: string, memberName: string) => {
-    Alert.alert(
-      `Remove ${memberName}?`,
-      'Their chores stay, but become unassigned.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => removeMember(id) },
-      ],
-    );
+    // Assignee is mandatory, so someone still holding chores cannot be removed
+    // until those chores are reassigned or deleted.
+    const owned = data.chores.filter((c) => c.assigneeId === id && !c.archived).length;
+    if (owned > 0) {
+      Alert.alert(
+        strings.household.removeTitle(memberName),
+        strings.household.removeBlocked(memberName, owned),
+        [{ text: strings.actions.close }],
+      );
+      return;
+    }
+
+    Alert.alert(strings.household.removeTitle(memberName), strings.household.removeMessage, [
+      { text: strings.form.cancel, style: 'cancel' },
+      {
+        text: strings.form.confirmRemove,
+        style: 'destructive',
+        onPress: () => removeMember(id),
+      },
+    ]);
   };
 
   const confirmReset = () => {
-    Alert.alert(
-      'Clear all data?',
-      'This deletes every member, chore and completion on this device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: () => void resetAll() },
-      ],
-    );
+    Alert.alert(strings.household.clearTitle, strings.household.clearMessage, [
+      { text: strings.form.cancel, style: 'cancel' },
+      { text: strings.form.confirmClear, style: 'destructive', onPress: () => void resetAll() },
+    ]);
   };
 
   if (!ready) return <Screen />;
@@ -48,30 +57,30 @@ export default function HouseholdScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[typography.title, styles.pageTitle]}>Household</Text>
+        <Text style={[typography.title, styles.pageTitle]}>{strings.household.title}</Text>
 
         <View style={styles.addCard}>
           <TextInput
             value={name}
             onChangeText={setName}
             onSubmitEditing={submit}
-            placeholder="Add someone…"
+            placeholder={strings.household.addPlaceholder}
             placeholderTextColor={colors.textFaint}
             returnKeyType="done"
             style={styles.input}
           />
-          <Button label="Add" onPress={submit} disabled={!name.trim()} style={styles.addButton} />
+          <Button label={strings.household.add} onPress={submit} disabled={!name.trim()} style={styles.addButton} />
         </View>
 
         {stats.length === 0 ? (
           <EmptyState
             icon="people-outline"
-            title="No one here yet"
-            message="Add the people who share the chores. You can assign chores to them and track who does what."
+            title={strings.household.emptyTitle}
+            message={strings.household.emptyMessage}
           />
         ) : (
           <>
-            <SectionHeader title="Last 30 days" count={stats.length} />
+            <SectionHeader title={strings.household.statsHeading} count={stats.length} />
             <View style={styles.list}>
               {stats.map(({ member, completed, points, assigned }) => (
                 <View key={member.id} style={styles.row}>
@@ -79,12 +88,12 @@ export default function HouseholdScreen() {
                   <View style={styles.rowBody}>
                     <Text style={styles.rowTitle}>{member.name}</Text>
                     <Text style={styles.rowMeta}>
-                      {completed} done · {points} pts · {assigned} assigned
+                      {strings.household.stats(completed, points, assigned)}
                     </Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${member.name}`}
+                    accessibilityLabel={strings.household.removeTitle(member.name)}
                     hitSlop={8}
                     onPress={() => confirmRemove(member.id, member.name)}
                   >
@@ -96,8 +105,8 @@ export default function HouseholdScreen() {
           </>
         )}
 
-        <SectionHeader title="Data" />
-        <Button label="Clear all data" variant="danger" onPress={confirmReset} />
+        <SectionHeader title={strings.household.dataHeading} />
+        <Button label={strings.household.clearAll} variant="danger" onPress={confirmReset} />
       </ScrollView>
     </Screen>
   );

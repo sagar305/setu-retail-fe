@@ -1,47 +1,65 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ChoreCard, EmptyState, Screen, SectionHeader } from '@/components';
+import { ChoreCard, EmptyState, Screen, SectionHeader, SnoozeSheet } from '@/components';
+import { strings } from '@/i18n/strings';
 import { formatDay, todayKey } from '@/lib/dates';
 import { useChores } from '@/store/ChoresProvider';
 import { completionRate, occurrencesOn, overdueOccurrences } from '@/store/selectors';
 import { colors, radius, shadow, spacing, typography } from '@/theme';
-import type { ChoreOccurrence } from '@/types';
+import type { ChoreOccurrence, SnoozeSetting } from '@/types';
 
 export default function TodayScreen() {
   const router = useRouter();
-  const { data, ready, completeChore, uncompleteChore } = useChores();
+  const { data, ready, completeChore, uncompleteChore, skipChore, snoozeChore } = useChores();
   const today = todayKey();
+
+  const [snoozeTarget, setSnoozeTarget] = useState<ChoreOccurrence | null>(null);
 
   const todays = useMemo(() => occurrencesOn(data, today, today), [data, today]);
   const overdue = useMemo(() => overdueOccurrences(data, today), [data, today]);
 
-  const done = todays.filter((o) => o.completion).length;
+  const done = todays.filter((o) => o.status !== 'pending').length;
   const progress = completionRate(todays);
 
   const toggle = (occurrence: ChoreOccurrence) => {
-    const { chore, dueDate, completion } = occurrence;
-    if (completion) uncompleteChore(chore.id, dueDate);
-    else completeChore(chore.id, dueDate, chore.assigneeId ?? null);
+    const { chore, dueDate, status } = occurrence;
+    if (status === 'done') uncompleteChore(chore.id, dueDate);
+    else completeChore(chore.id, dueDate);
   };
+
+  const applySnooze = (setting: SnoozeSetting) => {
+    if (!snoozeTarget) return;
+    snoozeChore(snoozeTarget.chore.id, snoozeTarget.dueDate, setting);
+    setSnoozeTarget(null);
+  };
+
+  const renderCard = (occurrence: ChoreOccurrence, showDate = false) => (
+    <ChoreCard
+      key={`${occurrence.chore.id}-${occurrence.dueDate}`}
+      occurrence={occurrence}
+      showDate={showDate}
+      onToggle={() => toggle(occurrence)}
+      onPress={() => router.push(`/chore/edit?id=${occurrence.chore.id}`)}
+      onSnooze={() => setSnoozeTarget(occurrence)}
+      onSkip={() => skipChore(occurrence.chore.id, occurrence.dueDate)}
+    />
+  );
 
   if (!ready) return <Screen />;
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={typography.title}>Today</Text>
+            <Text style={typography.title}>{strings.today.title}</Text>
             <Text style={styles.date}>{formatDay(today)}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add a chore"
+            accessibilityLabel={strings.form.newTitle}
             onPress={() => router.push('/chore/edit')}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >
@@ -53,7 +71,7 @@ export default function TodayScreen() {
           <View style={styles.progressCard}>
             <View style={styles.progressRow}>
               <Text style={styles.progressLabel}>
-                {done} of {todays.length} done
+                {strings.today.progress(done, todays.length)}
               </Text>
               <Text style={styles.progressPercent}>{Math.round(progress * 100)}%</Text>
             </View>
@@ -65,49 +83,39 @@ export default function TodayScreen() {
 
         {overdue.length > 0 ? (
           <>
-            <SectionHeader title="Overdue" count={overdue.length} />
-            <View style={styles.list}>
-              {overdue.map((occurrence) => (
-                <ChoreCard
-                  key={`${occurrence.chore.id}-${occurrence.dueDate}`}
-                  occurrence={occurrence}
-                  showDate
-                  onToggle={() => toggle(occurrence)}
-                  onPress={() => router.push(`/chore/edit?id=${occurrence.chore.id}`)}
-                />
-              ))}
-            </View>
+            <SectionHeader title={strings.today.overdue} count={overdue.length} />
+            <View style={styles.list}>{overdue.map((o) => renderCard(o, true))}</View>
           </>
         ) : null}
 
         {todays.length > 0 ? (
           <>
-            <SectionHeader title="Due today" count={todays.length} />
-            <View style={styles.list}>
-              {todays.map((occurrence) => (
-                <ChoreCard
-                  key={`${occurrence.chore.id}-${occurrence.dueDate}`}
-                  occurrence={occurrence}
-                  onToggle={() => toggle(occurrence)}
-                  onPress={() => router.push(`/chore/edit?id=${occurrence.chore.id}`)}
-                />
-              ))}
-            </View>
+            <SectionHeader title={strings.today.dueToday} count={todays.length} />
+            <View style={styles.list}>{todays.map((o) => renderCard(o))}</View>
           </>
         ) : null}
 
         {todays.length === 0 && overdue.length === 0 ? (
           <EmptyState
             icon="cafe-outline"
-            title="Nothing due today"
+            title={strings.today.nothingTitle}
             message={
               data.chores.length === 0
-                ? 'Add your first chore and it will show up here on the days it is due.'
-                : 'Enjoy the break — your next chore will appear when it comes around.'
+                ? strings.today.nothingFirstChore
+                : strings.today.nothingElse
             }
           />
         ) : null}
       </ScrollView>
+
+      {snoozeTarget ? (
+        <SnoozeSheet
+          visible
+          initial={snoozeTarget.chore.defaultSnooze}
+          onClose={() => setSnoozeTarget(null)}
+          onConfirm={applySnooze}
+        />
+      ) : null}
     </Screen>
   );
 }

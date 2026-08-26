@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { strings } from '@/i18n/strings';
 import { colors } from '@/theme';
 
 export default function TabsLayout() {
@@ -17,7 +18,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: strings.tabs.today,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sunny-outline" color={color} size={size} />
           ),
@@ -26,7 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="chores"
         options={{
-          title: 'Chores',
+          title: strings.tabs.chores,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list-outline" color={color} size={size} />
           ),
@@ -35,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="household"
         options={{
-          title: 'Household',
+          title: strings.tabs.household,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" color={color} size={size} />
           ),

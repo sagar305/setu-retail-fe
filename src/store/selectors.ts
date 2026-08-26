@@ -1,6 +1,6 @@
 import { DateKey, addDays, daysBetween } from '@/lib/dates';
 import { isDueOn } from '@/lib/schedule';
-import type { AppData, ChoreOccurrence, Member } from '@/types';
+import type { AppData, ChoreOccurrence, Member, OccurrenceStatus } from '@/types';
 
 /** How far back "overdue" looks. Older misses drop off rather than pile up. */
 const OVERDUE_WINDOW_DAYS = 14;
@@ -19,20 +19,28 @@ function buildOccurrence(
   const chore = data.chores.find((c) => c.id === choreId);
   if (!chore) return undefined;
 
-  const completion = data.completions.find(
-    (c) => c.choreId === choreId && c.dueDate === dueDate,
-  );
+  const matches = <T extends { choreId: string; dueDate: string }>(item: T) =>
+    item.choreId === choreId && item.dueDate === dueDate;
+
+  const completion = data.completions.find(matches);
+  const skip = data.skips.find(matches);
+  const snooze = data.snoozes.find(matches);
+
+  const status: OccurrenceStatus = completion ? 'done' : skip ? 'skipped' : 'pending';
 
   return {
     chore,
     dueDate,
     assignee: findMember(data, chore.assigneeId),
     completion,
-    isOverdue: !completion && daysBetween(dueDate, today) > 0,
+    skip,
+    snooze,
+    status,
+    isOverdue: status === 'pending' && daysBetween(dueDate, today) > 0,
   };
 }
 
-/** Everything due on a given day, completed or not. */
+/** Everything due on a given day, whatever its status. */
 export function occurrencesOn(data: AppData, date: DateKey, today: DateKey): ChoreOccurrence[] {
   return data.chores
     .filter((chore) => isDueOn(chore, date))
@@ -50,7 +58,7 @@ export function overdueOccurrences(data: AppData, today: DateKey): ChoreOccurren
     for (const chore of data.chores) {
       if (!isDueOn(chore, date)) continue;
       const occurrence = buildOccurrence(data, chore.id, date, today);
-      if (occurrence && !occurrence.completion) results.push(occurrence);
+      if (occurrence?.status === 'pending') results.push(occurrence);
     }
   }
 
@@ -58,9 +66,12 @@ export function overdueOccurrences(data: AppData, today: DateKey): ChoreOccurren
 }
 
 function sortOccurrences(a: ChoreOccurrence, b: ChoreOccurrence): number {
-  // Outstanding work first, then highest points, then alphabetical.
-  const done = Number(Boolean(a.completion)) - Number(Boolean(b.completion));
-  if (done !== 0) return done;
+  // Outstanding work first, then earliest reminder, then highest points.
+  const rank = (o: ChoreOccurrence) => (o.status === 'pending' ? 0 : 1);
+  if (rank(a) !== rank(b)) return rank(a) - rank(b);
+  if (a.chore.reminderTime !== b.chore.reminderTime) {
+    return a.chore.reminderTime.localeCompare(b.chore.reminderTime);
+  }
   if (a.chore.points !== b.chore.points) return b.chore.points - a.chore.points;
   return a.chore.title.localeCompare(b.chore.title);
 }
@@ -98,9 +109,9 @@ export function memberStats(data: AppData, today: DateKey, windowDays = 30): Mem
     .sort((a, b) => b.points - a.points || b.completed - a.completed);
 }
 
-/** Share of today's chores that are done, as 0–1. */
+/** Share of the day's chores that are settled (done or skipped), as 0–1. */
 export function completionRate(occurrences: ChoreOccurrence[]): number {
   if (occurrences.length === 0) return 0;
-  const done = occurrences.filter((o) => o.completion).length;
-  return done / occurrences.length;
+  const settled = occurrences.filter((o) => o.status !== 'pending').length;
+  return settled / occurrences.length;
 }

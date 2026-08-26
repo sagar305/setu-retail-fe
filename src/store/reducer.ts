@@ -1,4 +1,4 @@
-import type { AppData, Chore, Completion, Member } from '@/types';
+import type { AppData, Chore, Completion, Member, Skip, Snooze } from '@/types';
 
 export type Action =
   | { type: 'hydrate'; data: AppData }
@@ -10,9 +10,19 @@ export type Action =
   | { type: 'removeChore'; id: string }
   | { type: 'addCompletion'; completion: Completion }
   | { type: 'removeCompletion'; id: string }
+  | { type: 'addSkip'; skip: Skip }
+  | { type: 'removeSkip'; id: string }
+  | { type: 'upsertSnooze'; snooze: Snooze }
+  | { type: 'removeSnooze'; id: string }
   | { type: 'reset' };
 
-export const initialData: AppData = { members: [], chores: [], completions: [] };
+export const initialData: AppData = {
+  members: [],
+  chores: [],
+  completions: [],
+  skips: [],
+  snoozes: [],
+};
 
 export function reducer(state: AppData, action: Action): AppData {
   switch (action.type) {
@@ -31,13 +41,11 @@ export function reducer(state: AppData, action: Action): AppData {
       };
 
     case 'removeMember':
-      // Unassign the member's chores rather than deleting them.
+      // Every chore must keep a valid assignee, so callers are expected to
+      // reassign first. The guard in ChoresProvider enforces that.
       return {
         ...state,
         members: state.members.filter((m) => m.id !== action.id),
-        chores: state.chores.map((c) =>
-          c.assigneeId === action.id ? { ...c, assigneeId: null } : c,
-        ),
       };
 
     case 'addChore':
@@ -56,6 +64,8 @@ export function reducer(state: AppData, action: Action): AppData {
         ...state,
         chores: state.chores.filter((c) => c.id !== action.id),
         completions: state.completions.filter((c) => c.choreId !== action.id),
+        skips: state.skips.filter((s) => s.choreId !== action.id),
+        snoozes: state.snoozes.filter((s) => s.choreId !== action.id),
       };
 
     case 'addCompletion':
@@ -66,6 +76,27 @@ export function reducer(state: AppData, action: Action): AppData {
         ...state,
         completions: state.completions.filter((c) => c.id !== action.id),
       };
+
+    case 'addSkip':
+      return { ...state, skips: [...state.skips, action.skip] };
+
+    case 'removeSkip':
+      return { ...state, skips: state.skips.filter((s) => s.id !== action.id) };
+
+    case 'upsertSnooze':
+      return {
+        ...state,
+        snoozes: [
+          ...state.snoozes.filter(
+            (s) =>
+              !(s.choreId === action.snooze.choreId && s.dueDate === action.snooze.dueDate),
+          ),
+          action.snooze,
+        ],
+      };
+
+    case 'removeSnooze':
+      return { ...state, snoozes: state.snoozes.filter((s) => s.id !== action.id) };
 
     case 'reset':
       return initialData;
