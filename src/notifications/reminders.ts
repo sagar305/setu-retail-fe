@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { strings } from '@/i18n/strings';
 import { addDays, todayKey, toLocalDateTime } from '@/lib/dates';
 import { isDueOn } from '@/lib/schedule';
@@ -95,12 +96,19 @@ interface PlannedReminder {
  * Works out every reminder that should be pending right now: one per unsettled
  * occurrence in the lookahead window, using the snoozed time when there is one.
  */
-export function planReminders(data: AppData, now: Date = new Date()): PlannedReminder[] {
+export function planReminders(
+  data: AppData,
+  assigneeId: string | null,
+  now: Date = new Date(),
+): PlannedReminder[] {
   const start = todayKey();
   const planned: PlannedReminder[] = [];
 
   for (const chore of data.chores) {
     if (chore.archived) continue;
+    // A local notification only reaches this device, so schedule solely for
+    // the signed-in user's own chores. Everyone else is reached by push.
+    if (assigneeId && chore.assigneeId !== assigneeId) continue;
 
     for (let offset = 0; offset <= LOOKAHEAD_DAYS; offset += 1) {
       const dueDate = addDays(start, offset);
@@ -137,13 +145,16 @@ export function planReminders(data: AppData, now: Date = new Date()): PlannedRem
  * and re-scheduling keeps this idempotent — far simpler than tracking which
  * notification id belongs to which occurrence across edits.
  */
-export async function syncReminders(data: AppData): Promise<void> {
+export async function syncReminders(
+  data: AppData,
+  assigneeId: string | null,
+): Promise<void> {
   const Notifications = getNotifications();
   if (!Notifications) return;
 
   await Notifications.cancelAllScheduledNotificationsAsync();
 
-  for (const reminder of planReminders(data)) {
+  for (const reminder of planReminders(data, assigneeId)) {
     const payload: ReminderPayload = { choreId: reminder.choreId, dueDate: reminder.dueDate };
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -158,6 +169,28 @@ export async function syncReminders(data: AppData): Promise<void> {
         channelId: Platform.OS === 'android' ? 'chores' : undefined,
       },
     });
+  }
+}
+
+/**
+ * The Expo push token for this device, used by the server to reach a user who
+ * is not the one holding this phone. Needs an EAS projectId; returns null when
+ * that is not configured yet, or on web.
+ */
+export async function getPushToken(): Promise<string | null> {
+  const Notifications = getNotifications();
+  if (!Notifications) return null;
+
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    if (!projectId) return null;
+
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    return token.data;
+  } catch {
+    // No network, no permission, or no credentials — push simply stays off.
+    return null;
   }
 }
 

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
+import { useAuth } from '@/auth/AuthProvider';
+import { savePushToken, saveTimezone } from '@/data/api';
 import { useChores } from '@/store/ChoresProvider';
 import {
   ACTION_DONE,
@@ -7,24 +9,28 @@ import {
   addResponseListener,
   configureNotifications,
   ensurePermission,
+  getPushToken,
   remindersSupported,
   syncReminders,
 } from './reminders';
 
 /**
- * Keeps the device's scheduled reminders in step with the store, and applies
- * the Done / Baad mein buttons tapped straight from a notification.
+ * Keeps this device's scheduled reminders in step with the store, applies the
+ * Done / Baad mein buttons tapped from a notification, and registers the push
+ * token the server needs to reach this user on other devices.
  *
- * Mount once, inside ChoresProvider. No-ops on web, where the platform has no
- * local notification scheduler.
+ * Mount once, inside both providers. No-ops on web, which has no local
+ * notification scheduler.
  */
 export function useReminders(): void {
+  const { user } = useAuth();
   const { data, ready, completeChore, snoozeChore } = useChores();
+  const userId = user?.id ?? null;
 
-  // The listener is registered once, so it reads its actions through a ref to
-  // avoid re-subscribing on every state change.
-  const actions = useRef({ completeChore, snoozeChore, data });
-  actions.current = { completeChore, snoozeChore, data };
+  // The response listener is registered once, so it reads through a ref rather
+  // than re-subscribing on every state change.
+  const latest = useRef({ completeChore, snoozeChore, data, userId });
+  latest.current = { completeChore, snoozeChore, data, userId };
 
   useEffect(() => {
     if (!remindersSupported) return;
@@ -34,17 +40,31 @@ export function useReminders(): void {
     })();
   }, []);
 
+  // Register this device for push, and record the timezone reminders fire in.
+  useEffect(() => {
+    if (!userId) return;
+    void (async () => {
+      const token = await getPushToken();
+      if (token) await savePushToken(userId, token).catch(() => undefined);
+
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezone) await saveTimezone(userId, timezone).catch(() => undefined);
+    })();
+  }, [userId]);
+
   useEffect(() => {
     if (!remindersSupported || !ready) return;
-    void syncReminders(data);
-  }, [data, ready]);
+    void syncReminders(data, userId);
+  }, [data, ready, userId]);
 
   // A reminder can fire while the app is backgrounded; re-sync on return so
   // anything already delivered stops being counted as pending.
   useEffect(() => {
     if (!remindersSupported) return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void syncReminders(actions.current.data);
+      if (state === 'active') {
+        void syncReminders(latest.current.data, latest.current.userId);
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -52,7 +72,8 @@ export function useReminders(): void {
   useEffect(() => {
     if (!remindersSupported) return;
     return addResponseListener(({ choreId, dueDate }, actionIdentifier) => {
-      const current = actions.current;
+      const current = latest.current;
+
       if (actionIdentifier === ACTION_DONE) {
         current.completeChore(choreId, dueDate);
         return;

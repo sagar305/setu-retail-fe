@@ -44,6 +44,10 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "supabaseUrl": "https://beujbhpsmapqbwfupkyw.supabase.co",
+      "supabaseKey": "sb_publishable_Pg6ofXrz11OAVX3CxSUnAw_W5QW4gTC"
     }
   }
 }
