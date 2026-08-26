@@ -19,7 +19,19 @@ npm run build:web       # static web bundle for hosting
 Reminders use local notifications, which need a **development build** — Android
 push was removed from Expo Go in SDK 53. Everything else runs in Expo Go.
 
-## What works today (phase 1)
+## Setup
+
+The Supabase URL and publishable key are already in `app.json`. Two things are
+not, and reminders to *other* people stay off until both are done:
+
+1. Run `supabase/schedule-reminders.sql` in the Supabase SQL editor (paste your
+   service role key in first). This starts the cron that sends push reminders.
+2. Add your EAS project id to `app.json` under `expo.extra.eas.projectId`, then
+   build a development build. Without it the app cannot get a push token.
+
+See [`supabase/README.md`](./supabase/README.md) for the backend details.
+
+## What works today
 
 **Frequency** — every chore picks one of nine rules, chosen from a bottom sheet:
 
@@ -52,12 +64,24 @@ stops nagging and stops counting as overdue.
 **Screens** — Aaj (today + overdue + progress), Kaam (all chores, filterable),
 Ghar (members and 30-day stats).
 
-Data is stored on the device with AsyncStorage. No accounts, no sync yet.
+**Accounts** — email sign-up, sign-in and password reset. Email confirmation is
+required before the first sign-in.
 
-## Not built yet (phases 2–5)
+**Households** — every household has an 8-character invite code, drawn from an
+alphabet with no `0`/`O` or `1`/`I` confusion. Share it and the other person
+sees the same chores after signing up. Owners can rotate the code to revoke it.
+One account can belong to several households.
 
-Email auth, remote database, household invite codes, and offline sync. These
-need a Supabase project before they can start.
+**Sync** — the local cache renders first, so the app opens instantly and works
+offline; the server load then replaces it. Writes apply immediately and are
+queued on disk if they fail, draining oldest-first when the connection returns.
+Realtime subscriptions pull in changes other people make.
+
+**Reminders across devices** — a phone can only schedule local notifications
+for itself, so reminding someone else runs through a server job
+(`supabase/functions/send-reminders`) that pushes to each assignee in their own
+timezone. Local notifications still cover your own chores with no server round
+trip.
 
 ## Layout
 
