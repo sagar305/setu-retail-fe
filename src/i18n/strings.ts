@@ -8,6 +8,22 @@ export const strings = {
     today: 'Aaj',
     chores: 'Kaam',
     household: 'Ghar',
+    history: 'Hisaab',
+  },
+
+  history: {
+    title: 'Purana hisaab',
+    subtitle: (days: number) => `Pichhle ${days} din`,
+    done: 'Ho gaya',
+    skipped: 'Chhoda',
+    missed: 'Reh gaya',
+    summary: (done: number, total: number) => `${total} me se ${done} poore hue`,
+    dayCount: (done: number, total: number) => `${done}/${total}`,
+    emptyTitle: 'Abhi koi hisaab nahi',
+    emptyMessage: 'Jaise jaise kaam poore honge, har din ka hisaab yahan dikhega.',
+    byMember: 'Kisne kitne kiye',
+    allMembers: 'Sabhi',
+    perfectDay: 'Poora din saaf!',
   },
 
   today: {

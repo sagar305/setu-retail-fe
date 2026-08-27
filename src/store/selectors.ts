@@ -109,6 +109,101 @@ export function memberStats(data: AppData, today: DateKey, windowDays = 30): Mem
     .sort((a, b) => b.points - a.points || b.completed - a.completed);
 }
 
+/** How far back the history view looks. */
+export const HISTORY_WINDOW_DAYS = 90;
+
+export interface DayHistory {
+  date: DateKey;
+  /** Completed on this day's occurrence. */
+  done: ChoreOccurrence[];
+  /** Deliberately skipped. */
+  skipped: ChoreOccurrence[];
+  /** Was due and never settled. Only ever past days. */
+  missed: ChoreOccurrence[];
+  total: number;
+}
+
+/**
+ * Day-by-day record of what happened, newest first. Days with nothing due are
+ * left out entirely so the list stays readable.
+ *
+ * Occurrences are resolved against maps keyed on `choreId|dueDate` rather than
+ * scanning the completion and skip arrays per day — over a 90 day window that
+ * is the difference between a few hundred lookups and tens of thousands.
+ */
+export function historyByDay(
+  data: AppData,
+  today: DateKey,
+  windowDays = HISTORY_WINDOW_DAYS,
+): DayHistory[] {
+  const key = (choreId: string, date: DateKey) => `${choreId}|${date}`;
+
+  const completions = new Map(data.completions.map((c) => [key(c.choreId, c.dueDate), c]));
+  const skips = new Map(data.skips.map((s) => [key(s.choreId, s.dueDate), s]));
+  const members = new Map(data.members.map((m) => [m.id, m]));
+
+  const days: DayHistory[] = [];
+
+  for (let offset = 0; offset < windowDays; offset += 1) {
+    const date = addDays(today, -offset);
+    const day: DayHistory = { date, done: [], skipped: [], missed: [], total: 0 };
+
+    for (const chore of data.chores) {
+      const completion = completions.get(key(chore.id, date));
+      const skip = skips.get(key(chore.id, date));
+
+      /*
+       * A completion or skip is proof the occurrence happened, so it stays in
+       * the history even once the chore is archived — isDueOn reports false
+       * for archived chores, which would otherwise erase the record of work
+       * that was genuinely done. Only "missed" needs the chore to still be
+       * scheduled, since an archived chore should not keep accruing misses.
+       */
+      const settled = Boolean(completion || skip);
+      const scheduled = isDueOn(chore, date);
+      if (!settled && !scheduled) continue;
+
+      const status: OccurrenceStatus = completion ? 'done' : skip ? 'skipped' : 'pending';
+      const isOverdue = status === 'pending' && daysBetween(date, today) > 0;
+
+      const occurrence: ChoreOccurrence = {
+        chore,
+        dueDate: date,
+        assignee: members.get(chore.assigneeId),
+        completion,
+        skip,
+        status,
+        isOverdue,
+      };
+
+      if (status === 'done') day.done.push(occurrence);
+      else if (status === 'skipped') day.skipped.push(occurrence);
+      else if (isOverdue) day.missed.push(occurrence);
+      // Still pending and still today: not history yet, so it is left out.
+      else continue;
+
+      day.total += 1;
+    }
+
+    if (day.total > 0) days.push(day);
+  }
+
+  return days;
+}
+
+/** Totals across a run of days, for the header summary. */
+export function summariseHistory(days: DayHistory[]) {
+  return days.reduce(
+    (totals, day) => ({
+      done: totals.done + day.done.length,
+      skipped: totals.skipped + day.skipped.length,
+      missed: totals.missed + day.missed.length,
+      total: totals.total + day.total,
+    }),
+    { done: 0, skipped: 0, missed: 0, total: 0 },
+  );
+}
+
 /** Share of the day's chores that are settled (done or skipped), as 0–1. */
 export function completionRate(occurrences: ChoreOccurrence[]): number {
   if (occurrences.length === 0) return 0;

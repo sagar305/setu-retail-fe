@@ -125,8 +125,13 @@ stops nagging and stops counting as overdue.
 
 **Assignee** — exactly one member per chore, mandatory. They get the reminder.
 
+**History** — Hisaab shows the last 90 days, one card per day, listing what was
+done, deliberately skipped, and missed. Filterable by member. A completion or
+skip keeps its place in history even after the chore is archived, since it
+records what actually happened.
+
 **Screens** — Aaj (today + overdue + progress), Kaam (all chores, filterable),
-Ghar (members and 30-day stats).
+Hisaab (90-day history), Ghar (members and 30-day stats).
 
 **Accounts** — email sign-up, sign-in and password reset. Email confirmation is
 required before the first sign-in.
