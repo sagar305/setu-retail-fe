@@ -54,7 +54,12 @@
     },
     "extra": {
       "supabaseUrl": "https://beujbhpsmapqbwfupkyw.supabase.co",
-      "supabaseKey": "sb_publishable_Pg6ofXrz11OAVX3CxSUnAw_W5QW4gTC"
-    }
+      "supabaseKey": "sb_publishable_Pg6ofXrz11OAVX3CxSUnAw_W5QW4gTC",
+      "router": {},
+      "eas": {
+        "projectId": "1a73609c-2b90-4780-af8d-53af3bafb70b"
+      }
+    },
+    "owner": "sagarbansal_apps"
   }
 }
