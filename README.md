@@ -65,6 +65,24 @@ Go since SDK 53; on iOS it only warns, and the token belongs to Expo Go rather
 than to this app. Testing that path properly needs a development build, which
 needs the paid account.
 
+## Deploying the web build to Vercel
+
+`vercel.json` is already configured — build command, `dist` output, and the
+SPA rewrites expo-router needs. Import the repo at vercel.com and it deploys
+as-is; no settings to fill in.
+
+The Supabase URL and key are baked into `app.json`, so no environment
+variables are required. To point a deployment at a different project, set
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY` in Vercel — the
+client prefers those over `app.json`.
+
+The rewrite deliberately excludes `/_expo/`, so a missing bundle asset returns
+404 rather than being served `index.html` as JavaScript, which fails in a
+confusing way.
+
+Reminders do not work on the deployed site: `expo-notifications` has no web
+scheduler. Everything else does.
+
 ## Setup
 
 The Supabase URL and publishable key are already in `app.json`. Two things are

@@ -44,3 +44,4 @@ yarn-error.*
 # Never commit service keys — they bypass Row Level Security.
 *service_role*
 *.key
+dist/
