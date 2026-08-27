@@ -6,8 +6,19 @@
 -- Function) is already deployed.
 --
 -- Find your service role key at:
---   Dashboard -> Project Settings -> API -> service_role
--- Never put that key in the app bundle or commit it — it bypasses RLS.
+--   Dashboard -> chorely -> Project Settings -> API -> service_role
+--
+-- !! DO NOT COMMIT THE KEY !!
+-- It bypasses Row Level Security entirely — anyone holding it can read and
+-- write every row in the project, ignoring every policy. Paste it into the
+-- Supabase SQL editor only, run the script there, and leave this file with the
+-- placeholder intact. If it ever does get committed, rotate it immediately:
+-- Project Settings -> API -> service_role -> Generate new key.
+--
+-- Check you are using the key for THIS project (chorely,
+-- ref beujbhpsmapqbwfupkyw) and not another one. The ref is visible in the
+-- key's own payload, and a mismatched key will authorise against the wrong
+-- database.
 -- ===========================================================================
 
 -- 1. Extensions: pg_cron schedules the job, pg_net makes the HTTP call.
@@ -17,7 +28,7 @@ create extension if not exists pg_net with schema extensions;
 -- 2. Store the service role key in Vault, so the cron job never inlines it.
 --    Replace the placeholder below before running.
 select vault.create_secret(
-  'PeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4Y2tzcmFubGl3aXFpYmZ3c25iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTY3MTI3NCwiZXhwIjoyMTAxMjQ3Mjc0fQ.Vc7ngmcbbFmPKDS9mY8HbNdkB2KxzJ1tOVmlYg8_HPA',
+  'PASTE_YOUR_SERVICE_ROLE_KEY_HERE',
   'service_role_key',
   'Used by the reminder cron to call the send-reminders Edge Function'
 );
