@@ -40,7 +40,20 @@ iOS builds run on EAS's Mac machines, so a Mac is not required to *build* —
 only to run the simulator. A paid Apple Developer account is required for any
 build that runs on a physical iPhone.
 
-### Trying it on an iPhone for free
+### Installing on an iPhone without a developer account
+
+The web build is installable. Open the deployed site in Safari, then Share →
+**Add to Home Screen**. `public/index.html` and `public/manifest.json` mark it
+as a standalone app, so it launches from its own icon with no Safari chrome.
+
+Everything works there except reminders — `expo-notifications` has no web
+scheduler, and iOS only delivers web push to a site that has been added to the
+home screen, which is not something to rely on for chores.
+
+This is the only way onto an iPhone that costs nothing when Expo Go's bundled
+SDK is older than the project's.
+
+### Trying it on an iPhone with Expo Go
 
 No Mac and no Apple Developer account needed:
 
@@ -49,6 +62,11 @@ npm run start:go     # Expo Go rather than a dev build
 ```
 
 Install Expo Go from the App Store and scan the QR code.
+
+This works as long as the device's Expo Go supports SDK 54, which is why the
+project sits there rather than on the latest release. Expo Go ships supporting
+one SDK at a time, so if it ever reports "requires a newer version of Expo Go",
+check the Expo Go version on the device before changing anything else.
 
 `start:go` sets `EXPO_GO_COMPAT=1`, which makes `app.config.js` drop
 `runtimeVersion` and `updates` from the manifest. Expo Go derives its runtime

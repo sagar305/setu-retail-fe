@@ -1,0 +1,13 @@
+{
+  "name": "Chorely",
+  "short_name": "Chorely",
+  "description": "Ghar ke kaam manage karne ke liye",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F7FB",
+  "theme_color": "#F6F7FB",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
