@@ -57,6 +57,9 @@ export const strings = {
     you: 'Aap',
     dataHeading: 'Account',
     pendingWrites: (n: number) => `${n} badlav abhi bheje nahi gaye`,
+    syncPending: 'Badlav abhi save nahi hue — net aate hi bhej denge',
+    syncDropped: (n: number) =>
+      `${n} badlav save nahi ho paye. Kaam dobara jodna pad sakta hai.`,
     offline: 'Offline — badlav phone me safe hain, net aate hi bhej denge',
     setupTitle: 'Ghar banayein ya judein',
     setupSubtitle: 'Naya ghar banayein, ya kisi ke diye code se judein.',
