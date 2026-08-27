@@ -9,7 +9,8 @@
       "distribution": "internal",
       "channel": "development",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug -PreactNativeArchitectures=arm64-v8a,x86_64"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -26,7 +27,8 @@
       "distribution": "internal",
       "channel": "preview",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64"
       },
       "ios": {
         "resourceClass": "m-medium"
