@@ -45,10 +45,17 @@ build that runs on a physical iPhone.
 No Mac and no Apple Developer account needed:
 
 ```bash
-npm run start:go     # forces Expo Go rather than a dev build
+npm run start:go     # Expo Go rather than a dev build
 ```
 
-Install Expo Go from the App Store and scan the QR code. Local reminders — the
+Install Expo Go from the App Store and scan the QR code.
+
+`start:go` sets `EXPO_GO_COMPAT=1`, which makes `app.config.js` drop
+`runtimeVersion` and `updates` from the manifest. Expo Go derives its runtime
+version from the SDK it ships with, so a project declaring its own — as
+`eas init` sets up for OTA updates — is rejected with "requires a newer version
+of Expo Go". Every other command, EAS builds included, sees `app.json`
+unchanged. Local reminders — the
 ones for your own chores — work there: `scheduleNotificationAsync` has no Expo
 Go restriction on either platform.
 
