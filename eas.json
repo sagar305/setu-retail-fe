@@ -10,10 +10,13 @@
       "channel": "development",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug -PreactNativeArchitectures=arm64-v8a,x86_64"
+        "gradleCommand": ":app:assembleDebug -PreactNativeArchitectures=arm64-v8a,x86_64 --stacktrace"
       },
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "env": {
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g"
       }
     },
     "simulator": {
@@ -28,10 +31,13 @@
       "channel": "preview",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64"
+        "gradleCommand": ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --stacktrace"
       },
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "env": {
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g"
       }
     },
     "production": {
