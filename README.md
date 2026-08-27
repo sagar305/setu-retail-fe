@@ -63,11 +63,10 @@ npm run start:go     # Expo Go rather than a dev build
 
 Install Expo Go from the App Store and scan the QR code.
 
-This only works when the Expo Go build on the device supports the project's SDK
-version. Expo Go ships supporting one SDK at a time, and an iPhone on an older
-iOS release is served an older Expo Go, which then refuses the project with
-"requires a newer version of Expo Go". There is no way round that other than
-matching the project to that older SDK, or using a development build.
+This works as long as the device's Expo Go supports SDK 54, which is why the
+project sits there rather than on the latest release. Expo Go ships supporting
+one SDK at a time, so if it ever reports "requires a newer version of Expo Go",
+check the Expo Go version on the device before changing anything else.
 
 `start:go` sets `EXPO_GO_COMPAT=1`, which makes `app.config.js` drop
 `runtimeVersion` and `updates` from the manifest. Expo Go derives its runtime
