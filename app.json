@@ -19,6 +19,7 @@
       "buildNumber": "1",
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ]
       }
@@ -60,6 +61,12 @@
         "projectId": "1a73609c-2b90-4780-af8d-53af3bafb70b"
       }
     },
-    "owner": "sagarbansal_apps"
+    "owner": "sagarbansal_apps",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1a73609c-2b90-4780-af8d-53af3bafb70b"
+    }
   }
 }
