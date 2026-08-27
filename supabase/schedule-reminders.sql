@@ -17,7 +17,7 @@ create extension if not exists pg_net with schema extensions;
 -- 2. Store the service role key in Vault, so the cron job never inlines it.
 --    Replace the placeholder below before running.
 select vault.create_secret(
-  'PASTE_YOUR_SERVICE_ROLE_KEY_HERE',
+  'PeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4Y2tzcmFubGl3aXFpYmZ3c25iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTY3MTI3NCwiZXhwIjoyMTAxMjQ3Mjc0fQ.Vc7ngmcbbFmPKDS9mY8HbNdkB2KxzJ1tOVmlYg8_HPA',
   'service_role_key',
   'Used by the reminder cron to call the send-reminders Edge Function'
 );
