@@ -40,6 +40,24 @@ iOS builds run on EAS's Mac machines, so a Mac is not required to *build* —
 only to run the simulator. A paid Apple Developer account is required for any
 build that runs on a physical iPhone.
 
+### Trying it on an iPhone for free
+
+No Mac and no Apple Developer account needed:
+
+```bash
+npm run start:go     # forces Expo Go rather than a dev build
+```
+
+Install Expo Go from the App Store and scan the QR code. Local reminders — the
+ones for your own chores — work there: `scheduleNotificationAsync` has no Expo
+Go restriction on either platform.
+
+What Expo Go cannot do is receive the *server* push that reminds a different
+household member. On Android, `getExpoPushTokenAsync` throws outright in Expo
+Go since SDK 53; on iOS it only warns, and the token belongs to Expo Go rather
+than to this app. Testing that path properly needs a development build, which
+needs the paid account.
+
 ## Setup
 
 The Supabase URL and publishable key are already in `app.json`. Two things are
