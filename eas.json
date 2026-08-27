@@ -14,9 +14,6 @@
       },
       "ios": {
         "resourceClass": "m-medium"
-      },
-      "env": {
-        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g"
       }
     },
     "simulator": {
@@ -35,9 +32,6 @@
       },
       "ios": {
         "resourceClass": "m-medium"
-      },
-      "env": {
-        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g"
       }
     },
     "production": {
