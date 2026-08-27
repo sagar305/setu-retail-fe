@@ -19,6 +19,27 @@ npm run build:web       # static web bundle for hosting
 Reminders use local notifications, which need a **development build** — Android
 push was removed from Expo Go in SDK 53. Everything else runs in Expo Go.
 
+## Builds
+
+`eas.json` defines four profiles:
+
+| Profile | Use | Output |
+|---|---|---|
+| `development` | Day-to-day dev on a real device; needed for reminders | APK / installable iOS build |
+| `simulator` | iOS Simulator (needs a Mac to run, not to build) | `.app` for the simulator |
+| `preview` | Share a test build with the family | APK / ad-hoc iOS |
+| `production` | Store submission | AAB / IPA |
+
+```bash
+eas build --profile development --platform android
+eas build --profile development --platform ios
+eas build --profile development --platform all
+```
+
+iOS builds run on EAS's Mac machines, so a Mac is not required to *build* —
+only to run the simulator. A paid Apple Developer account is required for any
+build that runs on a physical iPhone.
+
 ## Setup
 
 The Supabase URL and publishable key are already in `app.json`. Two things are
