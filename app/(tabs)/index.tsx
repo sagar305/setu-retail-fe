@@ -12,7 +12,8 @@ import type { ChoreOccurrence, SnoozeSetting } from '@/types';
 
 export default function TodayScreen() {
   const router = useRouter();
-  const { data, ready, completeChore, uncompleteChore, skipChore, snoozeChore } = useChores();
+  const { data, ready, completeChore, uncompleteChore, skipChore, snoozeChore, syncError, pendingWrites } =
+    useChores();
   const today = todayKey();
 
   const [snoozeTarget, setSnoozeTarget] = useState<ChoreOccurrence | null>(null);
@@ -66,6 +67,15 @@ export default function TodayScreen() {
             <Ionicons name="add" size={26} color="#FFFFFF" />
           </Pressable>
         </View>
+
+        {syncError || pendingWrites > 0 ? (
+          <View style={styles.syncBanner} accessibilityRole="alert">
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.warning} />
+            <Text style={styles.syncText}>
+              {syncError ?? strings.household.pendingWrites(pendingWrites)}
+            </Text>
+          </View>
+        ) : null}
 
         {todays.length > 0 ? (
           <View style={styles.progressCard}>
@@ -140,6 +150,16 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   pressed: { opacity: 0.85 },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warningSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  syncText: { ...typography.caption, color: colors.warning, fontWeight: '600', flex: 1 },
   progressCard: {
     marginTop: spacing.xl,
     backgroundColor: colors.surface,

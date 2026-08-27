@@ -13,6 +13,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { createId } from '@/lib/id';
 import { todayKey } from '@/lib/dates';
 import { snoozeMinutes } from '@/lib/schedule';
+import { strings } from '@/i18n/strings';
 import { supabase } from '@/supabase/client';
 import * as api from '@/data/api';
 import type { Household } from '@/data/api';
@@ -27,7 +28,9 @@ const emptyData: AppData = {
   snoozes: [],
 };
 
-const cacheKey = (householdId: string) => `chorely:cache:${householdId}`;
+// v2: caches written before ids were UUIDs hold records the server never
+// accepted, so they are not read back.
+const cacheKey = (householdId: string) => `chorely:cache:v2:${householdId}`;
 const LAST_HOUSEHOLD_KEY = 'chorely:lastHousehold';
 
 interface ChoresContextValue {
@@ -99,7 +102,10 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
       await enqueue(op, id, userId);
       const result = await flushQueue();
       setPendingWrites(result.remaining);
-      setSyncError(result.remaining > 0 ? 'Sync baaki hai' : null);
+
+      if (result.dropped > 0) setSyncError(strings.household.syncDropped(result.dropped));
+      else if (result.remaining > 0) setSyncError(strings.household.syncPending);
+      else setSyncError(null);
     },
     [],
   );
@@ -287,7 +293,7 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
       addChore: (input) => {
         const chore: Chore = {
           ...input,
-          id: createId('c_'),
+          id: createId(),
           archived: false,
           createdAt: new Date().toISOString(),
         };
@@ -329,7 +335,7 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
           completions: [
             ...data.completions,
             {
-              id: createId('done_'),
+              id: createId(),
               choreId,
               dueDate,
               memberId: chore.assigneeId,
@@ -366,7 +372,7 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
           ...data,
           skips: [
             ...data.skips,
-            { id: createId('skip_'), choreId, dueDate, skippedAt: new Date().toISOString() },
+            { id: createId(), choreId, dueDate, skippedAt: new Date().toISOString() },
           ],
           snoozes: data.snoozes.filter((s) => s !== snooze),
         });
@@ -390,7 +396,7 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
           ...data,
           snoozes: [
             ...data.snoozes.filter((s) => s !== existing),
-            { id: existing?.id ?? createId('snz_'), choreId, dueDate, remindAt, count },
+            { id: existing?.id ?? createId(), choreId, dueDate, remindAt, count },
           ],
         });
         void push({ kind: 'snooze', choreId, dueDate, remindAt, count });
