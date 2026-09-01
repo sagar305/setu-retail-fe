@@ -12,7 +12,7 @@ import { AppState } from 'react-native';
 import { useAuth } from '@/auth/AuthProvider';
 import { createId } from '@/lib/id';
 import { todayKey } from '@/lib/dates';
-import { snoozeMinutes } from '@/lib/schedule';
+import { advanceFrom, snoozeMinutes } from '@/lib/schedule';
 import { strings } from '@/i18n/strings';
 import { supabase } from '@/supabase/client';
 import * as api from '@/data/api';
@@ -49,6 +49,12 @@ interface ChoresContextValue {
   updateChore: (id: string, changes: Partial<Chore>) => void;
   removeChore: (id: string) => void;
   completeChore: (choreId: string, dueDate: DateKey) => void;
+  /**
+   * Records a rolling chore as done on `completedOn`, which may be earlier or
+   * later than the day it was due, and moves the next occurrence to the
+   * recurrence gap measured from that day.
+   */
+  completeRollingChore: (choreId: string, completedOn: DateKey) => void;
   uncompleteChore: (choreId: string, dueDate: DateKey) => void;
   skipChore: (choreId: string, dueDate: DateKey) => void;
   unskipChore: (choreId: string, dueDate: DateKey) => void;
@@ -329,6 +335,13 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
         const chore = data.chores.find((c) => c.id === choreId);
         if (!chore) return;
 
+        // Ticking a rolling chore on its due day is the same operation as
+        // logging it early, just with today's date.
+        if (chore.scheduleMode === 'rolling') {
+          value.completeRollingChore(choreId, dueDate);
+          return;
+        }
+
         const snooze = find(data.snoozes, choreId, dueDate);
         applyLocally({
           ...data,
@@ -353,6 +366,38 @@ export function ChoresProvider({ children }: { children: React.ReactNode }) {
           memberId: chore.assigneeId,
         });
         if (snooze) void push({ kind: 'clearSnooze', choreId, dueDate });
+      },
+
+      completeRollingChore: (choreId, completedOn) => {
+        const chore = data.chores.find((c) => c.id === choreId);
+        if (!chore || chore.scheduleMode !== 'rolling') return;
+        if (find(data.completions, choreId, completedOn)) return;
+
+        const nextDueDate = advanceFrom(chore.recurrence, completedOn) ?? chore.nextDueDate;
+        const updated = { ...chore, nextDueDate };
+
+        // Any snooze belonged to the occurrence this completion replaces.
+        const snooze = data.snoozes.find((s) => s.choreId === choreId);
+
+        applyLocally({
+          ...data,
+          chores: data.chores.map((c) => (c.id === choreId ? updated : c)),
+          completions: [
+            ...data.completions,
+            {
+              id: createId(),
+              choreId,
+              dueDate: completedOn,
+              memberId: chore.assigneeId,
+              completedAt: new Date().toISOString(),
+            },
+          ],
+          snoozes: data.snoozes.filter((s) => s !== snooze),
+        });
+
+        void push({ kind: 'complete', choreId, dueDate: completedOn, memberId: chore.assigneeId });
+        void push({ kind: 'upsertChore', chore: updated });
+        if (snooze) void push({ kind: 'clearSnooze', choreId, dueDate: snooze.dueDate });
       },
 
       uncompleteChore: (choreId, dueDate) => {

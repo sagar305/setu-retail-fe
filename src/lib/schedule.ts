@@ -1,8 +1,9 @@
 import { strings } from '@/i18n/strings';
-import type { Chore, Recurrence, SnoozeSetting } from '@/types';
+import type { Chore, DateKey as _DateKey, Recurrence, SnoozeSetting } from '@/types';
 import {
   DateKey,
   addDays,
+  addMonths,
   dayOfMonth,
   dayOfWeek,
   daysBetween,
@@ -18,8 +19,73 @@ const SUNDAY = 0;
 /** Does `chore` have an occurrence on `date`? */
 export function isDueOn(chore: Chore, date: DateKey): boolean {
   if (chore.archived) return false;
+
+  /*
+   * A rolling chore is never due on a calendar pattern — it is due on exactly
+   * one day, which moves forward each time the chore is completed. Deriving it
+   * from startDate would resurrect every occurrence the completions already
+   * pushed past.
+   */
+  if (chore.scheduleMode === 'rolling') {
+    return chore.nextDueDate === date;
+  }
+
   if (daysBetween(chore.startDate, date) < 0) return false;
   return matchesRecurrence(chore.recurrence, chore.startDate, date);
+}
+
+/**
+ * The gap a rolling chore waits after being done, expressed as the recurrence
+ * it was built from. Recurrences with no single gap — weekdays-only, or a
+ * custom rule listing several days a week — cannot roll, because "wait this
+ * long, then repeat" has no meaning for them.
+ */
+export function supportsRolling(recurrence: Recurrence): boolean {
+  const { preset, custom } = recurrence;
+
+  if (preset === 'once' || preset === 'weekday') return false;
+  if (preset !== 'custom') return true;
+  if (!custom) return false;
+
+  // A weekly custom rule pinned to particular days is a calendar pattern, not
+  // a gap, unless it names exactly one day.
+  if (custom.unit === 'week' && (custom.daysOfWeek?.length ?? 0) > 1) return false;
+  if (custom.unit === 'month' && (custom.datesOfMonth?.length ?? 0) > 1) return false;
+  return true;
+}
+
+/**
+ * The next due day for a rolling chore, given the day it was actually done.
+ * Returns undefined for recurrences that cannot roll.
+ */
+export function advanceFrom(recurrence: Recurrence, completedOn: DateKey): DateKey | undefined {
+  if (!supportsRolling(recurrence)) return undefined;
+
+  const { preset, custom } = recurrence;
+
+  switch (preset) {
+    case 'daily':
+      return addDays(completedOn, 1);
+    case 'alternate':
+      return addDays(completedOn, 2);
+    case 'sunday':
+      return addDays(completedOn, 7);
+    case 'twiceMonthly':
+    case 'alternateSunday':
+      return addDays(completedOn, 14);
+    case 'monthly':
+      // Four weeks, matching how the preset is defined elsewhere.
+      return addDays(completedOn, 28);
+    case 'custom': {
+      if (!custom) return undefined;
+      const every = Math.max(1, custom.interval);
+      if (custom.unit === 'day') return addDays(completedOn, every);
+      if (custom.unit === 'week') return addDays(completedOn, every * 7);
+      return addMonths(completedOn, every);
+    }
+    default:
+      return undefined;
+  }
 }
 
 function matchesRecurrence(recurrence: Recurrence, startDate: DateKey, date: DateKey): boolean {
@@ -126,6 +192,15 @@ export function nextOccurrence(
   from: DateKey,
   lookaheadDays = 366,
 ): DateKey | undefined {
+  /*
+   * A rolling chore has exactly one outstanding occurrence, and it is still
+   * the next one even once it is overdue. Scanning forward from today would
+   * miss it and report that nothing is coming.
+   */
+  if (chore.scheduleMode === 'rolling') {
+    return chore.archived ? undefined : chore.nextDueDate;
+  }
+
   for (let i = 0; i <= lookaheadDays; i += 1) {
     const date = addDays(from, i);
     if (isDueOn(chore, date)) return date;

@@ -14,6 +14,8 @@ interface ChoreCardProps {
   onPress?: () => void;
   onSnooze?: () => void;
   onSkip?: () => void;
+  /** Rolling chores only: log it as done on an earlier day. */
+  onEarlyDone?: () => void;
   /** Show the due date — used in overdue lists where dates vary. */
   showDate?: boolean;
 }
@@ -24,6 +26,7 @@ export function ChoreCard({
   onPress,
   onSnooze,
   onSkip,
+  onEarlyDone,
   showDate = false,
 }: ChoreCardProps) {
   const { chore, assignee, status, isOverdue, dueDate, snooze } = occurrence;
@@ -103,6 +106,17 @@ export function ChoreCard({
             >
               <Ionicons name="time-outline" size={15} color={colors.textMuted} />
               <Text style={styles.actionText}>{strings.actions.snooze}</Text>
+            </Pressable>
+          ) : null}
+          {onEarlyDone ? (
+            <Pressable
+              onPress={onEarlyDone}
+              accessibilityRole="button"
+              accessibilityLabel={`${chore.title} — ${strings.earlyDone.action}`}
+              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            >
+              <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
+              <Text style={styles.actionText}>{strings.earlyDone.action}</Text>
             </Pressable>
           ) : null}
           {onSkip ? (

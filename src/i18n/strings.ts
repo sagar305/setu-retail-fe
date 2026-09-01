@@ -98,6 +98,12 @@ export const strings = {
     room: 'Kamra ya jagah',
     roomPlaceholder: 'Rasoi',
     frequency: 'Kitni baar',
+    scheduleMode: 'Agli baar kab',
+    fixedMode: 'Tay din par',
+    rollingMode: 'Pichhli baar ke baad',
+    fixedHelp: 'Din tay rehta hai. Pehle kar liya to bhi agla usi din aayega.',
+    rollingHelp: 'Jis din kiya, usse gina jayega. Pehle kar liya to agla bhi utna hi pehle aayega.',
+    rollingUnavailable: 'Is frequency me "pichhli baar ke baad" nahi chalega — ismein din tay hote hain, gap nahi.',
     frequencyPick: 'Kitni baar karna hai?',
     weekday: 'Kis din',
     customUnit: 'Har kitne din/hafte/mahine',
@@ -158,6 +164,17 @@ export const strings = {
 
   common: {
     points: (n: number) => (n === 1 ? '1 point' : `${n} points`),
+  },
+
+  earlyDone: {
+    action: 'Pehle hi kar liya',
+    title: 'Kab kiya tha?',
+    help: (next: string) => `Agla ${next} ko aayega.`,
+    today: 'Aaj',
+    yesterday: 'Kal',
+    pickDate: 'Koi aur din',
+    confirm: 'Save karein',
+    daysAgo: (n: number) => `${n} din pehle`,
   },
 
   actions: {

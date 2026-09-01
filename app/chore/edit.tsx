@@ -21,13 +21,14 @@ import {
 } from '@/components';
 import { WEEKDAY_LABELS, strings } from '@/i18n/strings';
 import { dayOfWeek, todayKey } from '@/lib/dates';
-import { describeRecurrence, describeSnooze } from '@/lib/schedule';
+import { describeRecurrence, describeSnooze, supportsRolling } from '@/lib/schedule';
 import { useChores } from '@/store/ChoresProvider';
 import { colors, radius, spacing, typography } from '@/theme';
 import type {
   CustomUnit,
   FrequencyPreset,
   Recurrence,
+  ScheduleMode,
   SnoozePresetId,
   SnoozeSetting,
   SnoozeUnit,
@@ -82,6 +83,9 @@ export default function EditChoreScreen() {
     existing?.defaultSnooze.customUnit ?? 'hour',
   );
 
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>(
+    existing?.scheduleMode ?? 'fixed',
+  );
   const [frequencyOpen, setFrequencyOpen] = useState(false);
 
   const hasMembers = data.members.length > 0;
@@ -106,6 +110,14 @@ export default function EditChoreScreen() {
     return { preset };
   };
 
+  /*
+   * "Gap since last done" only means something for recurrences that have a
+   * single gap. A Mon/Thu rule or a weekdays-only chore is a calendar pattern,
+   * so the toggle is unavailable and the chore stays fixed.
+   */
+  const rollingAvailable = supportsRolling(buildRecurrence());
+  const effectiveMode: ScheduleMode = rollingAvailable ? scheduleMode : 'fixed';
+
   const buildSnooze = (): SnoozeSetting =>
     snoozePreset === 'custom'
       ? {
@@ -118,6 +130,11 @@ export default function EditChoreScreen() {
   const save = () => {
     if (!canSave || !assigneeId) return;
 
+    const recurrence = buildRecurrence();
+    // A new rolling chore is due straight away; the gap only starts counting
+    // once it has actually been done for the first time.
+    const nextDueDate = effectiveMode === 'rolling' ? (existing?.nextDueDate ?? today) : undefined;
+
     const fields = {
       title: title.trim(),
       room: room.trim() || undefined,
@@ -125,8 +142,10 @@ export default function EditChoreScreen() {
       assigneeId,
       points,
       reminderTime,
-      recurrence: buildRecurrence(),
+      recurrence,
       defaultSnooze: buildSnooze(),
+      scheduleMode: effectiveMode,
+      nextDueDate,
     };
 
     if (existing) updateChore(existing.id, fields);
@@ -189,6 +208,29 @@ export default function EditChoreScreen() {
             <Text style={styles.selectorText}>{describeRecurrence(buildRecurrence())}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
           </Pressable>
+        </View>
+
+        <View style={styles.group}>
+          <Text style={styles.label}>{strings.form.scheduleMode}</Text>
+          <View style={styles.chipRow}>
+            <Chip
+              label={strings.form.fixedMode}
+              selected={effectiveMode === 'fixed'}
+              onPress={() => setScheduleMode('fixed')}
+            />
+            <Chip
+              label={strings.form.rollingMode}
+              selected={effectiveMode === 'rolling'}
+              onPress={() => rollingAvailable && setScheduleMode('rolling')}
+            />
+          </View>
+          <Text style={styles.hint}>
+            {!rollingAvailable
+              ? strings.form.rollingUnavailable
+              : effectiveMode === 'rolling'
+                ? strings.form.rollingHelp
+                : strings.form.fixedHelp}
+          </Text>
         </View>
 
         {PRESETS_NEEDING_WEEKDAY.includes(preset) ? (

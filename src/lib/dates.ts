@@ -36,6 +36,22 @@ export function addDays(key: DateKey, days: number): DateKey {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * Adds calendar months, clamping to the end of the target month. 31 Jan plus
+ * one month is 28 Feb, not 3 March — UTC date arithmetic would otherwise roll
+ * the overflow into the following month.
+ */
+export function addMonths(key: DateKey, months: number): DateKey {
+  const [y, m, d] = parts(key);
+  const target = new Date(Date.UTC(y, m - 1 + months, 1));
+  const daysInTargetMonth = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+
+  target.setUTCDate(Math.min(d, daysInTargetMonth));
+  return target.toISOString().slice(0, 10);
+}
+
 export function daysBetween(from: DateKey, to: DateKey): number {
   const ms = toUtc(to).getTime() - toUtc(from).getTime();
   return Math.round(ms / 86_400_000);

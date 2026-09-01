@@ -2,7 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ChoreCard, EmptyState, Screen, SectionHeader, SnoozeSheet } from '@/components';
+import {
+  ChoreCard,
+  EarlyDoneSheet,
+  EmptyState,
+  Screen,
+  SectionHeader,
+  SnoozeSheet,
+} from '@/components';
 import { strings } from '@/i18n/strings';
 import { formatDay, todayKey } from '@/lib/dates';
 import { useChores } from '@/store/ChoresProvider';
@@ -12,11 +19,21 @@ import type { ChoreOccurrence, SnoozeSetting } from '@/types';
 
 export default function TodayScreen() {
   const router = useRouter();
-  const { data, ready, completeChore, uncompleteChore, skipChore, snoozeChore, syncError, pendingWrites } =
-    useChores();
+  const {
+    data,
+    ready,
+    completeChore,
+    uncompleteChore,
+    skipChore,
+    snoozeChore,
+    completeRollingChore,
+    syncError,
+    pendingWrites,
+  } = useChores();
   const today = todayKey();
 
   const [snoozeTarget, setSnoozeTarget] = useState<ChoreOccurrence | null>(null);
+  const [earlyTarget, setEarlyTarget] = useState<ChoreOccurrence | null>(null);
 
   const todays = useMemo(() => occurrencesOn(data, today, today), [data, today]);
   const overdue = useMemo(() => overdueOccurrences(data, today), [data, today]);
@@ -45,6 +62,11 @@ export default function TodayScreen() {
       onPress={() => router.push(`/chore/edit?id=${occurrence.chore.id}`)}
       onSnooze={() => setSnoozeTarget(occurrence)}
       onSkip={() => skipChore(occurrence.chore.id, occurrence.dueDate)}
+      onEarlyDone={
+        occurrence.chore.scheduleMode === 'rolling'
+          ? () => setEarlyTarget(occurrence)
+          : undefined
+      }
     />
   );
 
@@ -117,6 +139,18 @@ export default function TodayScreen() {
           />
         ) : null}
       </ScrollView>
+
+      {earlyTarget ? (
+        <EarlyDoneSheet
+          visible
+          chore={earlyTarget.chore}
+          onClose={() => setEarlyTarget(null)}
+          onConfirm={(completedOn) => {
+            completeRollingChore(earlyTarget.chore.id, completedOn);
+            setEarlyTarget(null);
+          }}
+        />
+      ) : null}
 
       {snoozeTarget ? (
         <SnoozeSheet

@@ -59,6 +59,16 @@ export interface SnoozeSetting {
   customUnit?: SnoozeUnit;
 }
 
+/**
+ * How the next occurrence is worked out.
+ *
+ * `fixed`   — the calendar decides. Bins go out every Tuesday whether or not
+ *             you did them early last week.
+ * `rolling` — the gap since it was last done decides. Clean the fridge four
+ *             weeks early and the next one is four weeks from that day.
+ */
+export type ScheduleMode = 'fixed' | 'rolling';
+
 export interface Chore {
   id: ChoreId;
   title: string;
@@ -69,6 +79,13 @@ export interface Chore {
   recurrence: Recurrence;
   /** First day the chore is due. */
   startDate: DateKey;
+  scheduleMode: ScheduleMode;
+  /**
+   * Rolling chores only: the single day this chore is next due. Recomputed
+   * from the actual completion date every time it is done, so it walks forward
+   * rather than being derived from `startDate`.
+   */
+  nextDueDate?: DateKey;
   /** When the reminder fires on a due day. */
   reminderTime: TimeKey;
   /** Offered first when a reminder is snoozed; overridable at that moment. */
@@ -82,7 +99,11 @@ export interface Completion {
   id: string;
   choreId: ChoreId;
   memberId: MemberId;
-  /** The occurrence this completion satisfies. */
+  /**
+   * The day the work is recorded against. For a fixed chore this is the
+   * scheduled occurrence. For a rolling chore it is the day it was actually
+   * done, which may be earlier or later than the day it was due.
+   */
   dueDate: DateKey;
   completedAt: string;
 }

@@ -47,6 +47,8 @@ export interface ChoreRow {
   assignee_id: string;
   recurrence: Json;
   start_date: string;
+  schedule_mode: 'fixed' | 'rolling';
+  next_due_date: string | null;
   reminder_time: string;
   default_snooze: Json;
   points: number;

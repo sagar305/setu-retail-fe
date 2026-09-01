@@ -5,8 +5,10 @@ const {
   snoozeMinutes,
   nextOccurrence,
   occurrencesBetween,
+  advanceFrom,
+  supportsRolling,
 } = require('./schedule.js');
-const { addDays, daysBetween, formatTime, toLocalDateTime } = require('./dates.js');
+const { addDays, addMonths, daysBetween, formatTime, toLocalDateTime } = require('./dates.js');
 
 let failures = 0;
 function check(name, actual, expected) {
@@ -20,7 +22,7 @@ function check(name, actual, expected) {
 }
 
 // 2026-08-24 is a Monday. 2026-08-30 is a Sunday.
-const base = { archived: false, startDate: '2026-08-24' };
+const base = { archived: false, startDate: '2026-08-24', scheduleMode: 'fixed' };
 const chore = (recurrence, overrides = {}) => ({ ...base, recurrence, ...overrides });
 
 console.log('\n-- once --');
@@ -120,6 +122,70 @@ check('describe monthly w/ day', describeRecurrence({ preset: 'monthly', weekday
 check('describe alternate Sunday', describeRecurrence({ preset: 'alternateSunday' }), 'Ek Ravivar chhod kar');
 check('describe custom weeks', describeRecurrence({ preset: 'custom', custom: { unit: 'week', interval: 2, daysOfWeek: [1, 4] } }), 'Har 2 hafte, Som, Guru');
 check('describe custom dates', describeRecurrence({ preset: 'custom', custom: { unit: 'month', interval: 1, datesOfMonth: [5, 20] } }), 'Har mahine, tareekh 5, 20');
+
+
+const rec = (preset, custom) => (custom ? { preset, custom } : { preset });
+
+console.log('-- which recurrences can roll --');
+check('daily can roll', supportsRolling(rec('daily')), true);
+check('monthly can roll', supportsRolling(rec('monthly')), true);
+check('alternate can roll', supportsRolling(rec('alternate')), true);
+check('one-off cannot', supportsRolling(rec('once')), false);
+check('weekdays cannot', supportsRolling(rec('weekday')), false);
+check('custom single day can', supportsRolling(rec('custom', { unit:'week', interval:2, daysOfWeek:[1] })), true);
+check('custom Mon+Thu cannot', supportsRolling(rec('custom', { unit:'week', interval:2, daysOfWeek:[1,4] })), false);
+check('custom two dates cannot', supportsRolling(rec('custom', { unit:'month', interval:1, datesOfMonth:[5,20] })), false);
+
+console.log('\n-- the gap after completion --');
+check('daily -> +1', advanceFrom(rec('daily'), '2026-09-03'), '2026-09-04');
+check('alternate -> +2', advanceFrom(rec('alternate'), '2026-09-03'), '2026-09-05');
+check('sunday -> +7', advanceFrom(rec('sunday'), '2026-09-03'), '2026-09-10');
+check('twiceMonthly -> +14', advanceFrom(rec('twiceMonthly'), '2026-09-03'), '2026-09-17');
+check('monthly -> +28', advanceFrom(rec('monthly'), '2026-09-03'), '2026-10-01');
+check('custom 10 days', advanceFrom(rec('custom', { unit:'day', interval:10 }), '2026-09-03'), '2026-09-13');
+check('custom 3 weeks', advanceFrom(rec('custom', { unit:'week', interval:3 }), '2026-09-03'), '2026-09-24');
+check('custom 2 months', advanceFrom(rec('custom', { unit:'month', interval:2 }), '2026-09-03'), '2026-11-03');
+check('weekday has no gap', advanceFrom(rec('weekday'), '2026-09-03'), undefined);
+
+console.log('\n-- month-end clamping --');
+check('31 Jan +1mo -> 28 Feb', addMonths('2026-01-31', 1), '2026-02-28');
+check('31 Jan +1mo leap year', addMonths('2028-01-31', 1), '2028-02-29');
+check('31 Mar +1mo -> 30 Apr', addMonths('2026-03-31', 1), '2026-04-30');
+check('15 Dec +1mo crosses year', addMonths('2026-12-15', 1), '2027-01-15');
+
+console.log('\n-- a rolling chore is due on exactly one day --');
+const rolling = {
+  archived: false, startDate: '2026-09-01', scheduleMode: 'rolling',
+  nextDueDate: '2026-09-10', recurrence: rec('monthly'),
+};
+check('due on its own date', isDueOn(rolling, '2026-09-10'), true);
+check('not due the day before', isDueOn(rolling, '2026-09-09'), false);
+check('not due on the start date', isDueOn(rolling, '2026-09-01'), false);
+check('recurrence pattern is ignored', isDueOn(rolling, '2026-09-29'), false);
+check('archived is never due', isDueOn({ ...rolling, archived: true }, '2026-09-10'), false);
+
+console.log('\n-- the whole point: doing it early --');
+// Fridge due the 10th, actually cleaned on the 3rd.
+const doneEarly = advanceFrom(rolling.recurrence, '2026-09-03');
+check('next is 4 weeks from the 3rd, not the 10th', doneEarly, '2026-10-01');
+check('and NOT 4 weeks from the due date', doneEarly !== advanceFrom(rolling.recurrence, '2026-09-10'), true);
+
+console.log('\n-- and doing it late --');
+check('done the 14th -> next 12 Oct', advanceFrom(rolling.recurrence, '2026-09-14'), '2026-10-12');
+
+console.log('\n-- fixed chores are untouched --');
+const fixed = {
+  archived: false, startDate: '2026-08-24', scheduleMode: 'fixed',
+  recurrence: rec('daily'),
+};
+check('fixed still follows the calendar', isDueOn(fixed, '2026-09-03'), true);
+check('fixed ignores nextDueDate', isDueOn({ ...fixed, nextDueDate: '2026-01-01' }, '2026-09-03'), true);
+
+console.log('\n-- next occurrence reporting --');
+check('rolling reports its date', nextOccurrence(rolling, '2026-09-05'), '2026-09-10');
+check('overdue rolling still reports it', nextOccurrence(rolling, '2026-09-20'), '2026-09-10');
+check('archived rolling reports nothing', nextOccurrence({ ...rolling, archived: true }, '2026-09-05'), undefined);
+
 
 console.log(failures === 0 ? `\nALL PASS` : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

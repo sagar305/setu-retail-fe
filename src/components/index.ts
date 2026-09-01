@@ -3,6 +3,7 @@ export { Avatar } from './Avatar';
 export { Button } from './Button';
 export { Chip } from './Chip';
 export { ChoreCard } from './ChoreCard';
+export { EarlyDoneSheet } from './EarlyDoneSheet';
 export { EmptyState } from './EmptyState';
 export { FREQUENCY_PRESETS, FrequencySheet, PRESETS_NEEDING_WEEKDAY } from './FrequencySheet';
 export { OptionRow } from './OptionRow';
