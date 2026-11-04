@@ -37,13 +37,16 @@ import { CashBookPage } from "./pages/tools/CashBook";
 import { NewPurchasePage, PurchaseDetailPage, PurchasesPage } from "./pages/tools/Purchases";
 import { RequireTool } from "./pages/tools/RequireTool";
 import { OfflineMoneyPage } from "./pages/OfflineMoney";
+import { TransfersPage } from "./pages/Transfers";
+import { BranchReportsPage } from "./pages/BranchReports";
+import { AuditLogPage } from "./pages/AuditLog";
 import { AgingPage } from "./pages/tools/Aging";
 import { ProfitPage } from "./pages/tools/Profit";
 import { StockRegisterPage } from "./pages/tools/StockRegister";
 import { BarcodesPage } from "./pages/tools/Barcodes";
 import { ReceiptDesignerPage } from "./pages/tools/ReceiptDesigner";
 
-const BUILT = new Set(["/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
+const BUILT = new Set(["/stock-transfers", "/branch-reports", "/audit-log", "/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
 export function App() {
   const { state } = useAuth();
@@ -91,6 +94,9 @@ export function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/settings/import" element={<ImportPage />} />
+            <Route path="/stock-transfers" element={<TransfersPage />} />
+            <Route path="/branch-reports" element={<BranchReportsPage />} />
+            <Route path="/audit-log" element={<AuditLogPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER", "MANAGER", "CASHIER"]} />}>
             <Route path="/billing" element={<BillingPage />} />

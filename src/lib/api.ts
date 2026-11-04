@@ -188,3 +188,10 @@ export type CustomerAging = Schemas["CustomerAging"];
 export type SupplierAging = Schemas["SupplierAging"];
 export type ProfitReport = Schemas["ProfitReport"];
 export type StockRegister = Schemas["StockRegister"];
+
+// ── Phase 5 ──
+export type Transfer = Schemas["Transfer"];
+export type BranchComparison = Schemas["BranchComparison"];
+export type StockAcross = Schemas["StockAcross"];
+export type TransferReport = Schemas["TransferReport"];
+export type AuditEntry = Schemas["AuditEntry"];

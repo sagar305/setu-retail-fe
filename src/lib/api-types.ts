@@ -6976,6 +6976,586 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock transfers touching your branches (?branchId=&status=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transfers: components["schemas"]["Transfer"][];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Send stock to another branch (in transit; idempotent on id) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        fromBranchId: string;
+                        /** Format: uuid */
+                        toBranchId: string;
+                        note?: string;
+                        lines: {
+                            /** Format: uuid */
+                            productId: string;
+                            qtyMilli: number;
+                            batches?: {
+                                /** Format: uuid */
+                                batchId: string;
+                                qtyMilli: number;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transfer: components["schemas"]["Transfer"];
+                            replayed?: boolean;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A transfer */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transfer: components["schemas"]["Transfer"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfers/{id}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive at the other branch; short/damaged back to sender or written off */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string;
+                        lines?: {
+                            /** Format: uuid */
+                            itemId: string;
+                            receivedMilli: number;
+                            /** @enum {string} */
+                            short?: "RETURN" | "WRITE_OFF";
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transfer: components["schemas"]["Transfer"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transfers/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel while in transit: stock back to the sender */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            transfer: components["schemas"]["Transfer"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Branches side by side (?from=&to= yyyy-mm-dd) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BranchComparison"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/stock-across": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Each product's stock in every branch, with transfer suggestions (?q=&only=suggestions) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockAcross"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transfers in a period, in transit, shortages (?from=&to=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransferReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit log (?from=&to=&branchId=&userId=&action= prefix, &before= cursor, &limit=); managers see their branches */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            entries: components["schemas"]["AuditEntry"][];
+                            next: string | null;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit-log/filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Actions and people for the audit log filters */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            actions: string[];
+                            users: {
+                                id: string;
+                                name: string;
+                                role: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7963,6 +8543,7 @@ export interface components {
                 amount: number;
                 paid: number;
                 open: number;
+                branchId: string | null;
             }[];
         };
         CashBook: {
@@ -8147,6 +8728,7 @@ export interface components {
                     amount: number;
                     paid: number;
                     open: number;
+                    branchId: string | null;
                     dueDay: string;
                     /** @enum {string} */
                     bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
@@ -8190,6 +8772,7 @@ export interface components {
                     amount: number;
                     paid: number;
                     open: number;
+                    branchId: string | null;
                     dueDay: string;
                     /** @enum {string} */
                     bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
@@ -8206,6 +8789,7 @@ export interface components {
                 amount: number;
                 paid: number;
                 open: number;
+                branchId: string | null;
                 dueDay: string;
                 /** @enum {string} */
                 bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
@@ -8289,6 +8873,127 @@ export interface components {
             /** @enum {string} */
             separator: "dashed" | "solid" | "none";
             isDefault: boolean;
+        };
+        Transfer: {
+            id: string;
+            number: string;
+            fromBranchId: string;
+            toBranchId: string;
+            /** @enum {string} */
+            status: "SENT" | "RECEIVED" | "CANCELLED";
+            note: string;
+            receiveNote: string;
+            sentAt: string;
+            sentByName: string;
+            receivedAt: string | null;
+            receivedByName: string | null;
+            cancelledAt: string | null;
+            value: number;
+            shortMilli: number;
+            items: {
+                id: string;
+                productId: string;
+                name: string;
+                unit: string;
+                qtyMilli: number;
+                receivedMilli: number | null;
+                returnedMilli: number;
+                writtenOffMilli: number;
+                unitCost: number | null;
+                batches: {
+                    batchNo: string;
+                    expiry: string | null;
+                    costPrice: number | null;
+                    qtyMilli: number;
+                }[];
+            }[];
+        };
+        BranchComparison: {
+            from: string;
+            to: string;
+            branches: {
+                branchId: string;
+                code: string;
+                name: string;
+                bills: number;
+                sales: number;
+                returns: number;
+                netSales: number;
+                averageBill: number;
+                revenue: number;
+                cost: number;
+                grossProfit: number;
+                expenses: number;
+                netProfit: number;
+                stockValue: number;
+                udhaar: number;
+                inTransitIn: number;
+            }[];
+            udhaarUnassigned: number;
+        };
+        StockAcross: {
+            branches: {
+                id: string;
+                code: string;
+                name: string;
+            }[];
+            products: {
+                productId: string;
+                name: string;
+                sku: string;
+                unit: string;
+                total: number;
+                stock: {
+                    branchId: string;
+                    stockMilli: number;
+                    lowMilli: number;
+                    /** @enum {string} */
+                    status: "ok" | "low" | "out";
+                }[];
+                suggestion: {
+                    toBranchId: string;
+                    fromBranchId: string;
+                    qtyMilli: number;
+                } | null;
+            }[];
+        };
+        TransferReport: {
+            from: string;
+            to: string;
+            totals: {
+                sent: number;
+                sentValue: number;
+                inTransit: number;
+                inTransitValue: number;
+                returnedValue: number;
+                writtenOffValue: number;
+            };
+            rows: {
+                id: string;
+                number: string;
+                sentAt: string;
+                fromBranchId: string;
+                toBranchId: string;
+                status: string;
+                lines: number;
+                value: number;
+                returnedValue: number;
+                writtenOffValue: number;
+            }[];
+        };
+        AuditEntry: {
+            id: string;
+            createdAt: string;
+            action: string;
+            entityType: string;
+            entityId: string | null;
+            userId: string | null;
+            userName: string;
+            role: string | null;
+            branchId: string | null;
+            branchCode: string | null;
+            ip: string | null;
+            data?: unknown;
         };
     };
     responses: never;
