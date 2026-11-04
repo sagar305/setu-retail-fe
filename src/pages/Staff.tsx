@@ -136,7 +136,7 @@ export function StaffPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader
         title="Staff"
         description={me.user.role === "OWNER" ? `${counted}${limit === null ? "" : ` of ${limit}`} staff logins on your plan` : "Cashiers in your branches"}

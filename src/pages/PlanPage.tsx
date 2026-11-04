@@ -79,7 +79,7 @@ export function PlanPage() {
   const u = data?.usage;
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader title="Plan & license key" description="Only the owner sees this page." />
       {plan.expired ? (
         <div className="mb-4">

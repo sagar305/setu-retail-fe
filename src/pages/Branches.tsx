@@ -84,7 +84,7 @@ export function BranchesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader
         title="Branches"
         description={`${branches?.length ?? "…"} ${limit === null ? "" : `of ${limit} `}on your ${me.plan.current?.name ?? ""} plan · codes appear in bill numbers`}

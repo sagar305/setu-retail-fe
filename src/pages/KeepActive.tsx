@@ -35,7 +35,7 @@ export function KeepActivePage() {
     );
   }, []);
 
-  if (!data) return <div className="mx-auto max-w-3xl">{error ? <Alert tone="error">{error}</Alert> : <p className="text-muted">Loading…</p>}</div>;
+  if (!data) return <div className="w-full">{error ? <Alert tone="error">{error}</Alert> : <p className="text-muted">Loading…</p>}</div>;
 
   const { maxBranches, maxStaff } = data.limits;
   const singleBranch = maxBranches === 1;
@@ -65,10 +65,10 @@ export function KeepActivePage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-5">
+    <div className="flex w-full flex-col gap-5">
       <div className="flex flex-col gap-2">
         <h1 className="m-0 text-[28px] font-semibold">Choose what stays active</h1>
-        <p className="m-0 leading-relaxed text-muted">
+        <p className="m-0 max-w-3xl leading-relaxed text-muted">
           Your plan allows {maxBranches ?? "unlimited"} branch{maxBranches === 1 ? "" : "es"} and {maxStaff ?? "unlimited"} staff. Nothing is deleted: what you don't pick becomes read-only until you upgrade. The oldest are picked for you.
         </p>
       </div>
@@ -84,6 +84,7 @@ export function KeepActivePage() {
             {branchIds.size} of {maxBranches ?? data.branches.length} picked
           </span>
         </div>
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
         {data.branches.map((b) => {
           const on = branchIds.has(b.id);
           return (
@@ -106,6 +107,7 @@ export function KeepActivePage() {
             </label>
           );
         })}
+        </div>
       </Card>
 
       {data.staff.length ? (
@@ -116,7 +118,7 @@ export function KeepActivePage() {
               {staffIds.size} of {maxStaff ?? data.staff.length} picked
             </span>
           </div>
-          <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {data.staff.map((s) => {
               const on = staffIds.has(s.id);
               return (
