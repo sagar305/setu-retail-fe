@@ -3,10 +3,11 @@ import { navForRole } from "../lib/nav";
 import type { Role } from "../lib/roles";
 import { Logo } from "./Logo";
 
-type Props = { role: Role; businessName: string; onNavigate?: () => void; className?: string };
+type Props = { role: Role; businessName: string; expired?: boolean; onNavigate?: () => void; className?: string };
 
-export function Sidebar({ role, businessName, onNavigate, className = "" }: Props) {
-  const items = navForRole(role);
+export function Sidebar({ role, businessName, expired, onNavigate, className = "" }: Props) {
+  // When the plan has ended the owner can only reach the plan screen.
+  const items = navForRole(role).filter((item) => !expired || item.path === "/settings/plan");
   return (
     <nav
       id="app-sidebar"

@@ -1,7 +1,9 @@
-export type Role = "owner" | "manager" | "cashier";
+import type { Role } from "./api";
+
+export type { Role };
 
 export const ROLE_LABEL: Record<Role, string> = {
-  owner: "Owner",
-  manager: "Manager",
-  cashier: "Cashier",
+  OWNER: "Owner",
+  MANAGER: "Manager",
+  CASHIER: "Cashier",
 };

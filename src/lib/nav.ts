@@ -13,21 +13,22 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import type { Me } from "./api";
 import type { Role } from "./roles";
 
 export type NavItem = {
   path: string;
   label: string;
   icon: LucideIcon;
-  /** Roles that see this item. The server enforces the same rules. */
+  /** Roles that see this item. The API enforces the same rules. */
   roles: readonly Role[];
   /** Build phase that delivers the screen (docs/PLAN.md §10). */
   phase: number;
 };
 
-const ALL: readonly Role[] = ["owner", "manager", "cashier"];
-const OM: readonly Role[] = ["owner", "manager"];
-const O: readonly Role[] = ["owner"];
+const ALL: readonly Role[] = ["OWNER", "MANAGER", "CASHIER"];
+const OM: readonly Role[] = ["OWNER", "MANAGER"];
+const O: readonly Role[] = ["OWNER"];
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: OM, phase: 2 },
@@ -41,16 +42,23 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { path: "/branches", label: "Branches", icon: Building2, roles: O, phase: 1 },
   { path: "/staff", label: "Staff", icon: UserCog, roles: OM, phase: 1 },
   { path: "/audit-log", label: "Audit log", icon: ScrollText, roles: OM, phase: 5 },
-  { path: "/settings", label: "Settings", icon: Settings, roles: O, phase: 1 },
+  { path: "/settings/plan", label: "Settings", icon: Settings, roles: O, phase: 1 },
 ];
 
 /** Cashiers see their own sales, so "Orders" reads differently for them. */
 export function navForRole(role: Role): NavItem[] {
   return NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) =>
-    role === "cashier" && item.path === "/orders" ? { ...item, label: "My sales" } : item,
+    role === "CASHIER" && item.path === "/orders" ? { ...item, label: "My sales" } : item,
   );
 }
 
 export function homePathFor(role: Role): string {
-  return role === "cashier" ? "/billing" : "/dashboard";
+  return role === "CASHIER" ? "/billing" : "/dashboard";
+}
+
+/** Where to land after sign-in: an owner whose plan ended goes straight to renewal. */
+export function homePathForMe(me: Me): string {
+  if (me.user.role === "OWNER" && me.plan.expired) return "/settings/plan";
+  if (me.user.role === "OWNER" && me.account.keepActiveReviewPending) return "/keep-active";
+  return homePathFor(me.user.role);
 }

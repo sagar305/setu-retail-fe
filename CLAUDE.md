@@ -10,7 +10,8 @@ https://claude.ai/artifact/BasiGikDDkKYPKRbNoUUoo — follow both, and ask befor
 - Tailwind only, using the brand tokens in `src/index.css`; no CSS modules. Sora is bundled via `@fontsource-variable/sora`.
 - Mobile-first: everything must work at 375px with no horizontal scroll; touch targets ≥ 44px.
 - Navigation and role visibility live in `src/lib/nav.ts`. The UI hides what a role can't use, but the API is the real gate.
-- Talk to the API through `src/lib/api.ts`; only `VITE_*` env vars reach the browser — never put secrets in them.
+- Talk to the API through `src/lib/api.ts`; regenerate `src/lib/api-types.ts` with `npm run api:types` after API changes. Only `VITE_*` env vars reach the browser — never put secrets in them.
+- The signed-in user comes from `useMe()` (`src/auth/AuthProvider.tsx`); role gates are `<Allow roles>` in `src/App.tsx`. Never keep the access token in storage.
 - localStorage only for per-device preferences (via `src/lib/storage.ts`). Business data goes to the API, and offline data to IndexedDB (Phase 3).
 - Money is integer minor units (paise/cents) end to end; format only for display.
 - Accessible markup: real buttons/links/labels, `aria-label` on icon-only buttons.

@@ -9,7 +9,7 @@ export function ComingSoon() {
     <section className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-line bg-white p-8">
       <h1 className="m-0 text-2xl font-semibold">{item?.label ?? "Page"}</h1>
       <p className="m-0 text-muted">
-        This screen is built in Phase {item?.phase ?? "—"}. The layout follows the approved UI prototype.
+        This screen arrives in Phase {item?.phase ?? "—"}. Its layout follows the approved UI prototype.
       </p>
     </section>
   );

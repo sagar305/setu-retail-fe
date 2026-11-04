@@ -21,12 +21,15 @@ npm run dev                   # http://localhost:5173
 | `npm run build` | Production build + service worker (`dist/`) |
 | `npm run preview` | Serve the build — use this to test offline |
 
-## What Phase 0 contains
+## What's built
 
-- App shell from the approved prototype: indigo sidebar (hide/show, remembered per device; a drawer on phones), top bar, sync chip.
-- Navigation per role (owner / manager / cashier). Until sign-in arrives in Phase 1, a **Preview as** switcher sets the role.
-- Brand tokens in `src/index.css` (`bg-indigo`, `bg-saffron`, `text-ink`, `bg-paper`, `text-muted`, `border-line`…), Sora font bundled (works offline).
-- Service worker precaches the whole app; API responses are never cached by it (offline data goes to IndexedDB in Phase 3).
+- **Phase 0:** app shell from the approved prototype — indigo sidebar (hide/show, remembered per device; a drawer on phones), top bar, online/offline chip, brand tokens, bundled Sora font, offline-capable PWA.
+- **Phase 1:** sign up → verify email (starts the 3-month Basic trial) → sign in with email or username; forgot/reset password; staff invite links. Branches (codes B1, B2…), staff (owner adds managers/cashiers, managers add cashiers), plan & license key (check → switch now / start later → redeem), and the keep-active picker after a downgrade. Navigation and screens follow the signed-in user's role; an owner whose plan ended only reaches the plan screen.
+
+## Talking to the API
+
+- `src/lib/api.ts` keeps the access token in memory; the 12-hour refresh token is an http-only cookie the browser sends to `/auth/*`. A 401 triggers one shared refresh and a single retry.
+- Types are generated from the API spec: `npm run api:types` (reads `../setu-retail-be/openapi.json`; run `npm run openapi:export` there first after API changes).
 
 ## Deploy (Vercel)
 
