@@ -77,6 +77,13 @@ const TITLES: Record<string, string> = {
 };
 const WARN = new Set(["auth.sign_in_failed", "order.cancelled", "product.archived", "expense.deleted", "cash_book.entry_deleted", "ledger.customer_entry_voided", "ledger.supplier_entry_voided", "purchase.cancelled", "transfer.cancelled", "product.stock_adjusted"]);
 
+/** "Chrome on Android" from a browser's user agent. */
+export function deviceName(ua: string): string {
+  const browser = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "A browser";
+  const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${browser} on ${os}` : browser;
+}
+
 export function describeAudit(e: AuditEntry): { title: string; details: string[]; tone?: "warn" } {
   const d = (e.data ?? {}) as D;
   const title = TITLES[e.action] ?? e.action.replace(/[._]/g, " ");
@@ -114,7 +121,7 @@ export function describeAudit(e: AuditEntry): { title: string; details: string[]
       details.push(d.locked ? "Too many tries: locked for 15 minutes" : `Attempt ${str(d.attempt)}`);
       break;
     case "auth.signed_in":
-      if (d.userAgent) details.push(String(d.userAgent));
+      if (d.userAgent) details.push(deviceName(String(d.userAgent)));
       break;
     default: {
       const lines = changeLines(d);

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { AuthProvider } from "../auth/AuthProvider";
 import { setAccessToken, type AuditEntry } from "../lib/api";
-import { describeAudit } from "../lib/auditText";
+import { describeAudit, deviceName } from "../lib/auditText";
 import { makeMe, mockApi, SETTINGS, session } from "../test/mockApi";
 
 afterEach(() => {
@@ -73,6 +73,11 @@ describe("stock transfers", () => {
 
 describe("audit log", () => {
   const entry = (action: string, data: unknown, over: Partial<AuditEntry> = {}): AuditEntry => ({ id: action, createdAt: "2026-11-04T09:00:00.000Z", action, entityType: "x", entityId: null, userId: "u", userName: "Anil", role: "OWNER", branchId: B1, branchCode: "B1", ip: "10.0.0.1", data, ...over });
+
+  it("names the device from the browser", () => {
+    expect(deviceName("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36")).toBe("Chrome on Android");
+    expect(deviceName("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1")).toBe("Safari on iPhone/iPad");
+  });
 
   it("describes entries in plain words", () => {
     expect(describeAudit(entry("product.price_changed", { name: "Tea", from: 14500, to: 15000 }))).toMatchObject({ title: "Price changed", details: ["Tea: ₹145.00 → ₹150.00"] });

@@ -114,7 +114,7 @@ export function AuditLogPage() {
             <li key={e.id} className="flex flex-col gap-1 border-t border-line px-4 py-3 first:border-t-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="w-40 shrink-0 text-[13px] text-muted">{when(e.createdAt)}</span>
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                   <strong className={d.tone === "warn" ? "text-[#A3361F]" : ""}>{d.title}</strong>
                   {d.details.length ? <span className="text-sm text-muted"> · {d.details[0]}</span> : null}
                 </span>
@@ -130,7 +130,7 @@ export function AuditLogPage() {
                 ) : null}
               </div>
               {open === e.id ? (
-                <ul className="m-0 ml-0 flex list-disc flex-col gap-0.5 pl-5 text-sm text-muted sm:ml-40">
+                <ul className="m-0 ml-0 flex list-disc flex-col gap-0.5 pl-5 text-sm text-muted [overflow-wrap:anywhere] sm:ml-40">
                   {d.details.map((x, i) => (
                     <li key={i}>{x}</li>
                   ))}

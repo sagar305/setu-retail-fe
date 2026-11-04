@@ -44,6 +44,13 @@ export function onSignedOut(handler: () => void) {
   onSessionLost = handler;
 }
 
+/** Tests only: forget the session between tests so nothing carries over. */
+export function resetApiState() {
+  accessToken = null;
+  onSessionLost = null;
+  refreshing = null;
+}
+
 async function raw<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";

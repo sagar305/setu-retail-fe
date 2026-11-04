@@ -185,7 +185,7 @@ function TransferDetail({ t, onChange, onClose }: { t: Transfer; onChange: (t: T
               </span>
               {canReceive ? (
                 <>
-                  <Field label="Arrived OK" inputMode="decimal" value={got[i.id] ?? ""} onChange={(e) => setGot({ ...got, [i.id]: e.target.value })} className="w-28" />
+                  <Field label="Arrived OK" inputMode="decimal" value={got[i.id] ?? ""} onChange={(e) => setGot({ ...got, [i.id]: e.target.value })} className="w-28" error={(parseQty(got[i.id] ?? "") ?? 0) > i.qtyMilli ? "More than was sent" : parseQty(got[i.id] ?? "") === null ? "Enter a number" : undefined} />
                   {missing > 0 ? (
                     <SelectField label={`${formatQty(missing)} short / damaged`} value={short[i.id] ?? "RETURN"} onChange={(e) => setShort({ ...short, [i.id]: e.target.value as "RETURN" })}>
                       <option value="RETURN">Back to sender</option>
