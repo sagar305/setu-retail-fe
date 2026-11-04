@@ -7,6 +7,9 @@ import { ensureCounter } from "../offline/counter";
 import { errorMessage } from "../lib/format";
 import { formatMoney, formatQty, parseQty } from "../lib/money";
 import { Receipt } from "../pos/Receipt";
+import { DesignPicker } from "../pos/DesignPicker";
+import { designFor } from "../lib/receiptDesign";
+import { useReceiptTemplates } from "../hooks/useReceiptTemplates";
 
 function statusBadge(o: { status: string; returnedTotal: number; total: number }) {
   if (o.status === "CANCELLED") return <Badge tone="muted">Cancelled</Badge>;
@@ -99,6 +102,8 @@ function ReturnDialog({ order, methods, onDone, onClose }: { order: Order; metho
 
 function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string; settings: Settings; methods: PaymentMethod[]; onChanged: () => void; onClose: () => void }) {
   const me = useMe();
+  const templates = useReceiptTemplates();
+  const [designId, setDesignId] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | "cancel" | "return">(null);
@@ -116,6 +121,8 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
     onChanged();
   };
 
+  const branchTemplate = me.branches.find((b) => b.id === order?.branch.id)?.receiptTemplateId;
+  const design = templates.find((t) => t.id === designId) ?? designFor(templates, branchTemplate);
   return (
     <Modal title={order ? `Bill ${order.invoiceNumber}` : "Bill"} onClose={onClose} wide>
       {error ? <Alert tone="error">{error}</Alert> : null}
@@ -125,8 +132,9 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
             {statusBadge(order)}
             {order.status === "CANCELLED" ? <span className="text-sm text-muted">Reason: {order.cancelReason}</span> : null}
           </div>
+          <DesignPicker templates={templates} value={design?.id ?? null} onChange={setDesignId} />
           <div className="max-h-[50vh] overflow-auto rounded-xl border border-line bg-cream p-3">
-            <Receipt order={order} settings={settings} creditNoteId={printCn} />
+            <Receipt order={order} settings={settings} creditNoteId={printCn} template={design} />
           </div>
           {order.creditNotes.length ? (
             <div className="flex flex-col gap-2">

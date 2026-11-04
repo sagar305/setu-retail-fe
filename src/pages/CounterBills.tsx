@@ -6,6 +6,7 @@ import { formatMoney } from "../lib/money";
 import { db, type OutboxOrder } from "../offline/db";
 import { useSync } from "../offline/SyncProvider";
 import { Receipt } from "../pos/Receipt";
+import { designFor } from "../lib/receiptDesign";
 
 /** Bills made on this device that the server hasn't confirmed yet. */
 export function CounterBillsPage() {
@@ -55,7 +56,7 @@ export function CounterBillsPage() {
         <Modal title={`Bill ${open.invoiceNumber}`} onClose={() => setOpen(null)} wide>
           <div className="flex flex-col gap-4">
             <div className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
-              <Receipt order={open.order} settings={packs.get(open.branchId)!.settings} />
+              <Receipt order={open.order} settings={packs.get(open.branchId)!.settings} template={designFor(packs.get(open.branchId)!.receiptTemplates ?? [], packs.get(open.branchId)!.branch.receiptTemplateId)} />
             </div>
             <Button onClick={() => window.print()} className="self-start">
               Print receipt

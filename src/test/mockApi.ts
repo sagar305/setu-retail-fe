@@ -33,6 +33,7 @@ export function makeMe(over: { role?: Me["user"]["role"]; expired?: boolean; tri
     gstin: null,
     stateCode: null,
     withinPlan: true,
+    receiptTemplateId: null as string | null,
     createdAt: `2026-0${i + 1}-01T00:00:00.000Z`,
     ...b,
   }));
@@ -103,6 +104,8 @@ export const SETTINGS = {
   receiptPaperSize: "80mm",
   batchTracking: false,
   tools: {} as Record<string, boolean>,
+  creditDays: 0,
+  logoDataUrl: null as string | null,
 };
 
 /** The endpoints the billing screen loads. */
@@ -127,7 +130,7 @@ export function makePack(over: { products?: unknown[]; settings?: Partial<typeof
     at: "2026-11-04T09:00:00.000Z",
     settings: { ...SETTINGS, ...over.settings },
     account: { id: "22222222-2222-4222-8222-222222222222", name: "Sharma Stores", timezone: "Asia/Kolkata", currency: "INR" },
-    branch: { id: BRANCH_ID, code: "B1", name: "Main branch", address: "", phone: "", gstin: null, stateCode: null },
+    branch: { id: BRANCH_ID, code: "B1", name: "Main branch", address: "", phone: "", gstin: null, stateCode: null, receiptTemplateId: null as string | null },
     counter: { id: COUNTER_ID, code: "C1", name: "Counter 1", nextInvoiceNumber: over.nextInvoiceNumber ?? 1 },
     plan: { expired: over.expired ?? false },
     methods,
@@ -139,5 +142,6 @@ export function makePack(over: { products?: unknown[]; settings?: Partial<typeof
     customerBalances: [] as { customerId: string; balance: number }[],
     suppliers: [] as { id: string; name: string; phone: string; balance: number }[],
     expenseCategories: ["Rent", "Salaries", "Electricity", "Other"],
+    receiptTemplates: [] as unknown[],
   };
 }

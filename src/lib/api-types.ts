@@ -1560,6 +1560,8 @@ export interface paths {
                             "stock-register"?: boolean;
                             "barcode-generator"?: boolean;
                         };
+                        creditDays?: number;
+                        logoDataUrl?: string | null;
                     };
                 };
             };
@@ -2672,6 +2674,7 @@ export interface paths {
                         gstin?: string;
                         stateCode?: string | "";
                         notes?: string;
+                        creditDays?: number | null;
                     };
                 };
             };
@@ -2784,6 +2787,7 @@ export interface paths {
                         gstin?: string;
                         stateCode?: string | "";
                         notes?: string;
+                        creditDays?: number | null;
                     };
                 };
             };
@@ -3818,7 +3822,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Stock movements in a branch (?from=&to= ISO instants, ?branchId=) */
+        /** Stock movements in a branch (?from=&to= ISO instants, ?branchId=), &productId= */
         get: {
             parameters: {
                 query?: never;
@@ -6342,6 +6346,636 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/aging/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoice Aging: udhaar due after credit days, by how overdue */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerAging"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/aging/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payables Aging: unpaid supplier bills by due date */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SupplierAging"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/profit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profit: net sales before GST − cost of goods − expenses (?from=&to= yyyy-mm-dd, &branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProfitReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/stock-register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opening, in, out and closing stock per product in a branch (?branchId=&from=&to=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockRegister"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receipt-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saved receipt designs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            templates: components["schemas"]["ReceiptTemplate"][];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Save a receipt design (the first becomes the default) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** @enum {string} */
+                        paperSize: "80mm" | "58mm" | "a4";
+                        accentColor: string;
+                        headerText?: string;
+                        footerText?: string;
+                        showLogo?: boolean;
+                        showBusinessInfo?: boolean;
+                        showGstin?: boolean;
+                        showHsn?: boolean;
+                        showGstSummary?: boolean;
+                        showAmountWords?: boolean;
+                        boldTotals?: boolean;
+                        /** @enum {string} */
+                        separator?: "dashed" | "solid" | "none";
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            template: components["schemas"]["ReceiptTemplate"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receipt-templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a receipt design */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit a receipt design */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** @enum {string} */
+                        paperSize?: "80mm" | "58mm" | "a4";
+                        accentColor?: string;
+                        headerText?: string;
+                        footerText?: string;
+                        showLogo?: boolean;
+                        showBusinessInfo?: boolean;
+                        showGstin?: boolean;
+                        showHsn?: boolean;
+                        showGstSummary?: boolean;
+                        showAmountWords?: boolean;
+                        boldTotals?: boolean;
+                        /** @enum {string} */
+                        separator?: "dashed" | "solid" | "none";
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            template: components["schemas"]["ReceiptTemplate"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/receipt-templates/{id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make a design the business default */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            template: components["schemas"]["ReceiptTemplate"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/receipt-templates/branches/{branchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pick a branch's receipt design (null = business default) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        templateId: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            branchId: string;
+                            templateId: string | null;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/barcodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make in-store EAN-13 barcodes for products without one */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        productIds: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            generated: {
+                                productId: string;
+                                barcode: string;
+                            }[];
+                            skipped: number;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6390,6 +7024,7 @@ export interface components {
                 gstin: string | null;
                 stateCode: string | null;
                 withinPlan: boolean;
+                receiptTemplateId: string | null;
                 /** Format: date-time */
                 createdAt: string;
             }[];
@@ -6454,6 +7089,7 @@ export interface components {
                     gstin: string | null;
                     stateCode: string | null;
                     withinPlan: boolean;
+                    receiptTemplateId: string | null;
                     /** Format: date-time */
                     createdAt: string;
                 }[];
@@ -6498,6 +7134,7 @@ export interface components {
             gstin: string | null;
             stateCode: string | null;
             withinPlan: boolean;
+            receiptTemplateId: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -6565,6 +7202,8 @@ export interface components {
             tools: {
                 [key: string]: boolean;
             };
+            creditDays: number;
+            logoDataUrl: string | null;
         };
         PaymentMethod: {
             /** Format: uuid */
@@ -6624,6 +7263,7 @@ export interface components {
             gstin: string | null;
             stateCode: string | null;
             notes: string;
+            creditDays: number | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -7163,6 +7803,7 @@ export interface components {
                 phone: string;
                 gstin: string | null;
                 stateCode: string | null;
+                receiptTemplateId: string | null;
             };
             counter: {
                 id: string;
@@ -7201,6 +7842,25 @@ export interface components {
                 balance: number;
             }[];
             expenseCategories: string[];
+            receiptTemplates: {
+                id: string;
+                name: string;
+                /** @enum {string} */
+                paperSize: "80mm" | "58mm" | "a4";
+                accentColor: string;
+                headerText: string;
+                footerText: string;
+                showLogo: boolean;
+                showBusinessInfo: boolean;
+                showGstin: boolean;
+                showHsn: boolean;
+                showGstSummary: boolean;
+                showAmountWords: boolean;
+                boldTotals: boolean;
+                /** @enum {string} */
+                separator: "dashed" | "solid" | "none";
+                isDefault: boolean;
+            }[];
         };
         SyncMoneyOp: {
             /** @enum {string} */
@@ -7449,6 +8109,186 @@ export interface components {
             paidMethodId?: string | null;
             notes?: string;
             expectedTotal?: number;
+        };
+        CustomerAging: {
+            asOf: string;
+            buckets: {
+                key: string;
+                label: string;
+            }[];
+            totals: {
+                current: number;
+                d30: number;
+                d60: number;
+                d90: number;
+                d90plus: number;
+            };
+            total: number;
+            creditDays: number;
+            parties: {
+                customerId: string;
+                creditDays: number;
+                name: string;
+                phone: string;
+                open: number;
+                buckets: {
+                    current: number;
+                    d30: number;
+                    d60: number;
+                    d90: number;
+                    d90plus: number;
+                };
+                items: {
+                    id: string;
+                    type: string;
+                    ref: string;
+                    at: string;
+                    dueDate: string | null;
+                    amount: number;
+                    paid: number;
+                    open: number;
+                    dueDay: string;
+                    /** @enum {string} */
+                    bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
+                    daysOverdue: number;
+                }[];
+                maxDaysOverdue: number;
+            }[];
+        };
+        SupplierAging: {
+            asOf: string;
+            buckets: {
+                key: string;
+                label: string;
+            }[];
+            totals: {
+                current: number;
+                d30: number;
+                d60: number;
+                d90: number;
+                d90plus: number;
+            };
+            total: number;
+            parties: {
+                supplierId: string;
+                name: string;
+                phone: string;
+                open: number;
+                buckets: {
+                    current: number;
+                    d30: number;
+                    d60: number;
+                    d90: number;
+                    d90plus: number;
+                };
+                items: {
+                    id: string;
+                    type: string;
+                    ref: string;
+                    at: string;
+                    dueDate: string | null;
+                    amount: number;
+                    paid: number;
+                    open: number;
+                    dueDay: string;
+                    /** @enum {string} */
+                    bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
+                    daysOverdue: number;
+                }[];
+                maxDaysOverdue: number;
+            }[];
+            dueThisWeek: {
+                id: string;
+                type: string;
+                ref: string;
+                at: string;
+                dueDate: string | null;
+                amount: number;
+                paid: number;
+                open: number;
+                dueDay: string;
+                /** @enum {string} */
+                bucket: "current" | "d30" | "d60" | "d90" | "d90plus";
+                daysOverdue: number;
+                supplierId: string;
+                name: string;
+            }[];
+        };
+        ProfitReport: {
+            from: string;
+            to: string;
+            /** @enum {string} */
+            period: "day" | "month";
+            revenue: number;
+            cost: number;
+            expenses: number;
+            grossProfit: number;
+            netProfit: number;
+            grossMarginBp: number | null;
+            uncosted: {
+                lines: number;
+                revenue: number;
+            };
+            byPeriod: {
+                period: string;
+                revenue: number;
+                cost: number;
+                expenses: number;
+                grossProfit: number;
+                netProfit: number;
+            }[];
+            byBranch: {
+                branchId: string;
+                revenue: number;
+                cost: number;
+                expenses: number;
+                grossProfit: number;
+                netProfit: number;
+            }[];
+            expensesByCategory: {
+                category: string;
+                amount: number;
+            }[];
+        };
+        StockRegister: {
+            branchId: string;
+            from: string;
+            to: string;
+            value: number;
+            missingCost: number;
+            items: {
+                productId: string;
+                name: string;
+                sku: string;
+                unit: string;
+                opening: number;
+                purchases: number;
+                sales: number;
+                returns: number;
+                adjustments: number;
+                supplierReturns: number;
+                closing: number;
+                value: number | null;
+            }[];
+        };
+        ReceiptTemplate: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            paperSize: "80mm" | "58mm" | "a4";
+            accentColor: string;
+            headerText: string;
+            footerText: string;
+            showLogo: boolean;
+            showBusinessInfo: boolean;
+            showGstin: boolean;
+            showHsn: boolean;
+            showGstSummary: boolean;
+            showAmountWords: boolean;
+            boldTotals: boolean;
+            /** @enum {string} */
+            separator: "dashed" | "solid" | "none";
+            isDefault: boolean;
         };
     };
     responses: never;

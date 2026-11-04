@@ -181,3 +181,10 @@ export type Purchase = Schemas["Purchase"];
 export type PurchaseSummary = Schemas["PurchaseSummary"];
 export type PurchaseBody = Schemas["PurchaseBody"];
 export type SyncMoneyOp = Schemas["SyncMoneyOp"];
+
+// ── Phase 4b ──
+export type ReceiptTemplate = Schemas["ReceiptTemplate"];
+export type CustomerAging = Schemas["CustomerAging"];
+export type SupplierAging = Schemas["SupplierAging"];
+export type ProfitReport = Schemas["ProfitReport"];
+export type StockRegister = Schemas["StockRegister"];

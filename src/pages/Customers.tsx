@@ -5,11 +5,11 @@ import { ApiError, apiGet, apiPatch, apiPost, type Customer } from "../lib/api";
 import { errorMessage, formatDate } from "../lib/format";
 import { downloadCsv, toCsv } from "../lib/csv";
 
-type Draft = { name: string; phone: string; email: string; gstin: string; stateCode: string; address: string; notes: string };
-const blank: Draft = { name: "", phone: "", email: "", gstin: "", stateCode: "", address: "", notes: "" };
+type Draft = { name: string; phone: string; email: string; gstin: string; stateCode: string; address: string; notes: string; creditDays: string };
+const blank: Draft = { name: "", phone: "", email: "", gstin: "", stateCode: "", address: "", notes: "", creditDays: "" };
 
 function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null; onDone: () => void; onClose: () => void }) {
-  const [d, setD] = useState<Draft>(customer ? { name: customer.name, phone: customer.phone, email: customer.email, gstin: customer.gstin ?? "", stateCode: customer.stateCode ?? "", address: customer.address, notes: customer.notes } : blank);
+  const [d, setD] = useState<Draft>(customer ? { name: customer.name, phone: customer.phone, email: customer.email, gstin: customer.gstin ?? "", stateCode: customer.stateCode ?? "", address: customer.address, notes: customer.notes, creditDays: customer.creditDays === null ? "" : String(customer.creditDays) } : blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -21,8 +21,9 @@ function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null
     setErrors({});
     setError(null);
     try {
-      if (customer) await apiPatch(`/customers/${customer.id}`, d);
-      else await apiPost("/customers", d);
+      const body = { ...d, creditDays: d.creditDays === "" ? null : Number(d.creditDays) };
+      if (customer) await apiPatch(`/customers/${customer.id}`, body);
+      else await apiPost("/customers", body);
       onDone();
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_error") setErrors(err.fieldErrors);
@@ -44,7 +45,8 @@ function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null
           <Field label="GSTIN" value={d.gstin} onChange={set("gstin")} error={errors.gstin} hint="For business customers. Sets their state." />
           <Field label="GST state code" inputMode="numeric" maxLength={2} value={d.stateCode} onChange={set("stateCode")} error={errors.stateCode} hint="e.g. 27 for Maharashtra; decides CGST/SGST vs IGST." />
           <Field label="Address" value={d.address} onChange={set("address")} />
-          <Field label="Notes" value={d.notes} onChange={set("notes")} className="md:col-span-2" />
+          <Field label="Credit days (optional)" inputMode="numeric" value={d.creditDays} onChange={(e) => setD({ ...d, creditDays: e.target.value.replace(/\D/g, "").slice(0, 3) })} error={errors.creditDays} hint="When their udhaar is due. Leave blank to use the shop's setting." />
+          <Field label="Notes" value={d.notes} onChange={set("notes")} />
         </div>
         <div className="flex gap-3">
           <Button type="submit" busy={busy} disabled={!d.name.trim()}>

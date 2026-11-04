@@ -6,6 +6,8 @@ import { deviceKeyFor, ensureCounter, invoiceNumber, peekSeq, takeSeq } from "..
 import { refreshPack, storedPack } from "../offline/pack";
 import { pendingOrders, queueCustomer, queueOrder } from "../offline/outbox";
 import { readPref } from "../lib/storage";
+import { designFor } from "../lib/receiptDesign";
+import { DesignPicker } from "../pos/DesignPicker";
 import { Alert, Badge, Button, Field, Modal } from "../components/ui";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { ApiError, apiDelete, apiGet, apiPost, type Customer, type HeldCart, type OfflinePack, type Order, type PaymentMethod, type Product } from "../lib/api";
@@ -108,6 +110,7 @@ export function BillingPage() {
   const [pickBatchFor, setPickBatchFor] = useState<string | null>(null);
   const [done, setDone] = useState<{ order: Order; queued: boolean } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [designId, setDesignId] = useState<string | null>(null);
 
   // Set up this device as a counter and get its offline pack. Online: register
   // if needed and download a fresh pack. Offline: use the pack saved here.
@@ -145,7 +148,7 @@ export function BillingPage() {
       const m = new Map<string, number>();
       for (const o of orders) for (const l of o.payload.lines) if (l.productId) m.set(l.productId, (m.get(l.productId) ?? 0) + l.qtyMilli);
       setPendingQty(m);
-      setQueuedCustomers(custs.map((c) => ({ id: c.id, name: c.payload.name, phone: c.payload.phone ?? "", email: "", address: "", gstin: c.payload.gstin ?? null, stateCode: c.payload.stateCode ?? null, notes: "", createdAt: c.createdAt })));
+      setQueuedCustomers(custs.map((c) => ({ id: c.id, name: c.payload.name, phone: c.payload.phone ?? "", email: "", address: "", gstin: c.payload.gstin ?? null, stateCode: c.payload.stateCode ?? null, notes: "", creditDays: null, createdAt: c.createdAt })));
     });
     return () => {
       alive = false;
@@ -153,6 +156,9 @@ export function BillingPage() {
   }, [counterId, sync.pending, done]);
 
   const pack = setup?.pack;
+  // Receipt design: the cashier's pick, else the branch's, else the business default.
+  const templates = useMemo(() => (pack?.settings.tools?.["receipt-designer"] === false ? [] : (pack?.receiptTemplates ?? [])), [pack]);
+  const design = templates.find((t) => t.id === designId) ?? designFor(templates, pack?.branch.receiptTemplateId);
   const settings = pack?.settings;
   // Udhaar only while the owner has the Customer Ledger switched on.
   const methods = (pack?.methods ?? []).filter((m) => m.kind !== "CREDIT" || settings?.tools?.["customer-ledger"] !== false);
@@ -557,7 +563,7 @@ export function BillingPage() {
                     const createdAt = new Date().toISOString();
                     const g = form.gstin.trim().toUpperCase().replace(/\s/g, "");
                     await queueCustomer({ id, counterId: setup.counterId, createdAt, payload: { id, name: form.name.trim(), phone: form.phone.trim(), gstin: g || undefined, stateCode: g ? g.slice(0, 2) : undefined } });
-                    const c: Customer = { id, name: form.name.trim(), phone: form.phone.replace(/\D/g, "").slice(-10), email: "", address: "", gstin: g || null, stateCode: g ? g.slice(0, 2) : null, notes: "", createdAt };
+                    const c: Customer = { id, name: form.name.trim(), phone: form.phone.replace(/\D/g, "").slice(-10), email: "", address: "", gstin: g || null, stateCode: g ? g.slice(0, 2) : null, notes: "", creditDays: null, createdAt };
                     setQueuedCustomers((q) => [c, ...q]);
                     return c;
                   },
@@ -592,10 +598,11 @@ export function BillingPage() {
           <div className="flex flex-col gap-4">
             {done.queued ? <Alert tone="info">Saved on this counter. It syncs automatically when the internet is back.</Alert> : null}
             <div className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
-              <Receipt order={done.order} settings={settings} />
+              <Receipt order={done.order} settings={settings} template={design} />
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button onClick={() => window.print()}>Print receipt</Button>
+              <DesignPicker templates={templates} value={design?.id ?? null} onChange={setDesignId} />
               <Button variant="secondary" onClick={() => setDone(null)}>
                 New bill
               </Button>

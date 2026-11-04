@@ -37,6 +37,11 @@ import { CashBookPage } from "./pages/tools/CashBook";
 import { NewPurchasePage, PurchaseDetailPage, PurchasesPage } from "./pages/tools/Purchases";
 import { RequireTool } from "./pages/tools/RequireTool";
 import { OfflineMoneyPage } from "./pages/OfflineMoney";
+import { AgingPage } from "./pages/tools/Aging";
+import { ProfitPage } from "./pages/tools/Profit";
+import { StockRegisterPage } from "./pages/tools/StockRegister";
+import { BarcodesPage } from "./pages/tools/Barcodes";
+import { ReceiptDesignerPage } from "./pages/tools/ReceiptDesigner";
 
 const BUILT = new Set(["/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
@@ -112,6 +117,24 @@ export function App() {
             </Route>
             <Route element={<RequireTool slug="cash-book" />}>
               <Route path="/tools/cash-book" element={<CashBookPage />} />
+            </Route>
+            <Route element={<RequireTool slug="invoice-aging" />}>
+              <Route path="/tools/invoice-aging" element={<AgingPage kind="customers" />} />
+            </Route>
+            <Route element={<RequireTool slug="payables-aging" />}>
+              <Route path="/tools/payables-aging" element={<AgingPage kind="suppliers" />} />
+            </Route>
+            <Route element={<RequireTool slug="profit-dashboard" />}>
+              <Route path="/tools/profit" element={<ProfitPage />} />
+            </Route>
+            <Route element={<RequireTool slug="stock-register" />}>
+              <Route path="/tools/stock-register" element={<StockRegisterPage />} />
+            </Route>
+            <Route element={<RequireTool slug="barcode-generator" />}>
+              <Route path="/tools/barcodes" element={<BarcodesPage />} />
+            </Route>
+            <Route element={<RequireTool slug="receipt-designer" />}>
+              <Route path="/tools/receipt-designer" element={<ReceiptDesignerPage />} />
             </Route>
             <Route element={<RequireTool slug="purchase-register" />}>
               <Route path="/tools/purchases" element={<PurchasesPage />} />

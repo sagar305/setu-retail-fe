@@ -1,4 +1,4 @@
-import type { Order, Settings } from "../lib/api";
+import type { Order, ReceiptTemplate, Settings } from "../lib/api";
 import { stateLabel } from "../lib/gstStates";
 import { amountInWords, bpToPercent, formatMoney, formatQty } from "../lib/money";
 
@@ -20,9 +20,15 @@ function gstSummary(order: Order) {
   return [...byRate].sort((a, b) => a[0] - b[0]).filter(([rate]) => rate > 0);
 }
 
+/** What a receipt design changes; no design = the classic receipt. */
+type Look = Pick<ReceiptTemplate, "paperSize" | "accentColor" | "headerText" | "footerText" | "showLogo" | "showBusinessInfo" | "showGstin" | "showHsn" | "showGstSummary" | "showAmountWords" | "boldTotals" | "separator">;
+
 /** A GST tax invoice for printing (thermal 80/58 mm or A4). Monospace, black on white. */
-export function Receipt({ order, settings, creditNoteId }: { order: Order; settings: Settings; creditNoteId?: string }) {
-  const paper = settings.receiptPaperSize;
+export function Receipt({ order, settings, creditNoteId, template }: { order: Order; settings: Settings; creditNoteId?: string; template?: Look | null }) {
+  const t: Look = template ?? { paperSize: settings.receiptPaperSize, accentColor: "#000000", headerText: "", footerText: "", showLogo: false, showBusinessInfo: true, showGstin: true, showHsn: true, showGstSummary: true, showAmountWords: true, boldTotals: true, separator: "dashed" };
+  const paper = t.paperSize;
+  const sep = t.separator === "none" ? "my-1.5 border-0" : `my-1.5 border-0 border-t ${t.separator === "solid" ? "border-solid" : "border-dashed"} border-black`;
+  const footer = t.footerText || settings.receiptFooter;
   const cn = creditNoteId ? order.creditNotes.find((c) => c.id === creditNoteId) : undefined;
   const gstin = order.branch.gstin ?? settings.business.taxNumber;
   const title = cn ? "CREDIT NOTE" : order.taxEnabled ? "TAX INVOICE" : "INVOICE";
@@ -39,14 +45,24 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
   return (
     <div className={`print-area mx-auto bg-white p-3 font-mono text-black ${WIDTH[paper]} ${small ? "text-[10px]" : "text-[12px]"} leading-snug`} aria-label={`${title} ${cn?.number ?? order.invoiceNumber}`}>
       <div className="flex flex-col items-center text-center">
-        <strong className={small ? "text-[13px]" : "text-[16px]"}>{settings.business.name.toUpperCase()}</strong>
-        <span>{order.branch.name}</span>
-        {order.branch.address ? <span>{order.branch.address}</span> : null}
-        {order.branch.phone || settings.business.phone ? <span>Ph {order.branch.phone || settings.business.phone}</span> : null}
-        {order.taxEnabled && gstin ? <span>GSTIN {gstin}</span> : null}
-        <strong className="mt-1">{title}</strong>
+        {t.showLogo && settings.logoDataUrl ? <img src={settings.logoDataUrl} alt="" className="mb-1 max-h-14 max-w-[60%] object-contain" /> : null}
+        <strong className={small ? "text-[13px]" : "text-[16px]"} style={{ color: t.accentColor }}>
+          {settings.business.name.toUpperCase()}
+        </strong>
+        {t.headerText ? <span className="whitespace-pre-line">{t.headerText}</span> : null}
+        {t.showBusinessInfo ? (
+          <>
+            <span>{order.branch.name}</span>
+            {order.branch.address ? <span>{order.branch.address}</span> : null}
+            {order.branch.phone || settings.business.phone ? <span>Ph {order.branch.phone || settings.business.phone}</span> : null}
+          </>
+        ) : null}
+        {order.taxEnabled && gstin && t.showGstin ? <span>GSTIN {gstin}</span> : null}
+        <strong className="mt-1" style={{ color: t.accentColor }}>
+          {title}
+        </strong>
       </div>
-      <hr className="my-1.5 border-0 border-t border-dashed border-black" />
+      <hr className={sep} />
       <Row a={cn ? "Credit note" : "Bill"} b={cn?.number ?? order.invoiceNumber} />
       {cn ? <Row a="Against bill" b={order.invoiceNumber} /> : null}
       <Row a="Date" b={date} />
@@ -54,9 +70,9 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
       {order.taxEnabled && order.placeOfSupply ? <Row a="Place of supply" b={stateLabel(order.placeOfSupply)} /> : null}
       <Row a="Customer" b={order.customer?.name ?? "Walk-in"} />
       {order.customer?.gstin ? <Row a="Customer GSTIN" b={order.customer.gstin} /> : null}
-      <hr className="my-1.5 border-0 border-t border-dashed border-black" />
+      <hr className={sep} />
       <div className="flex font-bold">
-        <span className="flex-1">Item{order.taxEnabled ? " / HSN" : ""}</span>
+        <span className="flex-1">Item{order.taxEnabled && t.showHsn ? " / HSN" : ""}</span>
         <span className="w-10 text-right">Qty</span>
         <span className="w-[4.5rem] text-right">Amount</span>
       </div>
@@ -68,7 +84,7 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
             <span className="w-[4.5rem] text-right">{money(i.total)}</span>
           </div>
           <span className="text-[#333]">
-            {order.taxEnabled && i.hsn ? `HSN ${i.hsn} · ` : ""}@{money(i.unitPrice)}/{i.unit}
+            {order.taxEnabled && i.hsn && t.showHsn ? `HSN ${i.hsn} · ` : ""}@{money(i.unitPrice)}/{i.unit}
             {order.taxEnabled ? ` · GST ${bpToPercent(i.gstRateBp)}%` : ""}
           </span>
           {/* Only batches with real details (not the catch-all opening stock). */}
@@ -82,14 +98,14 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
           ) : null}
         </div>
       ))}
-      <hr className="my-1.5 border-0 border-t border-dashed border-black" />
+      <hr className={sep} />
       {!cn && order.discountTotal > 0 ? (
         <>
           <Row a="Subtotal" b={money(order.subtotal)} />
           <Row a="Discount" b={`−${money(order.discountTotal)}`} />
         </>
       ) : null}
-      {order.taxEnabled && !cn ? (
+      {order.taxEnabled && !cn && t.showGstSummary ? (
         <div className="flex flex-col">
           <div className="flex font-bold">
             <span className="flex-1">GST</span>
@@ -126,18 +142,18 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
           )}
         </>
       ) : null}
-      <hr className="my-1.5 border-0 border-t border-dashed border-black" />
-      <div className={`flex justify-between font-bold ${small ? "text-[13px]" : "text-[16px]"}`}>
+      <hr className={sep} />
+      <div className={`flex justify-between ${t.boldTotals ? "font-bold" : ""} ${small ? "text-[13px]" : "text-[16px]"}`}>
         <span>{cn ? "REFUND" : "TOTAL"}</span>
         <span>{formatMoney(cn?.total ?? order.total, settings.business.currency)}</span>
       </div>
       {cn ? <Row a="Refunded by" b={cn.refundMethodName} /> : order.payments.map((p, i) => <Row key={i} a={p.methodName} b={money(p.amount)} />)}
-      <span className="block">{amountInWords(cn?.total ?? order.total)}</span>
+      {t.showAmountWords ? <span className="block">{amountInWords(cn?.total ?? order.total)}</span> : null}
       {order.taxEnabled && !cn ? <span className="block text-[#333]">Amounts are in ₹, exact to the paisa.</span> : null}
       {order.status === "CANCELLED" ? <strong className="mt-1 block text-center">*** CANCELLED ***</strong> : null}
-      <hr className="my-1.5 border-0 border-t border-dashed border-black" />
+      <hr className={sep} />
       <div className="text-center">
-        <span className="block">{settings.receiptFooter}</span>
+        <span className="block whitespace-pre-line">{footer}</span>
         <span className="block text-[#333]">Powered by Setu Retail</span>
       </div>
     </div>
