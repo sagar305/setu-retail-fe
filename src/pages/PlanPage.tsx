@@ -4,6 +4,7 @@ import { useAuth, useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, PageHeader, UsageBar } from "../components/ui";
 import { apiGet, apiPost, type Plan } from "../lib/api";
 import { errorMessage, formatDate } from "../lib/format";
+import { SettingsTabs } from "./SettingsTabs";
 
 type PlanResponse = { plan: Plan; usage: Record<string, number>; keepActiveReviewPending: boolean };
 type Check = {
@@ -81,6 +82,7 @@ export function PlanPage() {
   return (
     <div className="w-full">
       <PageHeader title="Plan & license key" description="Only the owner sees this page." />
+      {plan.expired ? null : <SettingsTabs />}
       {plan.expired ? (
         <div className="mb-4">
           <Alert tone="warn">

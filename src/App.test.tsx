@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { setAccessToken } from "./lib/api";
-import { makeMe, mockApi, NOT_SIGNED_IN, session } from "./test/mockApi";
+import { makeMe, mockApi, NOT_SIGNED_IN, posRoutes, session } from "./test/mockApi";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -55,7 +55,7 @@ describe("signing in", () => {
   });
 
   it("restores the session on load and lands a cashier on billing", async () => {
-    mockApi({ "POST /auth/refresh": session(makeMe({ role: "CASHIER" })) });
+    mockApi({ "POST /auth/refresh": session(makeMe({ role: "CASHIER" })), ...posRoutes() });
     renderAt("/");
     expect(await screen.findByRole("heading", { name: "Billing" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("signing in", () => {
   });
 
   it("keeps cashiers off owner screens", async () => {
-    mockApi({ "POST /auth/refresh": session(makeMe({ role: "CASHIER" })) });
+    mockApi({ "POST /auth/refresh": session(makeMe({ role: "CASHIER" })), ...posRoutes() });
     renderAt("/settings/plan");
     expect(await screen.findByRole("heading", { name: "Billing" })).toBeInTheDocument();
   });

@@ -59,3 +59,58 @@ export function makeMe(over: { role?: Me["user"]["role"]; expired?: boolean; tri
 }
 
 export const session = (me: Me): Reply => [200, { accessToken: "test-token", expiresIn: 900, me }];
+
+export const BRANCH_ID = "00000000-0000-4000-8000-000000000001";
+const COUNTER_ID = "33333333-3333-4333-8333-333333333333";
+const methods = [
+  { id: "44444444-4444-4444-8444-000000000001", name: "Cash", kind: "CASH", active: true, sort: 1 },
+  { id: "44444444-4444-4444-8444-000000000002", name: "UPI", kind: "UPI", active: true, sort: 2 },
+  { id: "44444444-4444-4444-8444-000000000004", name: "Credit (Udhaar)", kind: "CREDIT", active: true, sort: 4 },
+];
+export const METHODS = methods;
+const product = (id: string, name: string, price: number, gstRateBp: number, stockMilli = 10_000) => ({
+  id,
+  name,
+  categoryId: null,
+  sku: "",
+  barcode: id.endsWith("1") ? "8901234567890" : "",
+  hsn: "1101",
+  gstRateBp,
+  taxInclusive: true,
+  unit: "pcs",
+  defaultPrice: price,
+  branchPrice: null,
+  price,
+  costPrice: null,
+  trackStock: true,
+  stockMilli,
+  lowStockMilli: null,
+  stockStatus: stockMilli <= 0 ? "out" : "ok",
+  archived: false,
+});
+export const PRODUCTS = [
+  product("55555555-5555-4555-8555-000000000001", "Wheat Atta 5 kg", 28500, 500),
+  product("55555555-5555-4555-8555-000000000002", "Tea 250 g", 14500, 500),
+  product("55555555-5555-4555-8555-000000000003", "Detergent 1 kg", 12000, 1800),
+];
+export const SETTINGS = {
+  business: { name: "Sharma Stores", phone: "9876543210", taxNumber: "29ABCDE1234F1Z5", currency: "INR", timezone: "Asia/Kolkata" },
+  taxEnabled: true,
+  allowNegativeStock: true,
+  cashierMaxDiscountBp: 1000,
+  receiptFooter: "Thank you!",
+  receiptPaperSize: "80mm",
+};
+
+/** The endpoints the billing screen loads. */
+export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS> } = {}): Record<string, Reply> {
+  return {
+    "GET /settings": [200, { ...SETTINGS, ...over.settings }],
+    "GET /payment-methods": [200, { methods }],
+    "GET /products": [200, { products: over.products ?? PRODUCTS, total: (over.products ?? PRODUCTS).length }],
+    "GET /categories": [200, { categories: [] }],
+    "GET /counters": [200, { counters: [] }],
+    "POST /counters": [201, { counter: { id: COUNTER_ID, branchId: BRANCH_ID, code: "C1", name: "Counter 1", lastSeenAt: null } }],
+    "GET /held-carts": [200, { carts: [] }],
+  };
+}

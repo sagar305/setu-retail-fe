@@ -38,3 +38,21 @@ body {
   outline: 2px solid var(--color-indigo);
   outline-offset: 2px;
 }
+
+/* Printing a receipt: only .print-area is printed, at the paper's width. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    margin: 0;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+}

@@ -15,8 +15,13 @@ import { KeepActivePage } from "./pages/KeepActive";
 import { NotFound } from "./pages/NotFound";
 import { PlanPage } from "./pages/PlanPage";
 import { StaffPage } from "./pages/Staff";
+import { BillingPage } from "./pages/Billing";
+import { CustomersPage } from "./pages/Customers";
+import { OrdersPage } from "./pages/Orders";
+import { PosSettingsPage } from "./pages/PosSettings";
+import { ProductsPage } from "./pages/Products";
 
-const BUILT = new Set(["/branches", "/staff", "/settings/plan"]);
+const BUILT = new Set(["/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers"]);
 
 export function App() {
   return (
@@ -45,6 +50,15 @@ export function App() {
           </Route>
           <Route element={<Allow roles={["OWNER", "MANAGER"]} />}>
             <Route path="/staff" element={<StaffPage />} />
+            <Route path="/products" element={<ProductsPage />} />
+          </Route>
+          <Route element={<Allow roles={["OWNER", "MANAGER", "CASHIER"]} />}>
+            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+          </Route>
+          <Route element={<Allow roles={["OWNER"]} />}>
+            <Route path="/settings/pos" element={<PosSettingsPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER"]} whenExpired />}>
             <Route path="/settings" element={<Navigate to="/settings/plan" replace />} />

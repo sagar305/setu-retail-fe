@@ -126,3 +126,17 @@ export type SignupInput = {
 
 export type Health = { status: "ok"; service: string; version: string; time: string };
 export const getHealth = (signal?: AbortSignal) => apiGet<Health>("/health", signal);
+
+// ── Phase 2a models ──
+export type Settings = Schemas["Settings"];
+export type PaymentMethod = Schemas["PaymentMethod"];
+export type Counter = Schemas["Counter"];
+export type Category = Schemas["Category"];
+export type Product = Schemas["Product"];
+export type Customer = Schemas["Customer"];
+export type Order = Schemas["Order"];
+export type OrderSummary = Schemas["OrderSummary"];
+export type HeldCart = Schemas["HeldCart"];
+export type OrderBody = Schemas["OrderBody"];
+export const apiPut = <T>(path: string, body: unknown) => api<T>("PUT", path, body);
+export const apiDelete = (path: string) => api<void>("DELETE", path);

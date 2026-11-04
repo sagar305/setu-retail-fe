@@ -26,6 +26,8 @@ npm run dev                   # http://localhost:5173
 - **Phase 0:** app shell from the approved prototype — indigo sidebar (hide/show, remembered per device; a drawer on phones), top bar, online/offline chip, brand tokens, bundled Sora font, offline-capable PWA.
 - **Phase 1:** sign up → verify email (starts the 3-month Basic trial) → sign in with email or username; forgot/reset password; staff invite links. Branches (codes B1, B2…), staff (owner adds managers/cashiers, managers add cashiers), plan & license key (check → switch now / start later → redeem), and the keep-active picker after a downgrade. Navigation and screens follow the signed-in user's role; an owner whose plan ended only reaches the plan screen.
 
+- **Phase 2a:** billing counter (search/scan, loose quantities, customer, discount with the cashier cap, GST totals computed by the same engine as the API, Cash/UPI/Card/Udhaar, change, hold/recall), GST receipt for 80 mm / 58 mm / A4 with HSN, CGST/SGST or IGST, place of supply and amount in words; products with branch price and stock; customers; orders with reprint, cancel and partial returns (GST credit notes); billing & receipt settings and payment methods. Each device registers once per branch as a counter and keeps its own bill series.
+
 ## Talking to the API
 
 - `src/lib/api.ts` keeps the access token in memory; the 12-hour refresh token is an http-only cookie the browser sends to `/auth/*`. A 401 triggers one shared refresh and a single retry.

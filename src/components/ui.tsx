@@ -132,3 +132,29 @@ export function UsageBar({ label, used, max }: { label: string; used: number; ma
     </div>
   );
 }
+
+/** Accessible modal: overlay, Escape closes, focus moves inside. */
+export function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        ref={(el) => {
+          if (el && !el.contains(document.activeElement)) (el.querySelector<HTMLElement>("input, select, textarea, button") ?? el).focus();
+        }}
+        tabIndex={-1}
+        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <h2 className="m-0 text-lg font-semibold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex size-11 items-center justify-center rounded-[10px] text-xl text-muted hover:bg-cream">
+            ×
+          </button>
+        </div>
+        <div className="overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
+  );
+}

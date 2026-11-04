@@ -1,0 +1,378 @@
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { useMe } from "../auth/AuthProvider";
+import { Alert, Badge, Button, Field, Modal, PageHeader, SelectField } from "../components/ui";
+import { ApiError, apiGet, apiPatch, apiPost, apiPut, type Category, type Product } from "../lib/api";
+import { currentBranch, rememberBranch } from "../lib/branch";
+import { errorMessage } from "../lib/format";
+import { bpToPercent, formatMoney, formatQty, paiseToInput, parseMoney, parseQty } from "../lib/money";
+
+const GST_RATES = [0, 25, 300, 500, 1200, 1800, 2800, 4000];
+const UNITS = ["pcs", "kg", "g", "l", "ml", "m", "box", "pack", "dozen"];
+
+type Draft = {
+  name: string;
+  categoryId: string;
+  newCategory: string;
+  sku: string;
+  barcode: string;
+  hsn: string;
+  gstRateBp: number;
+  taxInclusive: boolean;
+  unit: string;
+  price: string;
+  costPrice: string;
+  trackStock: boolean;
+  lowStock: string;
+  openingStock: string;
+};
+
+const blank: Draft = { name: "", categoryId: "", newCategory: "", sku: "", barcode: "", hsn: "", gstRateBp: 0, taxInclusive: true, unit: "pcs", price: "", costPrice: "", trackStock: true, lowStock: "", openingStock: "" };
+const toDraft = (p: Product): Draft => ({
+  name: p.name,
+  categoryId: p.categoryId ?? "",
+  newCategory: "",
+  sku: p.sku,
+  barcode: p.barcode,
+  hsn: p.hsn,
+  gstRateBp: p.gstRateBp,
+  taxInclusive: p.taxInclusive,
+  unit: p.unit,
+  price: paiseToInput(p.defaultPrice),
+  costPrice: paiseToInput(p.costPrice),
+  trackStock: p.trackStock,
+  lowStock: p.lowStockMilli === null ? "" : formatQty(p.lowStockMilli),
+  openingStock: "",
+});
+
+function ProductForm({ product, categories, branchId, onDone, onClose }: { product: Product | null; categories: Category[]; branchId: string; onDone: () => void; onClose: () => void }) {
+  const [d, setD] = useState<Draft>(product ? toDraft(product) : blank);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setD({ ...d, [k]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value });
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const price = parseMoney(d.price);
+    const cost = d.costPrice ? parseMoney(d.costPrice) : null;
+    const low = d.lowStock ? parseQty(d.lowStock) : null;
+    const opening = d.openingStock ? parseQty(d.openingStock) : null;
+    const bad: Record<string, string> = {};
+    if (price === null) bad.price = "Enter a price, e.g. 285 or 14.50.";
+    if (d.costPrice && cost === null) bad.costPrice = "Enter an amount.";
+    if (d.lowStock && low === null) bad.lowStock = "Enter a quantity.";
+    if (d.openingStock && opening === null) bad.openingStock = "Enter a quantity.";
+    if (Object.keys(bad).length) return setErrors(bad);
+
+    setBusy(true);
+    setErrors({});
+    setError(null);
+    try {
+      let categoryId: string | null = d.categoryId || null;
+      if (d.newCategory.trim()) categoryId = (await apiPost<{ category: Category }>("/categories", { name: d.newCategory.trim() })).category.id;
+      const body = {
+        name: d.name,
+        categoryId,
+        sku: d.sku,
+        barcode: d.barcode,
+        hsn: d.hsn,
+        gstRateBp: d.gstRateBp,
+        taxInclusive: d.taxInclusive,
+        unit: d.unit,
+        price: price!,
+        costPrice: cost,
+        trackStock: d.trackStock,
+        lowStockMilli: low,
+      };
+      if (product) await apiPatch(`/products/${product.id}`, body);
+      else await apiPost("/products", { ...body, openingStock: opening ? [{ branchId, qtyMilli: opening }] : [] });
+      onDone();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "validation_error") setErrors(err.fieldErrors);
+      else setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={product ? `Edit ${product.name}` : "New product"} onClose={onClose} wide>
+      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Name" required value={d.name} onChange={set("name")} error={errors.name} className="md:col-span-2" />
+          <Field label="Selling price (₹)" inputMode="decimal" required value={d.price} onChange={set("price")} error={errors.price} hint="Default for every branch; a branch can set its own." />
+          <SelectField label="Price includes GST?" value={d.taxInclusive ? "yes" : "no"} onChange={(e) => setD({ ...d, taxInclusive: e.target.value === "yes" })}>
+            <option value="yes">Yes — GST is inside the price (MRP)</option>
+            <option value="no">No — add GST on top</option>
+          </SelectField>
+          <SelectField label="GST rate" value={String(d.gstRateBp)} onChange={(e) => setD({ ...d, gstRateBp: Number(e.target.value) })}>
+            {GST_RATES.map((r) => (
+              <option key={r} value={r}>
+                {bpToPercent(r)}%
+              </option>
+            ))}
+          </SelectField>
+          <Field label="HSN code" inputMode="numeric" value={d.hsn} onChange={set("hsn")} error={errors.hsn} hint="4, 6 or 8 digits; printed on GST bills." />
+          <Field label="Cost price (₹)" inputMode="decimal" value={d.costPrice} onChange={set("costPrice")} error={errors.costPrice} hint="Only owners and managers see this." />
+          <SelectField label="Unit" value={d.unit} onChange={set("unit")}>
+            {UNITS.map((u) => (
+              <option key={u}>{u}</option>
+            ))}
+          </SelectField>
+          <SelectField label="Category" value={d.categoryId} onChange={set("categoryId")}>
+            <option value="">None</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectField>
+          <Field label="…or new category" value={d.newCategory} onChange={set("newCategory")} />
+          <Field label="SKU" value={d.sku} onChange={set("sku")} />
+          <Field label="Barcode" value={d.barcode} onChange={set("barcode")} hint="Scan it into this box." />
+        </div>
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input type="checkbox" checked={d.trackStock} onChange={set("trackStock")} className="size-[18px] accent-indigo" />
+          Track stock for this product
+        </label>
+        {d.trackStock ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label={`Low stock at (${d.unit})`} inputMode="decimal" value={d.lowStock} onChange={set("lowStock")} error={errors.lowStock} hint="Blank = 5" />
+            {!product ? <Field label={`Opening stock in this branch (${d.unit})`} inputMode="decimal" value={d.openingStock} onChange={set("openingStock")} error={errors.openingStock} /> : null}
+          </div>
+        ) : null}
+        <div className="flex gap-3">
+          <Button type="submit" busy={busy} disabled={!d.name.trim() || !d.price}>
+            {product ? "Save" : "Add product"}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function StockDialog({ product, branchId, onDone, onClose }: { product: Product; branchId: string; onDone: () => void; onClose: () => void }) {
+  const [type, setType] = useState<"ADD" | "REDUCE" | "SET">("ADD");
+  const [qty, setQty] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const parsed = parseQty(qty);
+  return (
+    <Modal title={`Stock: ${product.name}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="m-0 text-sm">
+          Now: <strong>{formatQty(product.stockMilli)} {product.unit}</strong> in this branch
+        </p>
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        <div role="group" aria-label="Change" className="grid grid-cols-3 gap-2">
+          {(["ADD", "REDUCE", "SET"] as const).map((t) => (
+            <button key={t} type="button" aria-pressed={type === t} onClick={() => setType(t)} className={`min-h-11 rounded-[10px] text-sm ${type === t ? "border-2 border-indigo bg-indigo-50 font-semibold text-indigo" : "border border-line"}`}>
+              {t === "ADD" ? "Add" : t === "REDUCE" ? "Reduce" : "Set to"}
+            </button>
+          ))}
+        </div>
+        <Field label={`Quantity (${product.unit})`} inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} error={qty && parsed === null ? "Enter a quantity." : undefined} />
+        <Field label="Note" placeholder="Delivery, damage, stock count…" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Button
+          busy={busy}
+          disabled={parsed === null}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await apiPost(`/products/${product.id}/stock`, { branchId, type, qtyMilli: parsed, note });
+              onDone();
+            } catch (err) {
+              setError(errorMessage(err));
+              setBusy(false);
+            }
+          }}
+        >
+          Save stock
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function BranchPriceDialog({ product, branchName, branchId, onDone, onClose }: { product: Product; branchName: string; branchId: string; onDone: () => void; onClose: () => void }) {
+  const [text, setText] = useState(paiseToInput(product.branchPrice));
+  const [error, setError] = useState<string | null>(null);
+  const parsed = text ? parseMoney(text) : null;
+  const save = async (price: number | null) => {
+    try {
+      await apiPut(`/products/${product.id}/branches/${branchId}`, { price });
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+  return (
+    <Modal title={`Price in ${branchName}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <p className="m-0 text-sm text-muted">Default price {formatMoney(product.defaultPrice)}. Set a different one for this branch only.</p>
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        <Field label="Branch price (₹)" inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} error={text && parsed === null ? "Enter an amount." : undefined} />
+        <div className="flex gap-3">
+          <Button disabled={!text || parsed === null} onClick={() => save(parsed)}>
+            Save
+          </Button>
+          <Button variant="ghost" onClick={() => save(null)}>
+            Use default price
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export function ProductsPage() {
+  const me = useMe();
+  const usable = me.branches.filter((b) => b.withinPlan);
+  const [branch, setBranch] = useState(() => currentBranch(me));
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [total, setTotal] = useState(0);
+  const [q, setQ] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<null | { kind: "new" } | { kind: "edit" | "stock" | "price"; product: Product }>(null);
+  const limit = me.plan.current?.limits.maxProducts ?? null;
+
+  const load = useCallback(() => {
+    if (!branch) return;
+    Promise.all([apiGet<{ products: Product[]; total: number }>(`/products?branchId=${branch.id}&limit=2000`), apiGet<{ categories: Category[] }>("/categories")]).then(
+      ([p, c]) => {
+        setProducts(p.products);
+        setTotal(p.total);
+        setCategories(c.categories);
+      },
+      (err: unknown) => setError(errorMessage(err)),
+    );
+  }, [branch]);
+  useEffect(load, [load]);
+
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return (products ?? []).filter((p) => !t || p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t) || p.barcode.includes(t) || p.hsn.startsWith(t));
+  }, [products, q]);
+  const catName = new Map(categories.map((c) => [c.id, c.name]));
+  const done = () => {
+    setDialog(null);
+    load();
+  };
+
+  if (!branch) return <Alert tone="warn">No branch is active for you on this plan.</Alert>;
+
+  return (
+    <div className="w-full">
+      <PageHeader
+        title="Products"
+        description={`${total.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} products · prices and stock for ${branch.name} (${branch.code})`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {usable.length > 1 ? (
+              <select
+                aria-label="Branch"
+                value={branch.id}
+                onChange={(e) => {
+                  const b = usable.find((x) => x.id === e.target.value)!;
+                  rememberBranch(b.id);
+                  setBranch(b);
+                }}
+                className="h-11 rounded-[10px] border border-line-strong bg-white px-2"
+              >
+                {usable.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.code})
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <Button onClick={() => setDialog({ kind: "new" })}>Add product</Button>
+          </div>
+        }
+      />
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      <label htmlFor="p-search" className="sr-only">
+        Search products
+      </label>
+      <input id="p-search" type="search" placeholder="Search name, SKU, barcode or HSN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
+      {products?.length === 0 ? (
+        <Alert tone="info">
+          No products yet. Add your first one, or bring them from the free POS (import arrives in Phase 2b). <Link to="/billing" className="font-semibold underline">Go to billing</Link>
+        </Alert>
+      ) : null}
+      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead>
+            <tr className="bg-paper text-left text-xs text-muted">
+              <th className="px-4 py-3 font-medium">Product</th>
+              <th className="px-3 py-3 font-medium">HSN · GST</th>
+              <th className="px-3 py-3 font-medium">Price here</th>
+              <th className="px-3 py-3 font-medium">Cost</th>
+              <th className="px-3 py-3 font-medium">Stock here</th>
+              <th className="px-3 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((p) => (
+              <tr key={p.id} className="border-t border-line">
+                <td className="px-4 py-3">
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{p.name}</span>
+                    <span className="text-xs text-muted">{[p.categoryId ? catName.get(p.categoryId) : null, p.sku && `SKU ${p.sku}`, p.barcode && `Barcode ${p.barcode}`].filter(Boolean).join(" · ") || "—"}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-muted">
+                  {p.hsn || "—"} · {bpToPercent(p.gstRateBp)}% {p.taxInclusive ? "incl." : "+ GST"}
+                </td>
+                <td className="px-3 py-3">
+                  <button type="button" onClick={() => setDialog({ kind: "price", product: p })} className="flex min-h-9 flex-col items-start text-left">
+                    <span className="font-semibold">{formatMoney(p.price)}</span>
+                    <span className="text-xs text-indigo underline">{p.branchPrice === null ? "Default · set branch price" : "Branch price · change"}</span>
+                  </button>
+                </td>
+                <td className="px-3 py-3">{p.costPrice === null || p.costPrice === undefined ? "—" : formatMoney(p.costPrice)}</td>
+                <td className="px-3 py-3">
+                  {p.trackStock ? (
+                    <div className="flex flex-col items-start gap-1">
+                      <span>
+                        {formatQty(p.stockMilli)} {p.unit}
+                      </span>
+                      {p.stockStatus === "out" ? <Badge tone="error">{p.stockMilli < 0 ? "Below zero" : "Out of stock"}</Badge> : p.stockStatus === "low" ? <Badge tone="warn">Low</Badge> : null}
+                    </div>
+                  ) : (
+                    <span className="text-muted">Not tracked</span>
+                  )}
+                </td>
+                <td className="px-3 py-3 text-right">
+                  <div className="flex justify-end gap-2">
+                    {p.trackStock ? (
+                      <Button variant="ghost" onClick={() => setDialog({ kind: "stock", product: p })}>
+                        Stock
+                      </Button>
+                    ) : null}
+                    <Button variant="secondary" onClick={() => setDialog({ kind: "edit", product: p })}>
+                      Edit
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {dialog?.kind === "new" || dialog?.kind === "edit" ? (
+        <ProductForm product={dialog.kind === "edit" ? dialog.product : null} categories={categories} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} />
+      ) : null}
+      {dialog?.kind === "stock" ? <StockDialog product={dialog.product} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} /> : null}
+      {dialog?.kind === "price" ? <BranchPriceDialog product={dialog.product} branchId={branch.id} branchName={branch.name} onDone={done} onClose={() => setDialog(null)} /> : null}
+    </div>
+  );
+}
