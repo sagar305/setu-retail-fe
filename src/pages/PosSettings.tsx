@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, Field, PageHeader, SelectField } from "../components/ui";
 import { apiGet, apiPatch, apiPost, type PaymentMethod, type Settings } from "../lib/api";
+import { setSettings } from "../hooks/useSettings";
 import { errorMessage } from "../lib/format";
 import { bpToPercent, parseMoney } from "../lib/money";
 import { SettingsTabs } from "./SettingsTabs";
@@ -32,7 +33,9 @@ export function PosSettingsPage() {
     // Show the change at once; put it back if the server refuses.
     setS((cur) => (cur ? { ...cur, ...patch } : cur));
     try {
-      setS(await apiPatch<Settings>("/settings", patch));
+      const saved = await apiPatch<Settings>("/settings", patch);
+      setS(saved);
+      setSettings(saved);
       setNotice(message);
     } catch (err) {
       setS(before);

@@ -1,7 +1,7 @@
 // Bills and customers made on this counter, pushed to the server when online.
 // The server is idempotent on ids, so pushing twice is harmless.
 import { ApiError, deviceRequest, type SyncResults } from "../lib/api";
-import { db, type OutboxCustomer, type OutboxOrder } from "./db";
+import { db, type OutboxCustomer, type OutboxMoney, type OutboxOrder } from "./db";
 import { deviceKeyFor } from "./counter";
 
 export type FlushOutcome = { state: "done" | "offline" | "blocked" | "error"; saved: number; rejected: number; message?: string };
@@ -14,6 +14,15 @@ export async function queueCustomer(row: Omit<OutboxCustomer, "status">) {
   await db.customers.put({ ...row, status: "pending" });
 }
 
+export async function queueMoney(row: Omit<OutboxMoney, "status">) {
+  await db.money.put({ ...row, status: "pending" });
+}
+
+export async function pendingMoney(counterId?: string) {
+  const rows = await db.money.where("status").equals("pending").toArray();
+  return (counterId ? rows.filter((r) => r.counterId === counterId) : rows).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 export async function pendingOrders(counterId?: string) {
   const rows = await db.outbox.where("status").equals("pending").toArray();
   return (counterId ? rows.filter((r) => r.counterId === counterId) : rows).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -23,7 +32,7 @@ const isNetwork = (err: unknown) => err instanceof TypeError;
 
 /** Push everything waiting, counter by counter: customers first, then bills in order. */
 export async function flushOutbox(): Promise<FlushOutcome> {
-  const counters = new Set([...(await db.customers.where("status").equals("pending").toArray()).map((c) => c.counterId), ...(await pendingOrders()).map((o) => o.counterId)]);
+  const counters = new Set([...(await db.customers.where("status").equals("pending").toArray()).map((c) => c.counterId), ...(await pendingOrders()).map((o) => o.counterId), ...(await pendingMoney()).map((m) => m.counterId)]);
   let saved = 0;
   let rejected = 0;
   for (const counterId of counters) {
@@ -48,6 +57,21 @@ export async function flushOutbox(): Promise<FlushOutcome> {
             saved += 1;
           } else if (x.status === "rejected") {
             await db.outbox.update(x.id, { status: "rejected", message: x.message });
+            rejected += 1;
+          }
+        }
+      }
+      // Expenses and payments last: a payment may be for a customer added offline.
+      const money = await pendingMoney(counterId);
+      for (let i = 0; i < money.length; i += 100) {
+        const chunk = money.slice(i, i + 100);
+        const r = await deviceRequest<SyncResults>("POST", "/sync/money", key, { ops: chunk.map((m) => m.payload) });
+        for (const x of r.results) {
+          if (x.status === "saved" || x.status === "duplicate") {
+            await db.money.delete(x.id);
+            saved += 1;
+          } else if (x.status === "rejected") {
+            await db.money.update(x.id, { status: "rejected", message: x.message });
             rejected += 1;
           }
         }

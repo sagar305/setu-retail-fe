@@ -147,7 +147,9 @@ function CsvImport({ kind }: { kind: "products" | "customers" }) {
   );
 }
 
-type FreePosSummary = { products: ImportResult; customers: ImportResult; categories: number; paymentMethodsAdded: number; batches: number; skipped: { orders: number } };
+type BooksSummary = { suppliers: number; expenses: number; cashEntries: number; customerLedger: number; supplierLedger: number; purchases: number; purchaseReturns: number };
+type FreePosSummary = { books: BooksSummary; products: ImportResult; customers: ImportResult; categories: number; paymentMethodsAdded: number; batches: number; skipped: { orders: number } };
+const TOOL_STORES = ["suppliers", "expenses", "cashbook", "ledger", "supplier_ledger", "purchases", "purchase_returns"];
 
 function FreePosImport() {
   const me = useMe();
@@ -165,7 +167,7 @@ function FreePosImport() {
         <h2 className="m-0 text-lg font-semibold">From the free Browser POS</h2>
         <p className="m-0 text-sm text-muted">
           In the free POS, open Settings → Backup and download <strong>POS_BACKUP.json</strong>, then choose it here. Products, categories, customers, payment methods and stock come in{" "}
-          {"(and batches, if batch tracking is on here)"}. Old bills stay in the free POS. Importing again updates instead of duplicating.
+          {"(and batches, if batch tracking is on here)"}, plus the connected tools' history: suppliers, purchases and returns, expenses, cash book, and udhaar and supplier ledgers. Old bills stay in the free POS. Importing again updates instead of duplicating.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -197,7 +199,7 @@ function FreePosImport() {
                 if (parsed.app !== "setu-free-pos" || !parsed.data) throw new Error("not a backup");
                 // Pictures make the file huge and aren't used here.
                 const products = (parsed.data.products ?? []).map((p) => ({ ...(p as object), imageDataUrl: "" }));
-                const keep = ["settings", "categories", "products", "customers", "payments", "stock_batches", "orders"];
+                const keep = ["settings", "categories", "products", "customers", "payments", "stock_batches", "orders", ...TOOL_STORES];
                 const data = Object.fromEntries(keep.map((k) => [k, k === "products" ? products : k === "orders" ? (parsed.data![k] ?? []).map(() => ({})) : (parsed.data![k] ?? [])]));
                 setBackup({ file: f.name, data: { app: parsed.app, version: parsed.version ?? 1, data } });
               } catch {
@@ -213,6 +215,7 @@ function FreePosImport() {
           <p className="m-0 text-sm">
             <strong>{backup.file}</strong>: {count("products")} products, {count("categories")} categories, {count("customers")} customers, {count("payments")} payment methods
             {count("stock_batches") ? `, ${count("stock_batches")} batches` : ""}
+            {TOOL_STORES.some((k) => count(k)) ? `; tools: ${count("suppliers")} suppliers, ${count("purchases")} supplier bills, ${count("expenses")} expenses, ${count("ledger")} udhaar entries, ${count("supplier_ledger")} supplier ledger entries, ${count("cashbook")} cash book lines` : ""}
             {count("orders") ? ` (${count("orders")} old bills stay in the free POS)` : ""}.
           </p>
           <Button
@@ -240,6 +243,11 @@ function FreePosImport() {
         <div className="flex flex-col gap-2">
           <Results r={{ ...summary.products, note: `Products. ${summary.categories} categories${summary.batches ? `, ${summary.batches} batches` : ""}.` }} />
           <Results r={{ ...summary.customers, note: `Customers. ${summary.paymentMethodsAdded} payment method${summary.paymentMethodsAdded === 1 ? "" : "s"} added.` }} />
+          {summary.books ? (
+            <Alert tone="ok">
+              Tools: {summary.books.suppliers} suppliers added, {summary.books.purchases} supplier bills, {summary.books.purchaseReturns} returns, {summary.books.expenses} expenses, {summary.books.cashEntries} cash book lines, {summary.books.customerLedger} udhaar entries and {summary.books.supplierLedger} supplier ledger entries.
+            </Alert>
+          ) : null}
         </div>
       ) : null}
     </Card>

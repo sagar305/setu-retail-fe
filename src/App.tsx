@@ -28,8 +28,17 @@ import { ProductsPage } from "./pages/Products";
 import { DashboardPage } from "./pages/Dashboard";
 import { ImportPage } from "./pages/Import";
 import { ReportsPage } from "./pages/Reports";
+import { ConnectedToolsPage } from "./pages/ConnectedTools";
+import { ToolsHubPage } from "./pages/tools/ToolsHub";
+import { CustomerLedgerPage, CustomerStatementPage } from "./pages/tools/CustomerLedger";
+import { SupplierBookPage, SupplierLedgerPage, SupplierStatementPage } from "./pages/tools/Suppliers";
+import { ExpensesPage } from "./pages/tools/Expenses";
+import { CashBookPage } from "./pages/tools/CashBook";
+import { NewPurchasePage, PurchaseDetailPage, PurchasesPage } from "./pages/tools/Purchases";
+import { RequireTool } from "./pages/tools/RequireTool";
+import { OfflineMoneyPage } from "./pages/OfflineMoney";
 
-const BUILT = new Set(["/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
+const BUILT = new Set(["/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
 export function App() {
   const { state } = useAuth();
@@ -41,6 +50,7 @@ export function App() {
         <Route element={<OfflineShell />}>
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/counter-bills" element={<CounterBillsPage />} />
+          <Route path="/money" element={<OfflineMoneyPage />} />
           <Route path="*" element={<Navigate to="/billing" replace />} />
         </Route>
       </Routes>
@@ -82,12 +92,39 @@ export function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/counter-bills" element={<CounterBillsPage />} />
+            <Route path="/tools" element={<ToolsHubPage />} />
+            <Route path="/money" element={<OfflineMoneyPage />} />
+            <Route element={<RequireTool slug="customer-ledger" />}>
+              <Route path="/tools/customer-ledger" element={<CustomerLedgerPage />} />
+              <Route path="/tools/customer-ledger/:id" element={<CustomerStatementPage />} />
+            </Route>
+          </Route>
+          <Route element={<Allow roles={["OWNER", "MANAGER"]} />}>
+            <Route element={<RequireTool slug="supplier-book" />}>
+              <Route path="/tools/suppliers" element={<SupplierBookPage />} />
+            </Route>
+            <Route element={<RequireTool slug="supplier-ledger" />}>
+              <Route path="/tools/supplier-ledger" element={<SupplierLedgerPage />} />
+              <Route path="/tools/supplier-ledger/:id" element={<SupplierStatementPage />} />
+            </Route>
+            <Route element={<RequireTool slug="expense-tracker" />}>
+              <Route path="/tools/expenses" element={<ExpensesPage />} />
+            </Route>
+            <Route element={<RequireTool slug="cash-book" />}>
+              <Route path="/tools/cash-book" element={<CashBookPage />} />
+            </Route>
+            <Route element={<RequireTool slug="purchase-register" />}>
+              <Route path="/tools/purchases" element={<PurchasesPage />} />
+              <Route path="/tools/purchases/new" element={<NewPurchasePage />} />
+              <Route path="/tools/purchases/:id" element={<PurchaseDetailPage />} />
+            </Route>
           </Route>
           <Route element={<Allow roles={["OWNER", "MANAGER", "CASHIER"]} whenExpired />}>
             <Route path="/pin" element={<PinPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER"]} />}>
             <Route path="/settings/pos" element={<PosSettingsPage />} />
+            <Route path="/settings/tools" element={<ConnectedToolsPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER"]} whenExpired />}>
             <Route path="/settings" element={<Navigate to="/settings/plan" replace />} />

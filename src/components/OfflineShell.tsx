@@ -17,9 +17,12 @@ export function OfflineShell() {
     <div className="flex min-h-screen flex-col">
       <header className="flex flex-wrap items-center gap-3 bg-indigo px-4 py-3 text-white md:px-6">
         <Logo subtitle={`${s.branch.name} (${s.branch.code})`} />
-        <nav aria-label="Main" className="flex gap-1">
+        <nav aria-label="Main" className="flex flex-wrap gap-1">
           <NavLink to="/billing" className={tab}>
             Billing
+          </NavLink>
+          <NavLink to="/money" className={tab}>
+            Payments & expenses
           </NavLink>
           <NavLink to="/counter-bills" className={tab}>
             Bills on this counter

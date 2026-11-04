@@ -171,3 +171,13 @@ export async function deviceRequest<T>(method: "GET" | "POST", path: string, dev
   }
   return data as T;
 }
+
+// ── Phase 4a: connected money tools ──
+export type Supplier = Schemas["Supplier"];
+export type Expense = Schemas["Expense"];
+export type Statement = Schemas["Statement"];
+export type CashBook = Schemas["CashBook"];
+export type Purchase = Schemas["Purchase"];
+export type PurchaseSummary = Schemas["PurchaseSummary"];
+export type PurchaseBody = Schemas["PurchaseBody"];
+export type SyncMoneyOp = Schemas["SyncMoneyOp"];

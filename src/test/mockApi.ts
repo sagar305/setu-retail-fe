@@ -102,6 +102,7 @@ export const SETTINGS = {
   receiptFooter: "Thank you!",
   receiptPaperSize: "80mm",
   batchTracking: false,
+  tools: {} as Record<string, boolean>,
 };
 
 /** The endpoints the billing screen loads. */
@@ -135,5 +136,8 @@ export function makePack(over: { products?: unknown[]; settings?: Partial<typeof
     batches: [],
     customers: over.customers ?? [],
     users: over.users ?? [],
+    customerBalances: [] as { customerId: string; balance: number }[],
+    suppliers: [] as { id: string; name: string; phone: string; balance: number }[],
+    expenseCategories: ["Rent", "Salaries", "Electricity", "Other"],
   };
 }

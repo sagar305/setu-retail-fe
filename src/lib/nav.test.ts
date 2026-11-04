@@ -4,8 +4,8 @@ import { homePathFor, navForRole } from "./nav";
 const labels = (role: Parameters<typeof navForRole>[0]) => navForRole(role).map((i) => i.label);
 
 describe("navForRole", () => {
-  it("gives cashiers only billing, their own sales and customers", () => {
-    expect(labels("CASHIER")).toEqual(["Billing", "My sales", "Customers"]);
+  it("gives cashiers billing, their own sales, customers and tools (to receive udhaar)", () => {
+    expect(labels("CASHIER")).toEqual(["Billing", "My sales", "Customers", "Tools"]);
   });
 
   it("keeps plan, branches and settings to the owner", () => {

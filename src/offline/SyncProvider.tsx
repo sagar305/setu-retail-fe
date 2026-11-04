@@ -20,9 +20,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const running = useRef(false);
 
   const recount = useCallback(async () => {
-    const [pending, rejected] = await Promise.all([db.outbox.where("status").equals("pending").count(), db.outbox.where("status").equals("rejected").count()]);
-    setCounts({ pending, rejected });
-    return pending;
+    const [pending, rejected, moneyPending, moneyRejected] = await Promise.all([
+      db.outbox.where("status").equals("pending").count(),
+      db.outbox.where("status").equals("rejected").count(),
+      db.money.where("status").equals("pending").count(),
+      db.money.where("status").equals("rejected").count(),
+    ]);
+    setCounts({ pending: pending + moneyPending, rejected: rejected + moneyRejected });
+    return pending + moneyPending;
   }, []);
 
   const run = useCallback(async () => {

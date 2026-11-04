@@ -154,7 +154,8 @@ export function BillingPage() {
 
   const pack = setup?.pack;
   const settings = pack?.settings;
-  const methods = pack?.methods ?? [];
+  // Udhaar only while the owner has the Customer Ledger switched on.
+  const methods = (pack?.methods ?? []).filter((m) => m.kind !== "CREDIT" || settings?.tools?.["customer-ledger"] !== false);
   const products = useMemo(() => (pack?.products ?? []).map((p) => (pendingQty.has(p.id) && p.trackStock ? { ...p, stockMilli: p.stockMilli - pendingQty.get(p.id)! } : p)), [pack, pendingQty]);
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const activeMethodId = methodId ?? methods.find((m) => m.kind === "UPI")?.id ?? methods[0]?.id ?? null;

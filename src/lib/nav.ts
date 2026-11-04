@@ -37,7 +37,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { path: "/orders", label: "Orders", icon: ListChecks, roles: ALL, phase: 2 },
   { path: "/customers", label: "Customers", icon: Users, roles: ALL, phase: 2 },
   { path: "/reports", label: "Reports", icon: BarChart3, roles: OM, phase: 2 },
-  { path: "/tools", label: "Tools", icon: LayoutGrid, roles: OM, phase: 4 },
+  { path: "/tools", label: "Tools", icon: LayoutGrid, roles: ALL, phase: 4 },
   { path: "/stock-transfers", label: "Stock transfers", icon: ArrowLeftRight, roles: OM, phase: 5 },
   { path: "/branches", label: "Branches", icon: Building2, roles: O, phase: 1 },
   { path: "/staff", label: "Staff", icon: UserCog, roles: OM, phase: 1 },
