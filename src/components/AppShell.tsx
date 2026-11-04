@@ -1,4 +1,4 @@
-import { LogOut, Menu } from "lucide-react";
+import { KeyRound, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { useAuth, useMe } from "../auth/AuthProvider";
@@ -103,6 +103,14 @@ export function AppShell() {
               <span className="text-muted">{ROLE_LABEL[me.user.role]}</span>
             </div>
           </div>
+          <Link
+            to="/pin"
+            aria-label="Counter PIN"
+            title="Counter PIN for signing in offline"
+            className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-line bg-white text-ink"
+          >
+            <KeyRound size={18} aria-hidden="true" />
+          </Link>
           <button
             type="button"
             aria-label="Sign out"

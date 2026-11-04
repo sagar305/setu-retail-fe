@@ -2893,6 +2893,7 @@ export interface paths {
                             amount: number;
                         }[];
                         note?: string;
+                        invoiceNumber?: string;
                     };
                 };
             };
@@ -4049,6 +4050,410 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Has the signed-in user set a counter PIN? */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            pinSet: boolean;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /** Set the counter PIN for offline sign-in (needs the password) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        pin: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {boolean} */
+                            pinSet: true;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Remove the counter PIN */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/counters/{id}/device-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give this device a new counter key (replaces the old one) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deviceKey: string;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everything a counter needs to bill offline (X-Device-Key) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OfflinePack"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Plan ended */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push customers added offline (X-Device-Key) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        customers: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            phone?: string;
+                            gstin?: string;
+                            stateCode?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SyncResults"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Plan ended */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push bills made offline; saved as charged; 402 while the plan has ended (X-Device-Key) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        orders: unknown[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SyncResults"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Plan ended */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4383,6 +4788,8 @@ export interface components {
             /** Format: date-time */
             cancelledAt: string | null;
             cancelReason: string;
+            offline: boolean;
+            priceDiffers: boolean;
             items: {
                 /** Format: uuid */
                 id: string;
@@ -4453,6 +4860,8 @@ export interface components {
             returnedTotal: number;
             /** Format: uuid */
             cashierId: string;
+            offline: boolean;
+            priceDiffers: boolean;
             paymentMethods: string[];
         };
         HeldCart: {
@@ -4505,6 +4914,7 @@ export interface components {
                 amount: number;
             }[];
             note?: string;
+            invoiceNumber?: string;
         };
         ProductBody: {
             name: string;
@@ -4790,6 +5200,105 @@ export interface components {
                 status: "low" | "out" | "negative";
             }[];
             expiringSoon: number;
+        };
+        SyncOrder: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cashierId: string;
+            invoiceNumber: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            customerId?: string | null;
+            taxEnabled: boolean;
+            discount: {
+                /** @enum {string} */
+                type: "flat" | "percent";
+                value: number;
+            };
+            lines: {
+                /** Format: uuid */
+                productId: string | null;
+                name: string;
+                hsn: string;
+                unit: string;
+                unitPrice: number;
+                gstRateBp: number;
+                taxInclusive: boolean;
+                qtyMilli: number;
+                /** Format: uuid */
+                batchId?: string | null;
+            }[];
+            payments: {
+                /** Format: uuid */
+                methodId: string;
+                amount: number;
+            }[];
+            total: number;
+            note?: string;
+        };
+        SyncCustomer: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            phone?: string;
+            gstin?: string;
+            stateCode?: string;
+        };
+        SyncResults: {
+            results: {
+                id: string;
+                /** @enum {string} */
+                status: "saved" | "duplicate" | "rejected" | "retry";
+                invoiceNumber?: string;
+                message?: string;
+            }[];
+        };
+        OfflinePack: {
+            at: string;
+            settings: components["schemas"]["Settings"];
+            account: {
+                id: string;
+                name: string;
+                timezone: string;
+                currency: string;
+            };
+            branch: {
+                id: string;
+                code: string;
+                name: string;
+                address: string;
+                phone: string;
+                gstin: string | null;
+                stateCode: string | null;
+            };
+            counter: {
+                id: string;
+                code: string;
+                name: string;
+                nextInvoiceNumber: number;
+            };
+            plan: {
+                expired: boolean;
+            };
+            methods: components["schemas"]["PaymentMethod"][];
+            categories: components["schemas"]["Category"][];
+            products: components["schemas"]["Product"][];
+            batches: components["schemas"]["Batch"][];
+            customers: components["schemas"]["Customer"][];
+            users: {
+                id: string;
+                name: string;
+                username: string;
+                /** @enum {string} */
+                role: "OWNER" | "MANAGER" | "CASHIER";
+                pin: {
+                    hash: string;
+                    salt: string;
+                    iterations: number;
+                };
+            }[];
         };
     };
     responses: never;

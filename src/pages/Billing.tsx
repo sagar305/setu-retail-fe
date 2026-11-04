@@ -1,28 +1,99 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMe } from "../auth/AuthProvider";
+import { useSessionInfo } from "../auth/sessionInfo";
+import { useSync } from "../offline/SyncProvider";
+import { db } from "../offline/db";
+import { deviceKeyFor, ensureCounter, invoiceNumber, peekSeq, takeSeq } from "../offline/counter";
+import { refreshPack, storedPack } from "../offline/pack";
+import { pendingOrders, queueCustomer, queueOrder } from "../offline/outbox";
+import { readPref } from "../lib/storage";
 import { Alert, Badge, Button, Field, Modal } from "../components/ui";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import { ApiError, apiDelete, apiGet, apiPost, type Counter, type Customer, type HeldCart, type Order, type Product } from "../lib/api";
-import { currentBranch, rememberBranch } from "../lib/branch";
-import { ensureCounter } from "../lib/counter";
+import { ApiError, apiDelete, apiGet, apiPost, type Customer, type HeldCart, type OfflinePack, type Order, type PaymentMethod, type Product } from "../lib/api";
+import { rememberBranch } from "../lib/branch";
 import { errorMessage } from "../lib/format";
 import { computeBill, placeOfSupply, type Discount } from "../lib/gst";
 import { bpToPercent, formatMoney, formatQty, parseMoney, parseQty } from "../lib/money";
 import { CustomerPicker } from "../pos/CustomerPicker";
 import { Receipt } from "../pos/Receipt";
-import { usePosData } from "../pos/usePosData";
 import { BatchPicker } from "../pos/Batches";
 import { fmtDay } from "../lib/batches";
 
 type Line = { productId: string; qtyMilli: number; batchId?: string | null };
 
+type Setup = { pack: OfflinePack; counterId: string; stale: boolean };
+
+/** Builds what the receipt shows for a bill saved on this device. */
+function localOrder(args: { id: string; number: string; createdAt: string; pack: OfflinePack; cashierId: string; cashierName: string; customer: Customer | null; discount: Discount; bill: ReturnType<typeof computeBill> & { interState: boolean; placeOfSupply: string | null }; lines: (Line & { product: Product })[]; method: PaymentMethod }): Order {
+  const { pack, bill } = args;
+  return {
+    id: args.id,
+    invoiceNumber: args.number,
+    status: "COMPLETED",
+    createdAt: args.createdAt,
+    branch: pack.branch,
+    counter: { code: pack.counter.code, name: pack.counter.name },
+    cashierId: args.cashierId,
+    cashierName: args.cashierName,
+    customer: args.customer ? { id: args.customer.id, name: args.customer.name, phone: args.customer.phone, gstin: args.customer.gstin } : null,
+    placeOfSupply: bill.placeOfSupply,
+    interState: bill.interState,
+    taxEnabled: pack.settings.taxEnabled,
+    discount: args.discount,
+    subtotal: bill.subtotal,
+    discountTotal: bill.discountTotal,
+    taxableTotal: bill.taxableTotal,
+    cgstTotal: bill.cgstTotal,
+    sgstTotal: bill.sgstTotal,
+    igstTotal: bill.igstTotal,
+    total: bill.total,
+    returnedTotal: 0,
+    note: "",
+    cancelledAt: null,
+    cancelReason: "",
+    offline: true,
+    priceDiffers: false,
+    items: bill.lines.map((l, i) => {
+      const line = args.lines[i]!;
+      const batch = line.batchId ? pack.batches.find((b) => b.id === line.batchId) : undefined;
+      return {
+        id: crypto.randomUUID(),
+        productId: line.product.id,
+        name: line.product.name,
+        hsn: line.product.hsn,
+        unit: line.product.unit,
+        qtyMilli: l.qtyMilli,
+        unitPrice: l.unitPrice,
+        gstRateBp: l.gstRateBp,
+        taxInclusive: l.taxInclusive,
+        gross: l.gross,
+        discount: l.discount,
+        taxable: l.taxable,
+        cgst: l.cgst,
+        sgst: l.sgst,
+        igst: l.igst,
+        total: l.total,
+        returnedQtyMilli: 0,
+        batches: batch ? [{ batchNo: batch.batchNo, expiry: batch.expiry, qtyMilli: l.qtyMilli }] : [],
+      };
+    }),
+    payments: [{ methodId: args.method.id, methodName: args.method.name, kind: args.method.kind, amount: bill.total }],
+    creditNotes: [],
+  };
+}
+
 export function BillingPage() {
-  const me = useMe();
+  const s = useSessionInfo();
   const online = useOnlineStatus();
-  const [branch, setBranch] = useState(() => currentBranch(me));
-  const { data, error: loadError, reload } = usePosData(branch?.id ?? null);
-  const [counter, setCounter] = useState<Counter | null>(null);
-  const [counterError, setCounterError] = useState<string | null>(null);
+  const sync = useSync();
+  const [branch, setBranch] = useState(() => {
+    const saved = readPref("setu-retail:branch");
+    return s.branches.find((b) => b.id === saved) ?? s.branches[0] ?? null;
+  });
+  const [setup, setSetup] = useState<Setup | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const [pendingQty, setPendingQty] = useState<Map<string, number>>(new Map());
+  const [queuedCustomers, setQueuedCustomers] = useState<Customer[]>([]);
 
   const [lines, setLines] = useState<Line[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -35,24 +106,65 @@ export function BillingPage() {
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<null | "customer" | "discount" | "hold" | "held">(null);
   const [pickBatchFor, setPickBatchFor] = useState<string | null>(null);
-  const [done, setDone] = useState<Order | null>(null);
+  const [done, setDone] = useState<{ order: Order; queued: boolean } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Set up this device as a counter and get its offline pack. Online: register
+  // if needed and download a fresh pack. Offline: use the pack saved here.
   useEffect(() => {
     if (!branch) return;
-    ensureCounter(branch.id).then(setCounter, (err: unknown) => setCounterError(errorMessage(err)));
-  }, [branch]);
+    let alive = true;
+    (async () => {
+      const saved = await storedPack(branch.id);
+      if (saved && alive) setSetup({ pack: saved, counterId: saved.counter.id, stale: true });
+      if (s.mode === "online") {
+        try {
+          const counter = await ensureCounter(branch.id);
+          const key = (await deviceKeyFor(counter.id))!;
+          const pack = await refreshPack(branch.id, key);
+          if (alive) setSetup({ pack, counterId: counter.id, stale: false });
+          return;
+        } catch (err) {
+          if (!(err instanceof TypeError) && alive && !saved) setSetupError(errorMessage(err));
+        }
+      }
+      if (!saved && alive) setSetupError("This counter can't bill offline yet: open Billing once while online.");
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [branch, s.mode, version]);
 
-  const methods = data?.methods ?? [];
+  // What's waiting to sync from this counter: its stock is already taken here.
+  const counterId = setup?.counterId;
+  useEffect(() => {
+    if (!counterId) return;
+    let alive = true;
+    Promise.all([pendingOrders(counterId), db.customers.where("counterId").equals(counterId).toArray()]).then(([orders, custs]) => {
+      if (!alive) return;
+      const m = new Map<string, number>();
+      for (const o of orders) for (const l of o.payload.lines) if (l.productId) m.set(l.productId, (m.get(l.productId) ?? 0) + l.qtyMilli);
+      setPendingQty(m);
+      setQueuedCustomers(custs.map((c) => ({ id: c.id, name: c.payload.name, phone: c.payload.phone ?? "", email: "", address: "", gstin: c.payload.gstin ?? null, stateCode: c.payload.stateCode ?? null, notes: "", createdAt: c.createdAt })));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [counterId, sync.pending, done]);
+
+  const pack = setup?.pack;
+  const settings = pack?.settings;
+  const methods = pack?.methods ?? [];
+  const products = useMemo(() => (pack?.products ?? []).map((p) => (pendingQty.has(p.id) && p.trackStock ? { ...p, stockMilli: p.stockMilli - pendingQty.get(p.id)! } : p)), [pack, pendingQty]);
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const activeMethodId = methodId ?? methods.find((m) => m.kind === "UPI")?.id ?? methods[0]?.id ?? null;
   const method = methods.find((m) => m.id === activeMethodId);
-  const byId = useMemo(() => new Map((data?.products ?? []).map((p) => [p.id, p])), [data]);
-  const settings = data?.settings;
-  const isCashier = me.user.role === "CASHIER";
+  const isCashier = s.user.role === "CASHIER";
+  const canTryOnline = s.mode === "online" && online;
 
   const bill = useMemo(() => {
     const priced = lines.filter((l) => byId.has(l.productId));
-    const pos = placeOfSupply(settings?.taxEnabled ? (branch?.stateCode ?? null) : null, settings?.taxEnabled ? (customer?.stateCode ?? null) : null);
+    const pos = placeOfSupply(settings?.taxEnabled ? (pack?.branch.stateCode ?? null) : null, settings?.taxEnabled ? (customer?.stateCode ?? null) : null);
     return {
       ...computeBill(
         priced.map((l) => {
@@ -63,15 +175,14 @@ export function BillingPage() {
         { taxEnabled: Boolean(settings?.taxEnabled), interState: pos.interState },
       ),
       interState: pos.interState,
+      placeOfSupply: pos.placeOfSupply,
     };
-  }, [lines, byId, discount, settings, branch, customer]);
+  }, [lines, byId, discount, settings, pack, customer]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (data?.products ?? []).filter(
-      (p) => (!categoryId || p.categoryId === categoryId) && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase() === q || p.barcode === search.trim()),
-    );
-  }, [data, search, categoryId]);
+    return products.filter((p) => (!categoryId || p.categoryId === categoryId) && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase() === q || p.barcode === search.trim()));
+  }, [products, search, categoryId]);
 
   const add = useCallback((p: Product, qtyMilli = 1000) => {
     setDone(null);
@@ -85,7 +196,7 @@ export function BillingPage() {
     setLines((ls) => (qtyMilli <= 0 ? ls.filter((l) => l.productId !== productId) : ls.map((l) => (l.productId === productId ? { ...l, qtyMilli } : l))));
 
   function onSearchEnter() {
-    const exact = (data?.products ?? []).find((p) => (p.barcode && p.barcode === search.trim()) || (p.sku && p.sku.toLowerCase() === search.trim().toLowerCase()));
+    const exact = products.find((p) => (p.barcode && p.barcode === search.trim()) || (p.sku && p.sku.toLowerCase() === search.trim().toLowerCase()));
     const pick = exact ?? (visible.length === 1 ? visible[0] : undefined);
     if (pick) {
       add(pick);
@@ -102,41 +213,93 @@ export function BillingPage() {
   }
 
   async function charge() {
-    if (!branch || !counter || !activeMethodId) return;
+    if (!branch || !setup || !pack || !method) return;
     setBusy(true);
     setError(null);
+    const id = crypto.randomUUID();
+    const n = await peekSeq(setup.counterId, pack.counter.nextInvoiceNumber);
+    const number = invoiceNumber(pack.branch.code, pack.counter.code, n);
+    const createdAt = new Date().toISOString();
+    const priced = lines.filter((l) => byId.has(l.productId)).map((l) => ({ ...l, product: byId.get(l.productId)! }));
     try {
-      const { order } = await apiPost<{ order: Order }>("/orders", {
-        id: crypto.randomUUID(),
+      // Online with nothing waiting: the server checks and saves the bill now.
+      if (canTryOnline && (await pendingOrders(setup.counterId)).length === 0) {
+        try {
+          const { order } = await apiPost<{ order: Order }>("/orders", {
+            id,
+            branchId: branch.id,
+            counterId: setup.counterId,
+            invoiceNumber: number,
+            customerId: customer?.id ?? null,
+            lines: priced.map((l) => ({ productId: l.productId, qtyMilli: l.qtyMilli, batchId: l.batchId ?? null })),
+            discount,
+            payments: [{ methodId: method.id, amount: bill.total }],
+          });
+          await takeSeq(setup.counterId, n);
+          setDone({ order, queued: false });
+          reset();
+          setVersion((v) => v + 1);
+          return;
+        } catch (err) {
+          if (err instanceof ApiError) {
+            setError(err.code === "payment_mismatch" ? "Prices changed on the server. The counter has been refreshed: check the bill and charge again." : errorMessage(err));
+            if (["payment_mismatch", "unknown_product", "out_of_stock", "invoice_number_used"].includes(err.code)) {
+              if (err.code === "invoice_number_used") await takeSeq(setup.counterId, n);
+              setVersion((v) => v + 1);
+            }
+            return;
+          }
+          // Network trouble: fall through and keep the bill on this counter, same id and number.
+        }
+      }
+      if (!settings?.allowNegativeStock) {
+        const short = priced.filter((l) => l.product.trackStock && l.product.stockMilli < l.qtyMilli);
+        if (short.length) return setError(`Not enough stock: ${short.map((l) => l.product.name).join(", ")}.`);
+      }
+      const order = localOrder({ id, number, createdAt, pack, cashierId: s.user.id, cashierName: s.user.name, customer, discount, bill, lines: priced, method });
+      await queueOrder({
+        id,
+        counterId: setup.counterId,
         branchId: branch.id,
-        counterId: counter.id,
-        customerId: customer?.id ?? null,
-        lines,
-        discount,
-        payments: [{ methodId: activeMethodId, amount: bill.total }],
+        invoiceNumber: number,
+        createdAt,
+        order,
+        payload: {
+          id,
+          cashierId: s.user.id,
+          invoiceNumber: number,
+          createdAt,
+          customerId: customer?.id ?? null,
+          taxEnabled: Boolean(settings?.taxEnabled),
+          discount,
+          lines: priced.map((l) => ({ productId: l.product.id, name: l.product.name, hsn: l.product.hsn, unit: l.product.unit, unitPrice: l.product.price, gstRateBp: l.product.gstRateBp, taxInclusive: l.product.taxInclusive, qtyMilli: l.qtyMilli, batchId: l.batchId ?? null })),
+          payments: [{ methodId: method.id, amount: bill.total }],
+          total: bill.total,
+        },
       });
-      setDone(order);
+      await takeSeq(setup.counterId, n);
+      setDone({ order, queued: true });
       reset();
-      void reload();
-      searchRef.current?.focus();
+      sync.kick();
     } catch (err) {
       setError(errorMessage(err));
-      if (err instanceof ApiError && (err.code === "unknown_product" || err.code === "out_of_stock")) void reload();
     } finally {
       setBusy(false);
+      searchRef.current?.focus();
     }
   }
 
   if (!branch) return <Alert tone="warn">No branch is active for you on this plan. Ask the owner.</Alert>;
-  if (loadError || counterError) return <Alert tone="error">{loadError ?? counterError}</Alert>;
-  if (!data || !counter || !settings) return <p className="text-muted">Getting the counter ready…</p>;
+  if (setupError && !setup) return <Alert tone="error">{setupError}</Alert>;
+  if (!setup || !pack || !settings) return <p className="text-muted">Getting the counter ready…</p>;
 
   const cash = method?.kind === "CASH";
   const tenderedPaise = parseMoney(tendered);
   const change = cash && tenderedPaise !== null ? tenderedPaise - bill.total : null;
-  const usable = me.branches.filter((b) => b.withinPlan);
   const tooMuchDiscount = isCashier && bill.subtotal > 0 && bill.discountTotal * 10_000 > settings.cashierMaxDiscountBp * bill.subtotal;
-  const canCharge = online && lines.length > 0 && !busy && !tooMuchDiscount && (method?.kind !== "CREDIT" || customer !== null);
+  const canCharge = lines.length > 0 && !busy && !tooMuchDiscount && Boolean(method) && (method?.kind !== "CREDIT" || customer !== null);
+  const localCustomers = [...queuedCustomers, ...pack.customers];
+  const offlineHere = !canTryOnline;
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -144,24 +307,24 @@ export function BillingPage() {
         <div className="mr-auto flex flex-col">
           <h1 className="m-0 text-2xl font-semibold">Billing</h1>
           <span className="text-sm text-muted">
-            {branch.name} ({branch.code}) · {counter.name} ({counter.code})
+            {pack.branch.name} ({pack.branch.code}) · {pack.counter.name} ({pack.counter.code})
           </span>
         </div>
-        {usable.length > 1 ? (
+        {s.branches.length > 1 && s.mode === "online" ? (
           <label className="flex items-center gap-2 text-sm text-muted">
             Branch
             <select
               value={branch.id}
               onChange={(e) => {
-                const b = usable.find((x) => x.id === e.target.value)!;
+                const b = s.branches.find((x) => x.id === e.target.value)!;
                 rememberBranch(b.id);
                 setBranch(b);
-                setCounter(null);
+                setSetup(null);
                 reset();
               }}
               className="h-11 rounded-[10px] border border-line-strong bg-white px-2 text-ink"
             >
-              {usable.map((b) => (
+              {s.branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
                 </option>
@@ -169,15 +332,21 @@ export function BillingPage() {
             </select>
           </label>
         ) : null}
-        <HeldButton branchId={branch.id} open={dialog === "held"} onOpen={() => setDialog("held")} onClose={() => setDialog(null)} onRecall={async (cart) => {
-          setLines(cart.payload.lines.filter((l) => byId.has(l.productId)));
-          setDiscount(cart.payload.discount ?? { type: "flat", value: 0 });
-          setCustomer(cart.payload.customerId ? (await apiGet<{ customer: Customer }>(`/customers/${cart.payload.customerId}`)).customer : null);
-          await apiDelete(`/held-carts/${cart.id}`);
-          setDialog(null);
-        }} />
+        {canTryOnline ? (
+          <HeldButton branchId={branch.id} open={dialog === "held"} onOpen={() => setDialog("held")} onClose={() => setDialog(null)} onRecall={async (cart) => {
+            setLines(cart.payload.lines.filter((l) => byId.has(l.productId)));
+            setDiscount(cart.payload.discount ?? { type: "flat", value: 0 });
+            setCustomer(cart.payload.customerId ? (await apiGet<{ customer: Customer }>(`/customers/${cart.payload.customerId}`)).customer : null);
+            await apiDelete(`/held-carts/${cart.id}`);
+            setDialog(null);
+          }} />
+        ) : null}
       </div>
-      {!online ? <Alert tone="warn">You're offline. Billing without internet arrives in Phase 3; for now, bills need a connection.</Alert> : null}
+      {offlineHere ? (
+        <Alert tone="warn">
+          {online ? "Signed in offline." : "No internet."} Bills are saved on this counter with their own numbers and sync when the internet is back. Prices and stock are as of {new Date(pack.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.
+        </Alert>
+      ) : null}
 
       <div className="flex flex-wrap items-start gap-5">
         <section aria-label="Products" className="flex min-w-0 flex-[999_1_420px] flex-col gap-3">
@@ -195,9 +364,9 @@ export function BillingPage() {
             onKeyDown={(e) => e.key === "Enter" && onSearchEnter()}
             className="h-12 rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] text-ink"
           />
-          {data.categories.length ? (
+          {pack.categories.length ? (
             <div className="flex flex-wrap gap-2" role="group" aria-label="Category">
-              {[{ id: null, name: "All" }, ...data.categories].map((c) => (
+              {[{ id: null, name: "All" }, ...pack.categories].map((c) => (
                 <button
                   key={c.id ?? "all"}
                   type="button"
@@ -210,10 +379,11 @@ export function BillingPage() {
               ))}
             </div>
           ) : null}
-          {data.products.length === 0 ? <Alert tone="info">No products yet. {isCashier ? "Ask a manager to add them." : "Add them under Products."}</Alert> : null}
+          {products.length === 0 ? <Alert tone="info">No products yet. {isCashier ? "Ask a manager to add them." : "Add them under Products."}</Alert> : null}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
             {visible.map((p) => {
               const blocked = !settings.allowNegativeStock && p.trackStock && p.stockMilli <= (lines.find((l) => l.productId === p.id)?.qtyMilli ?? 0);
+              const status = !p.trackStock ? "untracked" : p.stockMilli <= 0 ? "out" : p.stockStatus === "low" ? "low" : "ok";
               return (
                 <button
                   key={p.id}
@@ -228,8 +398,8 @@ export function BillingPage() {
                   <span className="mt-auto flex w-full items-baseline justify-between gap-2">
                     <span className="font-bold text-indigo">{formatMoney(p.price)}</span>
                     {p.trackStock ? (
-                      <span className={`text-xs ${p.stockStatus === "out" ? "font-semibold text-[#A3361F]" : p.stockStatus === "low" ? "font-semibold text-warn" : "text-muted"}`}>
-                        {p.stockStatus === "out" ? "Out of stock" : `${formatQty(p.stockMilli)} ${p.unit}`}
+                      <span className={`text-xs ${status === "out" ? "font-semibold text-[#A3361F]" : status === "low" ? "font-semibold text-warn" : "text-muted"}`}>
+                        {status === "out" ? "Out of stock" : `${formatQty(p.stockMilli)} ${p.unit}`}
                       </span>
                     ) : null}
                   </span>
@@ -344,9 +514,11 @@ export function BillingPage() {
             {tooMuchDiscount ? <Alert tone="warn">Cashiers can give up to {bpToPercent(settings.cashierMaxDiscountBp)}% discount.</Alert> : null}
             {error ? <Alert tone="error">{error}</Alert> : null}
             <div className="flex gap-2.5">
-              <Button variant="secondary" disabled={lines.length === 0} onClick={() => setDialog("hold")} className="h-[52px] flex-1">
-                Hold
-              </Button>
+              {canTryOnline ? (
+                <Button variant="secondary" disabled={lines.length === 0} onClick={() => setDialog("hold")} className="h-[52px] flex-1">
+                  Hold
+                </Button>
+              ) : null}
               <Button onClick={charge} busy={busy} disabled={!canCharge} className="h-[52px] flex-[2] text-base">
                 Charge {formatMoney(bill.total)}
               </Button>
@@ -359,6 +531,7 @@ export function BillingPage() {
         <BatchPicker
           product={byId.get(pickBatchFor)!}
           branchId={branch.id}
+          local={offlineHere ? pack.batches.filter((b) => b.productId === pickBatchFor) : undefined}
           current={lines.find((l) => l.productId === pickBatchFor)?.batchId ?? null}
           onClose={() => setPickBatchFor(null)}
           onPick={(id) => {
@@ -374,6 +547,22 @@ export function BillingPage() {
             setCustomer(c);
             setDialog(null);
           }}
+          local={
+            offlineHere
+              ? {
+                  customers: localCustomers,
+                  add: async (form) => {
+                    const id = crypto.randomUUID();
+                    const createdAt = new Date().toISOString();
+                    const g = form.gstin.trim().toUpperCase().replace(/\s/g, "");
+                    await queueCustomer({ id, counterId: setup.counterId, createdAt, payload: { id, name: form.name.trim(), phone: form.phone.trim(), gstin: g || undefined, stateCode: g ? g.slice(0, 2) : undefined } });
+                    const c: Customer = { id, name: form.name.trim(), phone: form.phone.replace(/\D/g, "").slice(-10), email: "", address: "", gstin: g || null, stateCode: g ? g.slice(0, 2) : null, notes: "", createdAt };
+                    setQueuedCustomers((q) => [c, ...q]);
+                    return c;
+                  },
+                }
+              : undefined
+          }
         />
       ) : null}
       {dialog === "discount" ? (
@@ -398,10 +587,11 @@ export function BillingPage() {
         />
       ) : null}
       {done ? (
-        <Modal title={`Bill ${done.invoiceNumber} saved`} onClose={() => setDone(null)} wide>
+        <Modal title={`Bill ${done.order.invoiceNumber} saved`} onClose={() => setDone(null)} wide>
           <div className="flex flex-col gap-4">
+            {done.queued ? <Alert tone="info">Saved on this counter. It syncs automatically when the internet is back.</Alert> : null}
             <div className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
-              <Receipt order={done} settings={settings} />
+              <Receipt order={done.order} settings={settings} />
             </div>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => window.print()}>Print receipt</Button>

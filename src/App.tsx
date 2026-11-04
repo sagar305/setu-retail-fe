@@ -1,4 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./auth/AuthProvider";
+import { OfflineShell } from "./components/OfflineShell";
+import { OfflineSignIn } from "./pages/auth/OfflineSignIn";
+import { CounterBillsPage } from "./pages/CounterBills";
+import { PinPage } from "./pages/Pin";
 import { Allow, HomeRedirect, PublicOnly, RequireAuth } from "./auth/guards";
 import { AppShell } from "./components/AppShell";
 import { NAV_ITEMS } from "./lib/nav";
@@ -27,6 +32,20 @@ import { ReportsPage } from "./pages/Reports";
 const BUILT = new Set(["/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
 export function App() {
+  const { state } = useAuth();
+  // No internet: PIN sign-in, then billing only.
+  if (state.status === "offlineSignIn") return <OfflineSignIn />;
+  if (state.status === "offline") {
+    return (
+      <Routes>
+        <Route element={<OfflineShell />}>
+          <Route path="/billing" element={<BillingPage />} />
+          <Route path="/counter-bills" element={<CounterBillsPage />} />
+          <Route path="*" element={<Navigate to="/billing" replace />} />
+        </Route>
+      </Routes>
+    );
+  }
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
@@ -62,6 +81,10 @@ export function App() {
             <Route path="/billing" element={<BillingPage />} />
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/counter-bills" element={<CounterBillsPage />} />
+          </Route>
+          <Route element={<Allow roles={["OWNER", "MANAGER", "CASHIER"]} whenExpired />}>
+            <Route path="/pin" element={<PinPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER"]} />}>
             <Route path="/settings/pos" element={<PosSettingsPage />} />

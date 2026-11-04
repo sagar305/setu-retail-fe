@@ -105,14 +105,35 @@ export const SETTINGS = {
 };
 
 /** The endpoints the billing screen loads. */
-export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS> } = {}): Record<string, Reply> {
+export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; nextInvoiceNumber?: number } = {}): Record<string, Reply> {
   return {
     "GET /settings": [200, { ...SETTINGS, ...over.settings }],
     "GET /payment-methods": [200, { methods }],
     "GET /products": [200, { products: over.products ?? PRODUCTS, total: (over.products ?? PRODUCTS).length }],
     "GET /categories": [200, { categories: [] }],
     "GET /counters": [200, { counters: [] }],
-    "POST /counters": [201, { counter: { id: COUNTER_ID, branchId: BRANCH_ID, code: "C1", name: "Counter 1", lastSeenAt: null } }],
+    "POST /counters": [201, { counter: { id: COUNTER_ID, branchId: BRANCH_ID, code: "C1", name: "Counter 1", lastSeenAt: null }, deviceKey: `${COUNTER_ID}.secret` }],
     "GET /held-carts": [200, { carts: [] }],
+    "GET /sync/pack": [200, makePack(over)],
+  };
+}
+
+export const COUNTER = COUNTER_ID;
+
+/** What GET /sync/pack returns for the default shop. */
+export function makePack(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; users?: unknown[]; customers?: unknown[]; nextInvoiceNumber?: number; expired?: boolean } = {}) {
+  return {
+    at: "2026-11-04T09:00:00.000Z",
+    settings: { ...SETTINGS, ...over.settings },
+    account: { id: "22222222-2222-4222-8222-222222222222", name: "Sharma Stores", timezone: "Asia/Kolkata", currency: "INR" },
+    branch: { id: BRANCH_ID, code: "B1", name: "Main branch", address: "", phone: "", gstin: null, stateCode: null },
+    counter: { id: COUNTER_ID, code: "C1", name: "Counter 1", nextInvoiceNumber: over.nextInvoiceNumber ?? 1 },
+    plan: { expired: over.expired ?? false },
+    methods,
+    categories: [],
+    products: over.products ?? PRODUCTS,
+    batches: [],
+    customers: over.customers ?? [],
+    users: over.users ?? [],
   };
 }

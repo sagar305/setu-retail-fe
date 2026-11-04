@@ -1,19 +1,43 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { apiGet, authApi, onSignedOut, refreshSession, setAccessToken, type Me } from "../lib/api";
+import { apiGet, authApi, onSignedOut, refreshSession, setAccessToken, type Me, type Role } from "../lib/api";
+import { kvDelete, kvGet, kvSet } from "../offline/db";
+import { allPacks } from "../offline/pack";
+import type { BranchLite } from "./sessionInfo";
+
+/** Signed in on this counter with a PIN while there was no internet. Lasts one shift. */
+export type OfflineSession = {
+  userId: string;
+  name: string;
+  role: Role;
+  branch: BranchLite;
+  accountName: string;
+  timezone: string;
+  startedAt: string;
+  expiresAt: string;
+};
 
 export type AuthState =
   | { status: "loading" }
   | { status: "signedOut" }
-  /** The API couldn't be reached while restoring the session (offline sign-in arrives in Phase 3). */
+  /** The API couldn't be reached and this device can't bill offline. */
   | { status: "unreachable" }
+  /** No internet, but this counter can sign someone in with their PIN. */
+  | { status: "offlineSignIn" }
+  | { status: "offline"; session: OfflineSession }
   | { status: "signedIn"; me: Me };
+
+const OFFLINE_KEY = "offlineSession";
+const SHIFT_MS = 12 * 3600_000;
 
 type AuthApi = {
   state: AuthState;
   login: (login: string, password: string) => Promise<Me>;
+  startOffline: (s: Omit<OfflineSession, "startedAt" | "expiresAt">) => Promise<void>;
   logout: () => Promise<void>;
   reloadMe: () => Promise<Me>;
   retry: () => void;
+  /** Internet is back during a PIN shift: continue online only as the same person; anyone else signs in with a password. */
+  leaveOffline: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthApi | null>(null);
@@ -28,8 +52,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const restore = useCallback(() => {
     setState({ status: "loading" });
     refreshSession()
-      .then((s) => setState(s ? { status: "signedIn", me: s.me } : { status: "signedOut" }))
-      .catch(() => setState({ status: "unreachable" }));
+      .then(async (s) => {
+        // Online again: an offline PIN shift is over. Someone else's saved
+        // session on this device doesn't carry over to the PIN user.
+        const shift = await kvGet<OfflineSession>(OFFLINE_KEY).catch(() => undefined);
+        await kvDelete(OFFLINE_KEY).catch(() => {});
+        if (s && shift && shift.userId !== s.me.user.id) {
+          await authApi.logout().catch(() => {});
+          setAccessToken(null);
+          return setState({ status: "signedOut" });
+        }
+        setState(s ? { status: "signedIn", me: s.me } : { status: "signedOut" });
+      })
+      .catch(async () => {
+        // No internet. Continue an offline shift, or offer PIN sign-in if this counter can bill offline.
+        const saved = await kvGet<OfflineSession>(OFFLINE_KEY).catch(() => undefined);
+        if (saved && new Date(saved.expiresAt) > new Date()) return setState({ status: "offline", session: saved });
+        const packs = await allPacks().catch(() => []);
+        setState(packs.some((p) => p.users.length) ? { status: "offlineSignIn" } : { status: "unreachable" });
+      });
   }, []);
 
   useEffect(() => {
@@ -61,7 +102,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ status: "signedIn", me: s.me });
         return s.me;
       },
+      startOffline: async (s) => {
+        const now = new Date();
+        const session: OfflineSession = { ...s, startedAt: now.toISOString(), expiresAt: new Date(now.getTime() + SHIFT_MS).toISOString() };
+        await kvSet(OFFLINE_KEY, session);
+        setState({ status: "offline", session });
+      },
       logout: async () => {
+        await kvDelete(OFFLINE_KEY).catch(() => {});
+        if (state.status === "offline") {
+          // Back to PIN sign-in while still offline; sign-in page when online.
+          return restore();
+        }
         try {
           await authApi.logout();
         } finally {
@@ -75,6 +127,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return me;
       },
       retry: restore,
+      leaveOffline: async () => {
+        if (state.status !== "offline") return restore();
+        const pinUser = state.session.userId;
+        const s = await refreshSession().catch(() => undefined);
+        if (s === undefined) return; // still no internet
+        await kvDelete(OFFLINE_KEY).catch(() => {});
+        if (s && s.me.user.id === pinUser) return setState({ status: "signedIn", me: s.me });
+        if (s) await authApi.logout().catch(() => {});
+        setAccessToken(null);
+        setState({ status: "signedOut" });
+      },
     }),
     [state, restore],
   );

@@ -3,7 +3,7 @@ import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../components/ui";
 import { apiGet, apiPost, type Order, type OrderSummary, type PaymentMethod, type Settings } from "../lib/api";
 import { currentBranch } from "../lib/branch";
-import { ensureCounter } from "../lib/counter";
+import { ensureCounter } from "../offline/counter";
 import { errorMessage } from "../lib/format";
 import { formatMoney, formatQty, parseQty } from "../lib/money";
 import { Receipt } from "../pos/Receipt";

@@ -152,3 +152,22 @@ export type StockLog = Schemas["StockLog"];
 export type ImportResult = Schemas["ImportResult"];
 export type ProductImportRow = Schemas["ProductImportRow"];
 export type CustomerImportRow = Schemas["CustomerImportRow"];
+
+// ── Phase 3: offline ──
+export type OfflinePack = Schemas["OfflinePack"];
+export type SyncOrder = Schemas["SyncOrder"];
+export type SyncCustomer = Schemas["SyncCustomer"];
+export type SyncResults = Schemas["SyncResults"];
+
+/** Calls that authenticate with this counter's device key instead of a user session. */
+export async function deviceRequest<T>(method: "GET" | "POST", path: string, deviceKey: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { "X-Device-Key": deviceKey };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const res = await fetch(`${API_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = (data as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+    throw new ApiError(res.status, err?.code ?? "http_error", err?.message ?? `Request failed (${res.status})`, err?.details);
+  }
+  return data as T;
+}

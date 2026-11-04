@@ -1,28 +1,39 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Alert, Button, Field, Modal } from "../components/ui";
 import { ApiError, apiGet, apiPost, type Customer } from "../lib/api";
 import { errorMessage } from "../lib/format";
 
 /** Search saved customers or add one, from the counter. */
-export function CustomerPicker({ onPick, onClose }: { onPick: (c: Customer) => void; onClose: () => void }) {
+/** `local`: no internet — search the counter's saved customers and add new ones to the sync queue. */
+export function CustomerPicker({ onPick, onClose, local }: { onPick: (c: Customer) => void; onClose: () => void; local?: { customers: Customer[]; add: (c: { name: string; phone: string; gstin: string }) => Promise<Customer> } }) {
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<Customer[]>([]);
+  const [remote, setRemote] = useState<Customer[]>([]);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", gstin: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const localCustomers = local?.customers;
+  const rows = useMemo(() => {
+    if (!localCustomers) return remote;
+    const t = q.trim().toLowerCase();
+    const digits = t.replace(/\D/g, "");
+    return localCustomers.filter((c) => !t || c.name.toLowerCase().includes(t) || (digits.length >= 3 && c.phone.includes(digits)) || c.gstin === q.trim().toUpperCase()).slice(0, 20);
+  }, [localCustomers, remote, q]);
+
+  const isLocal = Boolean(local);
   useEffect(() => {
+    if (isLocal) return;
     const ctl = new AbortController();
     const t = window.setTimeout(() => {
-      apiGet<{ customers: Customer[] }>(`/customers?q=${encodeURIComponent(q)}&limit=20`, ctl.signal).then((r) => setRows(r.customers), () => {});
+      apiGet<{ customers: Customer[] }>(`/customers?q=${encodeURIComponent(q)}&limit=20`, ctl.signal).then((r) => setRemote(r.customers), () => {});
     }, 200);
     return () => {
       window.clearTimeout(t);
       ctl.abort();
     };
-  }, [q]);
+  }, [q, isLocal]);
 
   async function add(e: FormEvent) {
     e.preventDefault();
@@ -30,6 +41,7 @@ export function CustomerPicker({ onPick, onClose }: { onPick: (c: Customer) => v
     setErrors({});
     setError(null);
     try {
+      if (local) return onPick(await local.add(form));
       const { customer } = await apiPost<{ customer: Customer }>("/customers", { name: form.name, phone: form.phone, gstin: form.gstin });
       onPick(customer);
     } catch (err) {

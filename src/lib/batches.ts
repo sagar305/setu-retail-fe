@@ -10,6 +10,7 @@ export function useBatches(productId: string, branchId: string) {
   const [batches, setBatches] = useState<Batch[] | null>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
+    if (!branchId) return;
     let alive = true;
     apiGet<{ batches: Batch[] }>(`/products/${productId}/batches?branchId=${branchId}`).then((r) => alive && setBatches(r.batches), () => alive && setBatches([]));
     return () => {

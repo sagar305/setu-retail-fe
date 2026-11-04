@@ -2,7 +2,7 @@
   "name": "setu-retail-fe",
   "version": "0.1.0",
   "private": true,
-  "description": "Setu Retail cloud POS \u2014 web app",
+  "description": "Setu Retail cloud POS — web app",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@fontsource-variable/sora": "5.3.0",
+    "dexie": "4.4.7",
     "lucide-react": "1.59.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -37,6 +38,7 @@
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.7",
+    "fake-indexeddb": "6.2.6",
     "globals": "17.13.0",
     "jsdom": "30.1.3",
     "openapi-typescript": "7.13.0",

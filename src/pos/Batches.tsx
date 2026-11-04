@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { EXPIRY_TONE, expiryLabel, useBatches } from "../lib/batches";
 import { Alert, Badge, Button, Field, Modal } from "../components/ui";
-import { apiPost, type Product } from "../lib/api";
+import { apiPost, type Batch, type Product } from "../lib/api";
 import { errorMessage } from "../lib/format";
 import { formatMoney, formatQty, parseMoney, parseQty } from "../lib/money";
 
@@ -68,8 +68,9 @@ export function BatchesDialog({ product, branchId, onChanged, onClose }: { produ
 }
 
 /** Cashier: pick which batch a bill line comes from (default: earliest expiry). */
-export function BatchPicker({ product, branchId, current, onPick, onClose }: { product: Product; branchId: string; current: string | null; onPick: (id: string | null) => void; onClose: () => void }) {
-  const { batches } = useBatches(product.id, branchId);
+export function BatchPicker({ product, branchId, current, onPick, onClose, local }: { product: Product; branchId: string; current: string | null; onPick: (id: string | null) => void; onClose: () => void; local?: Batch[] }) {
+  const fetched = useBatches(product.id, local ? "" : branchId);
+  const batches = local ?? fetched.batches;
   return (
     <Modal title={`Batch for ${product.name}`} onClose={onClose}>
       <div className="flex flex-col gap-2">

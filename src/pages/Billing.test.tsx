@@ -1,11 +1,12 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { AuthProvider } from "../auth/AuthProvider";
 import { setAccessToken } from "../lib/api";
-import { makeMe, METHODS, mockApi, posRoutes, PRODUCTS, SETTINGS, session } from "../test/mockApi";
+import { db } from "../offline/db";
+import { COUNTER, makeMe, METHODS, mockApi, posRoutes, PRODUCTS, SETTINGS, session } from "../test/mockApi";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -151,15 +152,49 @@ describe("billing", () => {
     expect(await screen.findByRole("button", { name: /Detergent/ })).toBeDisabled();
   });
 
-  it("can't charge while offline", async () => {
-    mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes() });
+  it("keeps billing with no internet: the bill is saved on this counter with the next number", async () => {
+    const { calls } = mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes({ nextInvoiceNumber: 7 }) });
     const user = userEvent.setup();
     renderBilling();
     await user.click(await screen.findByRole("button", { name: /Tea 250 g/ }));
     Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
     window.dispatchEvent(new Event("offline"));
-    await waitFor(() => expect(screen.getByRole("button", { name: /^Charge/ })).toBeDisabled());
-    expect(screen.getByText(/Billing without internet arrives in Phase 3/)).toBeInTheDocument();
+    expect(await screen.findByText(/Bills are saved on this counter/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Charge ₹145.00" }));
+    expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00007 saved" })).toBeInTheDocument();
+    expect(screen.getByText(/syncs automatically when the internet is back/)).toBeInTheDocument();
+    expect(calls.some((c) => c.path === "/orders")).toBe(false);
+
+    const [queued] = await db.outbox.toArray();
+    expect(queued).toMatchObject({ invoiceNumber: "B1-C1-00007", status: "pending", counterId: COUNTER });
+    expect(queued!.payload).toMatchObject({ invoiceNumber: "B1-C1-00007", total: 14500, lines: [{ productId: PRODUCTS[1]!.id, qtyMilli: 1000, unitPrice: 14500 }] });
+
+    // Stock on the counter already counts the bill; the next one takes the next number.
+    await user.click(screen.getByRole("button", { name: "New bill" }));
+    expect(await screen.findByText("9 pcs")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Tea 250 g/ }));
+    await user.click(screen.getByRole("button", { name: /^Charge/ }));
+    expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00008 saved" })).toBeInTheDocument();
+  });
+
+  it("queues the bill with the same id and number when the network drops mid-charge", async () => {
+    let tried: { id: string; invoiceNumber: string } | undefined;
+    mockApi({
+      "POST /auth/refresh": session(makeMe()),
+      ...posRoutes(),
+      "POST /orders": (body) => {
+        tried = body as typeof tried;
+        throw new TypeError("Failed to fetch");
+      },
+    });
+    const user = userEvent.setup();
+    renderBilling();
+    await user.click(await screen.findByRole("button", { name: /Tea 250 g/ }));
+    await user.click(screen.getByRole("button", { name: /^Charge/ }));
+    expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00001 saved" })).toBeInTheDocument();
+    const [queued] = await db.outbox.toArray();
+    expect(queued!.id).toBe(tried!.id);
+    expect(tried!.invoiceNumber).toBe("B1-C1-00001");
   });
 
   it("shows the server's reason when a bill is refused", async () => {
