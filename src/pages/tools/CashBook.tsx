@@ -187,7 +187,7 @@ export function CashBookPage() {
               <ul className="m-0 mt-3 flex list-none flex-col border-t border-cream p-0">
                 {d.lines.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center gap-3 border-b border-cream py-2.5 text-sm last:border-b-0">
-                    <span className="w-16 text-muted">{new Date(l.at).toLocaleTimeString("en-IN", { timeZone: tz, hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="w-20 shrink-0 whitespace-nowrap text-muted">{new Date(l.at).toLocaleTimeString("en-IN", { timeZone: tz, hour: "2-digit", minute: "2-digit" })}</span>
                     <span className="min-w-0 flex-1">
                       {l.label} <Badge tone="muted">{SOURCE[l.source] ?? l.source}</Badge>
                     </span>
