@@ -41,6 +41,9 @@ body {
 
 /* Printing a receipt: only .print-area is printed, at the paper's width. */
 @media print {
+  body {
+    background: #fff !important;
+  }
   body * {
     visibility: hidden;
   }
