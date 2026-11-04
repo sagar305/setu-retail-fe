@@ -131,7 +131,7 @@ export function AuditLogPage() {
               </div>
               {open === e.id ? (
                 <ul className="m-0 ml-0 flex list-disc flex-col gap-0.5 pl-5 text-sm text-muted [overflow-wrap:anywhere] sm:ml-40">
-                  {d.details.map((x, i) => (
+                  {d.details.slice(1).map((x, i) => (
                     <li key={i}>{x}</li>
                   ))}
                   {e.ip ? <li>From {e.ip}</li> : null}
