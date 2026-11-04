@@ -28,6 +28,8 @@ npm run dev                   # http://localhost:5173
 
 - **Phase 2a:** billing counter (search/scan, loose quantities, customer, discount with the cashier cap, GST totals computed by the same engine as the API, Cash/UPI/Card/Udhaar, change, hold/recall), GST receipt for 80 mm / 58 mm / A4 with HSN, CGST/SGST or IGST, place of supply and amount in words; products with branch price and stock; customers; orders with reprint, cancel and partial returns (GST credit notes); billing & receipt settings and payment methods. Each device registers once per branch as a counter and keeps its own bill series.
 
+- **Phase 2b:** dashboard (today, yesterday, 7-day chart, payments, branches, top products, low stock, below-zero and expiry alerts); reports with date presets in shop time and CSV downloads — sales, GST (by rate net of credit notes, HSN summary, B2B, B2C, credit notes), stock & expiry, staff & margin, stock log; batch & expiry tracking (receive batches, earliest-expiry-first with cashier override at billing, batch/expiry on receipts); import from CSV (our template or the free POS exports) and from the free POS backup; product and customer CSV export.
+
 ## Talking to the API
 
 - `src/lib/api.ts` keeps the access token in memory; the 12-hour refresh token is an http-only cookie the browser sends to `/auth/*`. A 401 triggers one shared refresh and a single retry.

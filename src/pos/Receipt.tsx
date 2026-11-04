@@ -71,6 +71,15 @@ export function Receipt({ order, settings, creditNoteId }: { order: Order; setti
             {order.taxEnabled && i.hsn ? `HSN ${i.hsn} · ` : ""}@{money(i.unitPrice)}/{i.unit}
             {order.taxEnabled ? ` · GST ${bpToPercent(i.gstRateBp)}%` : ""}
           </span>
+          {/* Only batches with real details (not the catch-all opening stock). */}
+          {"batches" in i && i.batches.some((b) => b.batchNo || b.expiry) ? (
+            <span className="text-[#333]">
+              {i.batches
+                .filter((b) => b.batchNo || b.expiry)
+                .map((b) => `Batch ${b.batchNo || "—"}${b.expiry ? ` exp ${b.expiry.slice(5, 7)}/${b.expiry.slice(2, 4)}` : ""}`)
+                .join("; ")}
+            </span>
+          ) : null}
         </div>
       ))}
       <hr className="my-1.5 border-0 border-t border-dashed border-black" />

@@ -6,6 +6,10 @@ import { ApiError, apiGet, apiPatch, apiPost, apiPut, type Category, type Produc
 import { currentBranch, rememberBranch } from "../lib/branch";
 import { errorMessage } from "../lib/format";
 import { bpToPercent, formatMoney, formatQty, paiseToInput, parseMoney, parseQty } from "../lib/money";
+import { downloadCsv, toCsv } from "../lib/csv";
+import { BatchesDialog } from "../pos/Batches";
+import { fmtDay } from "../lib/batches";
+import type { Settings } from "../lib/api";
 
 const GST_RATES = [0, 25, 300, 500, 1200, 1800, 2800, 4000];
 const UNITS = ["pcs", "kg", "g", "l", "ml", "m", "box", "pack", "dozen"];
@@ -239,7 +243,12 @@ export function ProductsPage() {
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<null | { kind: "new" } | { kind: "edit" | "stock" | "price"; product: Product }>(null);
+  const [dialog, setDialog] = useState<null | { kind: "new" } | { kind: "edit" | "stock" | "price" | "batches"; product: Product }>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  useEffect(() => {
+    apiGet<Settings>("/settings").then(setSettings, () => {});
+  }, []);
+  const batches = Boolean(settings?.batchTracking);
   const limit = me.plan.current?.limits.maxProducts ?? null;
 
   const load = useCallback(() => {
@@ -292,6 +301,24 @@ export function ProductsPage() {
                 ))}
               </select>
             ) : null}
+            <Button
+              variant="secondary"
+              disabled={!products?.length}
+              onClick={() =>
+                downloadCsv(
+                  `Products_${branch.code}.csv`,
+                  toCsv(
+                    ["Name", "SKU", "Barcode", "Category", "HSN", "Selling Price", "Cost Price", "Tax %", "Tax Type", "Stock", "Low Stock Alert", "Unit"],
+                    (products ?? []).map((p) => [p.name, p.sku, p.barcode, p.categoryId ? (catName.get(p.categoryId) ?? "") : "", p.hsn, (p.price / 100).toFixed(2), p.costPrice === null || p.costPrice === undefined ? "" : (p.costPrice / 100).toFixed(2), p.gstRateBp / 100, p.taxInclusive ? "inclusive" : "exclusive", p.trackStock ? p.stockMilli / 1000 : "", p.trackStock && p.lowStockMilli !== null ? p.lowStockMilli / 1000 : "", p.unit]),
+                  ),
+                )
+              }
+            >
+              Export CSV
+            </Button>
+            <Link to="/settings/import" className="flex min-h-11 items-center rounded-[10px] border border-indigo bg-white px-4 text-sm font-semibold text-indigo no-underline">
+              Import
+            </Link>
             <Button onClick={() => setDialog({ kind: "new" })}>Add product</Button>
           </div>
         }
@@ -346,6 +373,7 @@ export function ProductsPage() {
                         {formatQty(p.stockMilli)} {p.unit}
                       </span>
                       {p.stockStatus === "out" ? <Badge tone="error">{p.stockMilli < 0 ? "Below zero" : "Out of stock"}</Badge> : p.stockStatus === "low" ? <Badge tone="warn">Low</Badge> : null}
+                      {batches && p.nextExpiry ? <span className="text-xs text-muted">Next expiry {fmtDay(p.nextExpiry)}</span> : null}
                     </div>
                   ) : (
                     <span className="text-muted">Not tracked</span>
@@ -353,6 +381,11 @@ export function ProductsPage() {
                 </td>
                 <td className="px-3 py-3 text-right">
                   <div className="flex justify-end gap-2">
+                    {p.trackStock && batches ? (
+                      <Button variant="ghost" onClick={() => setDialog({ kind: "batches", product: p })}>
+                        Batches
+                      </Button>
+                    ) : null}
                     {p.trackStock ? (
                       <Button variant="ghost" onClick={() => setDialog({ kind: "stock", product: p })}>
                         Stock
@@ -371,6 +404,7 @@ export function ProductsPage() {
       {dialog?.kind === "new" || dialog?.kind === "edit" ? (
         <ProductForm product={dialog.kind === "edit" ? dialog.product : null} categories={categories} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} />
       ) : null}
+      {dialog?.kind === "batches" ? <BatchesDialog product={dialog.product} branchId={branch.id} onChanged={load} onClose={() => setDialog(null)} /> : null}
       {dialog?.kind === "stock" ? <StockDialog product={dialog.product} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} /> : null}
       {dialog?.kind === "price" ? <BranchPriceDialog product={dialog.product} branchId={branch.id} branchName={branch.name} onDone={done} onClose={() => setDialog(null)} /> : null}
     </div>

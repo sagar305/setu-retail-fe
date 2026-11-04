@@ -1545,6 +1545,7 @@ export interface paths {
                         receiptFooter?: string;
                         /** @enum {string} */
                         receiptPaperSize?: "80mm" | "58mm" | "a4";
+                        batchTracking?: boolean;
                     };
                 };
             };
@@ -2878,6 +2879,8 @@ export interface paths {
                             /** Format: uuid */
                             productId: string;
                             qtyMilli: number;
+                            /** Format: uuid */
+                            batchId?: string | null;
                         }[];
                         discount?: {
                             /** @enum {string} */
@@ -3291,6 +3294,761 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/products/{id}/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batches in stock for a product in a branch, earliest expiry first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            batches: components["schemas"]["Batch"][];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Receive stock as a batch (batch no., expiry, cost) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        branchId: string;
+                        batchNo?: string;
+                        expiry?: string | null;
+                        costPrice?: number | null;
+                        qtyMilli: number;
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            batch: components["schemas"]["Batch"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/batches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Correct a batch's number, expiry or cost */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        batchNo?: string;
+                        expiry?: string | null;
+                        costPrice?: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            batch: components["schemas"]["Batch"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/batches/expiring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Batches expiring within ?days= (default 90) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            batches: (components["schemas"]["Batch"] & {
+                                branchId: string;
+                                productName: string;
+                                unit: string;
+                            })[];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today, yesterday, last 7 days, low stock, expiring soon (?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Dashboard"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sales summary (?from=&to= ISO instants, ?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SalesReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/gst": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GST by rate (returns netted), by HSN, B2B/B2C, credit notes (?from=&to= ISO instants, ?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GstReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock value, low/out/below zero, expiring batches (?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sales by cashier and counter; margin by product (?from=&to= ISO instants, ?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StaffReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/stock-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock movements in a branch (?from=&to= ISO instants, ?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockLog"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import products (CSV rows); matches SKU, barcode, then name */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        branchId: string;
+                        rows: unknown[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import customers (CSV rows); matches mobile, then name */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        rows: unknown[];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImportResult"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/free-pos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import a free Browser POS backup (POS_BACKUP.json) into a branch (owner) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        branchId: string;
+                        backup: {
+                            app: string;
+                            version: number;
+                            data: {
+                                [key: string]: unknown[];
+                            };
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            products: components["schemas"]["ImportResult"];
+                            customers: components["schemas"]["ImportResult"];
+                            categories: number;
+                            paymentMethodsAdded: number;
+                            batches: number;
+                            skipped: {
+                                orders: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3510,6 +4268,7 @@ export interface components {
             receiptFooter: string;
             /** @enum {string} */
             receiptPaperSize: "80mm" | "58mm" | "a4";
+            batchTracking: boolean;
         };
         PaymentMethod: {
             /** Format: uuid */
@@ -3557,6 +4316,7 @@ export interface components {
             /** @enum {string} */
             stockStatus: "untracked" | "out" | "low" | "ok";
             archived: boolean;
+            nextExpiry?: string | null;
         };
         Customer: {
             /** Format: uuid */
@@ -3643,6 +4403,11 @@ export interface components {
                 igst: number;
                 total: number;
                 returnedQtyMilli: number;
+                batches: {
+                    batchNo: string;
+                    expiry: string | null;
+                    qtyMilli: number;
+                }[];
             }[];
             payments: {
                 /** Format: uuid */
@@ -3726,6 +4491,8 @@ export interface components {
                 /** Format: uuid */
                 productId: string;
                 qtyMilli: number;
+                /** Format: uuid */
+                batchId?: string | null;
             }[];
             discount?: {
                 /** @enum {string} */
@@ -3758,6 +4525,271 @@ export interface components {
                 branchId: string;
                 qtyMilli: number;
             }[];
+        };
+        Batch: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            productId: string;
+            batchNo: string;
+            expiry: string | null;
+            costPrice: number | null;
+            qtyMilli: number;
+            opening: boolean;
+            /** Format: date-time */
+            receivedAt: string;
+            /** @enum {string} */
+            status: "expired" | "soon" | "ok" | "none";
+        };
+        ProductImportRow: {
+            name: string;
+            category?: string;
+            sku?: string;
+            barcode?: string;
+            hsn?: string;
+            gstRateBp?: number;
+            taxInclusive?: boolean;
+            unit?: string;
+            price: number;
+            costPrice?: number | null;
+            trackStock?: boolean;
+            lowStockMilli?: number | null;
+            stockMilli?: number;
+        };
+        CustomerImportRow: {
+            name: string;
+            phone?: string;
+            email?: string;
+            gstin?: string;
+            stateCode?: string;
+            address?: string;
+            notes?: string;
+        };
+        ImportResult: {
+            created: number;
+            updated: number;
+            errors: {
+                row: number;
+                message: string;
+            }[];
+        };
+        SalesReport: {
+            from: string;
+            to: string;
+            bills: number;
+            gross: number;
+            discounts: number;
+            sales: number;
+            returns: number;
+            returnCount: number;
+            net: number;
+            averageBill: number;
+            cancelled: {
+                count: number;
+                total: number;
+            };
+            byPayment: {
+                method: string;
+                kind: string;
+                amount: number;
+            }[];
+            refundsByMethod: {
+                method: string;
+                amount: number;
+            }[];
+            topProducts: {
+                productId: string | null;
+                name: string;
+                unit: string;
+                qtyMilli: number;
+                amount: number;
+            }[];
+            byBranch: {
+                branchId: string;
+                bills: number;
+                sales: number;
+            }[];
+            byDay: {
+                day: string;
+                bills: number;
+                sales: number;
+            }[];
+        };
+        GstReport: {
+            from: string;
+            to: string;
+            byRate: {
+                [key: string]: number;
+            }[];
+            byHsn: {
+                hsn: string;
+                rateBp: number;
+                unit: string;
+                qtyMilli: number;
+                taxable: number;
+                cgst: number;
+                sgst: number;
+                igst: number;
+                total: number;
+            }[];
+            b2b: {
+                invoiceNumber: string;
+                date: string;
+                customerName: string;
+                customerGstin: string | null;
+                placeOfSupply: string | null;
+                interState: boolean;
+                taxable: number;
+                cgst: number;
+                sgst: number;
+                igst: number;
+                total: number;
+            }[];
+            b2c: {
+                interState: boolean;
+                placeOfSupply: string | null;
+                bills: number;
+                taxable: number;
+                cgst: number;
+                sgst: number;
+                igst: number;
+                total: number;
+            }[];
+            creditNotes: {
+                number: string;
+                date: string;
+                invoiceNumber: string;
+                customerName: string;
+                customerGstin: string | null;
+                taxable: number;
+                cgst: number;
+                sgst: number;
+                igst: number;
+                total: number;
+            }[];
+        };
+        StockReport: {
+            branchId: string;
+            value: number;
+            missingCost: number;
+            counts: {
+                tracked: number;
+                low: number;
+                out: number;
+                negative: number;
+            };
+            items: {
+                productId: string;
+                name: string;
+                unit: string;
+                stockMilli: number;
+                costPrice: number | null;
+                value: number;
+                /** @enum {string} */
+                status: "ok" | "low" | "out" | "negative";
+            }[];
+            batchTracking: boolean;
+            expiring: {
+                batchId: string;
+                productName: string;
+                unit: string;
+                batchNo: string;
+                expiry: string | null;
+                qtyMilli: number;
+                value: number | null;
+                /** @enum {string} */
+                bucket: "30" | "60" | "90" | "expired";
+            }[];
+        };
+        StaffReport: {
+            from: string;
+            to: string;
+            byCashier: {
+                userId: string;
+                name: string;
+                /** @enum {string|null} */
+                role: "OWNER" | "MANAGER" | "CASHIER" | null;
+                bills: number;
+                sales: number;
+                discounts: number;
+                returns: number;
+            }[];
+            byCounter: {
+                counterId: string;
+                code: string;
+                name: string;
+                bills: number;
+                sales: number;
+            }[];
+            margin: {
+                productId: string | null;
+                name: string;
+                unit: string;
+                qtyMilli: number;
+                revenue: number;
+                cost: number | null;
+                margin: number | null;
+                marginBp: number | null;
+            }[];
+        };
+        StockLog: {
+            log: {
+                id: string;
+                createdAt: string;
+                productName: string;
+                unit: string;
+                type: string;
+                changeMilli: number;
+                stockAfterMilli: number;
+                note: string;
+                userName: string;
+            }[];
+        };
+        Dashboard: {
+            today: {
+                sales: number;
+                net: number;
+                bills: number;
+                averageBill: number;
+                returns: number;
+                creditGiven: number;
+                byPayment: {
+                    method: string;
+                    kind: string;
+                    amount: number;
+                }[];
+                byBranch: {
+                    branchId: string;
+                    bills: number;
+                    sales: number;
+                }[];
+                topProducts: {
+                    productId: string | null;
+                    name: string;
+                    unit: string;
+                    qtyMilli: number;
+                    amount: number;
+                }[];
+            };
+            yesterday: {
+                sales: number;
+                bills: number;
+            };
+            week: {
+                day: string;
+                sales: number;
+                bills: number;
+            }[];
+            lowStock: {
+                productId: string;
+                name: string;
+                unit: string;
+                branchId: string;
+                stockMilli: number;
+                /** @enum {string} */
+                status: "low" | "out" | "negative";
+            }[];
+            expiringSoon: number;
         };
     };
     responses: never;

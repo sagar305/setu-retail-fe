@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 
 const TABS = [
   { to: "/settings/pos", label: "Billing & receipt" },
+  { to: "/settings/import", label: "Import & export" },
   { to: "/settings/plan", label: "Plan & key" },
 ];
 

@@ -20,8 +20,11 @@ import { CustomersPage } from "./pages/Customers";
 import { OrdersPage } from "./pages/Orders";
 import { PosSettingsPage } from "./pages/PosSettings";
 import { ProductsPage } from "./pages/Products";
+import { DashboardPage } from "./pages/Dashboard";
+import { ImportPage } from "./pages/Import";
+import { ReportsPage } from "./pages/Reports";
 
-const BUILT = new Set(["/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers"]);
+const BUILT = new Set(["/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
 export function App() {
   return (
@@ -51,6 +54,9 @@ export function App() {
           <Route element={<Allow roles={["OWNER", "MANAGER"]} />}>
             <Route path="/staff" element={<StaffPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings/import" element={<ImportPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER", "MANAGER", "CASHIER"]} />}>
             <Route path="/billing" element={<BillingPage />} />

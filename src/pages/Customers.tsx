@@ -3,6 +3,7 @@ import { useMe } from "../auth/AuthProvider";
 import { Alert, Button, Field, Modal, PageHeader } from "../components/ui";
 import { ApiError, apiGet, apiPatch, apiPost, type Customer } from "../lib/api";
 import { errorMessage, formatDate } from "../lib/format";
+import { downloadCsv, toCsv } from "../lib/csv";
 
 type Draft = { name: string; phone: string; email: string; gstin: string; stateCode: string; address: string; notes: string };
 const blank: Draft = { name: "", phone: "", email: "", gstin: "", stateCode: "", address: "", notes: "" };
@@ -87,7 +88,20 @@ export function CustomersPage() {
       <PageHeader
         title="Customers"
         description={`${total.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} customers`}
-        actions={<Button onClick={() => setDialog({ customer: null })}>Add customer</Button>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {canEdit ? (
+              <Button
+                variant="secondary"
+                disabled={!rows?.length}
+                onClick={() => downloadCsv("Customers.csv", toCsv(["Name", "Phone", "Email", "GSTIN", "State Code", "Address", "Notes"], (rows ?? []).map((c) => [c.name, c.phone, c.email, c.gstin ?? "", c.stateCode ?? "", c.address, c.notes])))}
+              >
+                Export CSV
+              </Button>
+            ) : null}
+            <Button onClick={() => setDialog({ customer: null })}>Add customer</Button>
+          </div>
+        }
       />
       {error ? <Alert tone="error">{error}</Alert> : null}
       <label htmlFor="c-search" className="sr-only">

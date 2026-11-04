@@ -218,8 +218,8 @@ describe("app shell", () => {
   });
 
   it("follows the browser's online and offline events", async () => {
-    mockApi({ "POST /auth/refresh": session(makeMe()) });
-    renderAt("/dashboard");
+    mockApi({ "POST /auth/refresh": session(makeMe()), "GET /branches": [200, { branches: [] }] });
+    renderAt("/branches");
     const chip = await screen.findByText("Online");
     const setOnline = (value: boolean) => {
       Object.defineProperty(navigator, "onLine", { configurable: true, get: () => value });

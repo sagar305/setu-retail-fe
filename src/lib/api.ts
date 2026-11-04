@@ -140,3 +140,15 @@ export type HeldCart = Schemas["HeldCart"];
 export type OrderBody = Schemas["OrderBody"];
 export const apiPut = <T>(path: string, body: unknown) => api<T>("PUT", path, body);
 export const apiDelete = (path: string) => api<void>("DELETE", path);
+
+// ── Phase 2b ──
+export type Batch = Schemas["Batch"];
+export type Dashboard = Schemas["Dashboard"];
+export type SalesReport = Schemas["SalesReport"];
+export type GstReport = Schemas["GstReport"];
+export type StockReport = Schemas["StockReport"];
+export type StaffReport = Schemas["StaffReport"];
+export type StockLog = Schemas["StockLog"];
+export type ImportResult = Schemas["ImportResult"];
+export type ProductImportRow = Schemas["ProductImportRow"];
+export type CustomerImportRow = Schemas["CustomerImportRow"];

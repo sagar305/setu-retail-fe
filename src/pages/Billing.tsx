@@ -11,8 +11,10 @@ import { bpToPercent, formatMoney, formatQty, parseMoney, parseQty } from "../li
 import { CustomerPicker } from "../pos/CustomerPicker";
 import { Receipt } from "../pos/Receipt";
 import { usePosData } from "../pos/usePosData";
+import { BatchPicker } from "../pos/Batches";
+import { fmtDay } from "../lib/batches";
 
-type Line = { productId: string; qtyMilli: number };
+type Line = { productId: string; qtyMilli: number; batchId?: string | null };
 
 export function BillingPage() {
   const me = useMe();
@@ -32,6 +34,7 @@ export function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<null | "customer" | "discount" | "hold" | "held">(null);
+  const [pickBatchFor, setPickBatchFor] = useState<string | null>(null);
   const [done, setDone] = useState<Order | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -221,6 +224,7 @@ export function BillingPage() {
                 >
                   <span className="text-sm leading-tight font-semibold">{p.name}</span>
                   {settings.taxEnabled ? <span className="text-xs text-muted">GST {bpToPercent(p.gstRateBp)}%{p.hsn ? ` · HSN ${p.hsn}` : ""}</span> : null}
+                  {settings.batchTracking && p.nextExpiry ? <ExpiryHint day={p.nextExpiry} timeZone={settings.business.timezone} /> : null}
                   <span className="mt-auto flex w-full items-baseline justify-between gap-2">
                     <span className="font-bold text-indigo">{formatMoney(p.price)}</span>
                     {p.trackStock ? (
@@ -264,9 +268,16 @@ export function BillingPage() {
                     <span className="shrink-0 text-sm font-semibold">{formatMoney(i?.total ?? 0)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-muted">
-                      {formatMoney(p.price)}/{p.unit}
-                      {settings.taxEnabled ? ` · GST ${bpToPercent(p.gstRateBp)}%` : ""}
+                    <span className="flex flex-col text-xs text-muted">
+                      <span>
+                        {formatMoney(p.price)}/{p.unit}
+                        {settings.taxEnabled ? ` · GST ${bpToPercent(p.gstRateBp)}%` : ""}
+                      </span>
+                      {settings.batchTracking && p.trackStock ? (
+                        <button type="button" onClick={() => setPickBatchFor(p.id)} className="min-h-7 self-start text-indigo underline">
+                          {l.batchId ? "Batch: picked · change" : "Batch: earliest expiry · change"}
+                        </button>
+                      ) : null}
                     </span>
                     <div className="flex items-center gap-1">
                       <button type="button" aria-label={`One less ${p.name}`} onClick={() => setQty(p.id, l.qtyMilli - 1000)} className="size-9 rounded-lg border border-line bg-white">
@@ -344,6 +355,18 @@ export function BillingPage() {
         </aside>
       </div>
 
+      {pickBatchFor && byId.get(pickBatchFor) ? (
+        <BatchPicker
+          product={byId.get(pickBatchFor)!}
+          branchId={branch.id}
+          current={lines.find((l) => l.productId === pickBatchFor)?.batchId ?? null}
+          onClose={() => setPickBatchFor(null)}
+          onPick={(id) => {
+            setLines((ls) => ls.map((l) => (l.productId === pickBatchFor ? { ...l, batchId: id } : l)));
+            setPickBatchFor(null);
+          }}
+        />
+      ) : null}
       {dialog === "customer" ? (
         <CustomerPicker
           onClose={() => setDialog(null)}
@@ -391,6 +414,13 @@ export function BillingPage() {
       ) : null}
     </div>
   );
+}
+
+function ExpiryHint({ day, timeZone }: { day: string; timeZone: string }) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+  const days = Math.round((Date.parse(day) - Date.parse(today)) / 86_400_000);
+  const tone = days < 0 ? "font-semibold text-[#A3361F]" : days <= 30 ? "font-semibold text-warn" : "text-muted";
+  return <span className={`text-xs ${tone}`}>{days < 0 ? `Expired ${fmtDay(day)}` : `Exp ${fmtDay(day)}`}</span>;
 }
 
 function Line({ a, b }: { a: string; b: string }) {

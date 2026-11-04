@@ -66,6 +66,13 @@ export function PosSettingsPage() {
               <span className="text-sm text-muted">Stock can go below zero and is flagged. Turn off to block bills for items you don't have.</span>
             </span>
           </label>
+          <label className="flex min-h-11 items-start gap-3">
+            <input type="checkbox" checked={s.batchTracking} onChange={(e) => void save({ batchTracking: e.target.checked }, e.target.checked ? "Batch tracking is on. Current stock is now an opening batch for each product." : "Saved.")} className="mt-1 size-[18px] accent-indigo" />
+            <span className="flex flex-col">
+              <span className="font-medium">Batch & expiry tracking</span>
+              <span className="text-sm text-muted">For medicines and packaged goods. Stock is kept in batches with batch no., expiry and cost; bills take the earliest expiry first and print batch and expiry.</span>
+            </span>
+          </label>
           <div className="flex flex-wrap items-end gap-3">
             <Field label="Largest discount a cashier can give (%)" inputMode="decimal" value={cap} onChange={(e) => setCap(e.target.value)} error={cap && (capBp === null || capBp > 10000) ? "0 to 100." : undefined} className="flex-[1_1_240px]" />
             <Button variant="secondary" disabled={capBp === null || capBp > 10000} onClick={() => save({ cashierMaxDiscountBp: capBp! })}>

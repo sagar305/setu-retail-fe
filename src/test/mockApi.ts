@@ -87,6 +87,7 @@ const product = (id: string, name: string, price: number, gstRateBp: number, sto
   lowStockMilli: null,
   stockStatus: stockMilli <= 0 ? "out" : "ok",
   archived: false,
+  nextExpiry: null as string | null,
 });
 export const PRODUCTS = [
   product("55555555-5555-4555-8555-000000000001", "Wheat Atta 5 kg", 28500, 500),
@@ -100,6 +101,7 @@ export const SETTINGS = {
   cashierMaxDiscountBp: 1000,
   receiptFooter: "Thank you!",
   receiptPaperSize: "80mm",
+  batchTracking: false,
 };
 
 /** The endpoints the billing screen loads. */
