@@ -20,6 +20,9 @@ const TITLES: Record<string, string> = {
   "account.created": "Account created",
   "trial.started": "Free trial started",
   "license.redeemed": "Key redeemed",
+  "license.days_added": "Free days added by Setu",
+  "account.locked_by_setu": "Account locked by Setu",
+  "account.unlocked_by_setu": "Account unlocked by Setu",
   "plan.keep_active_chosen": "Chose what stays active",
   "staff.invited": "Staff invited",
   "staff.updated": "Staff changed",
@@ -123,6 +126,12 @@ export function describeAudit(e: AuditEntry): { title: string; details: string[]
     case "auth.signed_in":
       if (d.userAgent) details.push(deviceName(String(d.userAgent)));
       break;
+    case "license.days_added":
+      details.push(`${str(d.days)} days of ${str(d.plan)}`);
+      break;
+    case "account.locked_by_setu":
+      details.push("Contact Setu support");
+      return { title, details, tone: "warn" };
     default: {
       const lines = changeLines(d);
       if (d.name && !lines.length) details.push(String(d.name));

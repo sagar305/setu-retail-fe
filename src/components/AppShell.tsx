@@ -33,12 +33,15 @@ function PlanBanner() {
       </div>
     );
   }
-  if (plan.current?.source === "TRIAL" && plan.daysLeft <= 14) {
+  // Ends within 14 days with nothing queued after it (we also email at 14, 7 and 1 days).
+  if (plan.current && plan.daysLeft <= 14 && plan.queued.length === 0) {
+    const trial = plan.current.source === "TRIAL";
+    const when = `${formatDate(plan.current.endsAt, account.timezone)} (${plan.daysLeft === 1 ? "1 day" : `${plan.daysLeft} days`})`;
     return (
-      <div role="status" className="flex flex-wrap items-center gap-3 border-b border-line bg-indigo-50 px-4 py-2.5 text-sm text-indigo md:px-6">
-        Your free trial ends on {formatDate(plan.current.endsAt, account.timezone)} ({plan.daysLeft} days).
-        <Link to="/settings/plan" className="ml-auto font-semibold">
-          Choose a plan
+      <div role="status" className={`flex flex-wrap items-center gap-3 border-b px-4 py-2.5 text-sm md:px-6 ${plan.daysLeft <= 7 ? "border-[#E8B676] bg-saffron-50 text-ink" : "border-line bg-indigo-50 text-indigo"}`}>
+        {trial ? `Your free trial ends on ${when}.` : `Your ${plan.current.name} plan ends on ${when}.`}
+        <Link to="/settings/plan" className="ml-auto font-semibold text-indigo">
+          {trial ? "Choose a plan" : "Renew"}
         </Link>
       </div>
     );
