@@ -23,7 +23,8 @@ export function RequireAuth() {
       </Splash>
     );
   }
-  if (state.status === "signedOut") return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
+  // Keep ?query and #fragment too: a redeem link's key rides after #.
+  if (state.status === "signedOut") return <Navigate to="/sign-in" replace state={{ from: location.pathname + location.search + location.hash }} />;
   return <Outlet />;
 }
 

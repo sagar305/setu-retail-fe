@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, PageHeader, UsageBar } from "../components/ui";
 import { apiGet, apiPost, type Plan } from "../lib/api";
@@ -22,12 +22,25 @@ const PRICES = [
 ];
 export const BUY_URL = "https://setutechnology.com/products/retail";
 
+function keyFromLink(hash: string): string {
+  const m = /(?:^#|&)key=([^&]+)/.exec(hash);
+  return m ? decodeURIComponent(m[1]!).trim().slice(0, 120) : "";
+}
+
 export function PlanPage() {
   const me = useMe();
   const { reloadMe } = useAuth();
   const tz = me.account.timezone;
   const [data, setData] = useState<PlanResponse | null>(null);
-  const [key, setKey] = useState("");
+  // A "Redeem in Setu Retail" link from the website carries the key after #
+  // (never sent to a server); fill it in, then take it out of the address bar.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [key, setKey] = useState(() => keyFromLink(location.hash));
+  const [fromLink] = useState(() => Boolean(keyFromLink(location.hash)));
+  useEffect(() => {
+    if (location.hash.includes("key=")) navigate({ pathname: location.pathname, search: location.search }, { replace: true });
+  }, [location, navigate]);
   const [check, setCheck] = useState<Check | null>(null);
   const [choice, setChoice] = useState<"now" | "later">("now");
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +152,7 @@ export function PlanPage() {
             <label htmlFor="license-key" className="text-sm font-medium">
               License key from your setutechnology.com receipt
             </label>
+            {fromLink && key ? <p className="m-0 text-sm text-ok">Filled in from your purchase. Press Check key, then Redeem.</p> : null}
             <div className="flex flex-wrap gap-2.5">
               <input
                 id="license-key"

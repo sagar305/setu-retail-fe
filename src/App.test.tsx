@@ -258,3 +258,22 @@ describe("app shell", () => {
     expect(await screen.findByText(/Can't reach Setu Retail/)).toBeInTheDocument();
   });
 });
+
+describe("redeem link from the website", () => {
+  it("fills in the key after signing in, and takes it out of the address", async () => {
+    const me = makeMe();
+    mockApi({
+      "POST /auth/refresh": NOT_SIGNED_IN,
+      "POST /auth/login": session(me),
+      "GET /me": [200, me],
+      "GET /account/plan": [200, { plan: me.plan, usage: { branches: 1, staff: 0, products: 0, customers: 0, ordersThisMonth: 0 }, keepActiveReviewPending: false }],
+    });
+    const user = userEvent.setup();
+    renderAt("/settings/plan#key=SETU-R-ABCDEF-GHIJKL");
+    await user.type(await screen.findByLabelText("Email or username"), "anil");
+    await user.type(screen.getByLabelText("Password"), "s3cret-pass");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByLabelText("License key from your setutechnology.com receipt")).toHaveValue("SETU-R-ABCDEF-GHIJKL");
+    expect(screen.getByText(/Filled in from your purchase/)).toBeInTheDocument();
+  });
+});
