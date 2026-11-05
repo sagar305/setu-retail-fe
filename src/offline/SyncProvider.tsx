@@ -4,16 +4,25 @@ import { db } from "./db";
 import { flushOutbox } from "./outbox";
 
 export type SyncState = "idle" | "syncing" | "offline" | "blocked" | "error";
-type SyncApi = { pending: number; rejected: number; state: SyncState; message: string | null; lastSyncAt: string | null; kick: () => void };
+type SyncApi = {
+  pending: number;
+  rejected: number;
+  /** When the oldest change still waiting on this device was made (null: nothing waiting). */
+  oldestPendingAt: string | null;
+  state: SyncState;
+  message: string | null;
+  lastSyncAt: string | null;
+  kick: () => void;
+};
 
-const SyncContext = createContext<SyncApi>({ pending: 0, rejected: 0, state: "idle", message: null, lastSyncAt: null, kick: () => {} });
+const SyncContext = createContext<SyncApi>({ pending: 0, rejected: 0, oldestPendingAt: null, state: "idle", message: null, lastSyncAt: null, kick: () => {} });
 
 const EVERY_MS = 30_000;
 
 /** Keeps pushing this device's queued bills whenever there's a connection. */
 export function SyncProvider({ children }: { children: ReactNode }) {
   const online = useOnlineStatus();
-  const [counts, setCounts] = useState({ pending: 0, rejected: 0 });
+  const [counts, setCounts] = useState<{ pending: number; rejected: number; oldestPendingAt: string | null }>({ pending: 0, rejected: 0, oldestPendingAt: null });
   const [state, setState] = useState<SyncState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -26,7 +35,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       db.money.where("status").equals("pending").count(),
       db.money.where("status").equals("rejected").count(),
     ]);
-    setCounts({ pending: pending + moneyPending, rejected: rejected + moneyRejected });
+    const oldest = (
+      await Promise.all([
+        db.outbox.where("status").equals("pending").sortBy("createdAt").then((r) => r[0]?.createdAt),
+        db.money.where("status").equals("pending").sortBy("createdAt").then((r) => r[0]?.createdAt),
+        db.customers.where("status").equals("pending").toArray().then((r) => r.map((c) => c.createdAt).sort()[0]),
+      ])
+    )
+      .filter((x): x is string => Boolean(x))
+      .sort()[0];
+    setCounts({ pending: pending + moneyPending, rejected: rejected + moneyRejected, oldestPendingAt: oldest ?? null });
     return pending + moneyPending;
   }, []);
 

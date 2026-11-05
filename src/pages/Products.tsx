@@ -330,7 +330,7 @@ export function ProductsPage() {
       <input id="p-search" type="search" placeholder="Search name, SKU, barcode or HSN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
       {products?.length === 0 ? (
         <Alert tone="info">
-          No products yet. Add your first one, or bring them from the free POS (import arrives in Phase 2b). <Link to="/billing" className="font-semibold underline">Go to billing</Link>
+          No products yet. Add your first one, or bring them in from a spreadsheet or the free Browser POS in <Link to="/settings/import" className="font-semibold underline">Settings → Import &amp; export</Link>.
         </Alert>
       ) : null}
       <div className="overflow-x-auto rounded-2xl border border-line bg-white">

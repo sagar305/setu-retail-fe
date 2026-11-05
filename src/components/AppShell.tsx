@@ -1,5 +1,5 @@
 import { KeyRound, LogOut, Menu } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { useAuth, useMe } from "../auth/AuthProvider";
 import { useIsDesktop } from "../hooks/useIsDesktop";
@@ -8,6 +8,62 @@ import { formatDate } from "../lib/format";
 import { ROLE_LABEL } from "../lib/roles";
 import { Sidebar } from "./Sidebar";
 import { SyncStatus } from "./SyncStatus";
+import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { lastCloudContact } from "../lib/cache";
+import { PREFETCH_EVERY_MS, prefetchAll } from "../lib/prefetch";
+import { useSync } from "../offline/SyncProvider";
+
+/** Changes waiting this long get a warning (decision v1.9). */
+export const UNSYNCED_WARN_MS = 6 * 3600_000;
+
+/** Keeps every screen's data fresh in the background while online (Phase 9a). */
+function useBackgroundRefresh() {
+  const me = useMe();
+  const online = useOnlineStatus();
+  useEffect(() => {
+    if (!online) return;
+    const run = () => void prefetchAll(me);
+    const first = window.setTimeout(run, 1500);
+    const every = window.setInterval(run, PREFETCH_EVERY_MS);
+    const onVisible = () => document.visibilityState === "visible" && run();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(every);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [me, online]);
+}
+
+/** Offline: say the screens show this device's copy. Changes stuck for 6+ hours: say so. */
+function DeviceBanner() {
+  const online = useOnlineStatus();
+  const sync = useSync();
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const check = () => setStuck(Boolean(sync.oldestPendingAt) && Date.now() - new Date(sync.oldestPendingAt!).getTime() > UNSYNCED_WARN_MS);
+    check();
+    const id = window.setInterval(check, 60_000);
+    return () => window.clearInterval(id);
+  }, [sync.oldestPendingAt]);
+  const time = (t: number | string) => new Date(t).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  if (stuck) {
+    return (
+      <div role="alert" className="border-b border-[#E7B3A6] bg-[#FBEAE6] px-4 py-2.5 text-sm text-[#7A2412] md:px-6">
+        <strong>{sync.pending} change{sync.pending === 1 ? "" : "s"} not saved to the cloud</strong> since {time(sync.oldestPendingAt!)}. Connect this device to the internet so they're not lost.
+      </div>
+    );
+  }
+  if (!online) {
+    const at = lastCloudContact();
+    return (
+      <div role="status" className="border-b border-line bg-cream px-4 py-2 text-sm md:px-6">
+        No internet. Showing what this device saved{at ? ` (last updated ${time(at)})` : ""}. Billing keeps working; other changes need the internet.
+      </div>
+    );
+  }
+  return null;
+}
 
 function PlanBanner() {
   const me = useMe();
@@ -52,6 +108,12 @@ function PlanBanner() {
 export function AppShell() {
   const me = useMe();
   const { logout } = useAuth();
+  const sync = useSync();
+  useBackgroundRefresh();
+  const signOut = () => {
+    if (sync.pending && !window.confirm(`${sync.pending} change${sync.pending === 1 ? " hasn't" : "s haven't"} reached the cloud yet. They stay on this device and sync when you're back online. Sign out anyway?`)) return;
+    void logout();
+  };
   // Desktop: the sidebar sits beside the page and its open/closed state is
   // remembered. Phone: it is a drawer over the page, closed by default and
   // closed again after picking a screen.
@@ -118,12 +180,13 @@ export function AppShell() {
             type="button"
             aria-label="Sign out"
             title="Sign out"
-            onClick={() => void logout()}
+            onClick={signOut}
             className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-line bg-white text-ink"
           >
             <LogOut size={18} aria-hidden="true" />
           </button>
         </header>
+        <DeviceBanner />
         <PlanBanner />
         <main className="flex-1 p-4 md:p-6">
           <Outlet />
