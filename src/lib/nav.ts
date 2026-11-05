@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   Building2,
+  CircleHelp,
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
@@ -44,6 +45,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { path: "/staff", label: "Staff", icon: UserCog, roles: OM, phase: 1 },
   { path: "/audit-log", label: "Audit log", icon: ScrollText, roles: OM, phase: 5 },
   { path: "/settings/plan", label: "Settings", icon: Settings, roles: O, phase: 1 },
+  { path: "/help", label: "Help", icon: CircleHelp, roles: ALL, phase: 8 },
 ];
 
 /** Cashiers see their own sales, so "Orders" reads differently for them. */
