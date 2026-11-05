@@ -233,6 +233,13 @@ Mobile-first; billing screen usable on a phone and on a counter PC with barcode 
 - Free POS page: "Upgrade to Setu Retail" link + note that the backup file can be imported.
 - Pricing FAQ text ("All of them except QR Menu…") updated.
 
+**As built (Phase 6, decisions v1.6):**
+- Retail has its own routes (`/api/retail/checkout`, `/orders/[id]`, `/webhook`, `/paypal-webhook`) built on the shared Cashfree/PayPal/order code, rather than adding a `product` param to the QR Menu routes. Orders carry the tag `setu-retail.<plan>`, and each product's routes ignore the other's orders. Retail has its own PayPal webhook (`RETAIL_PAYPAL_WEBHOOK_ID`).
+- Buying is off until `RETAIL_PAYMENTS_ENABLED=true`. While it is off, the buy box and plan buttons lead to the free-trial sign-up, and the payment routes return 404.
+- Anyone with an email can buy; no app account is needed. The key works on any account.
+- The payment page and email have a "Redeem in Setu Retail" button: `<app>/settings/plan#key=<key>`. The key is in the `#` part, so it never reaches a server. It survives sign-in, and Settings → Plan & key fills it in.
+- /pricing shows three plan cards: Basic, Gold and Platinum. Invoices are numbered `SRT-…`.
+
 ---
 
 ## 9. Open questions
