@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* Setu brand tokens — same values as setutechnology.com (Setu_main/tailwind.config.ts). */
+@theme {
+  --font-sans: "Sora Variable", "Sora", ui-sans-serif, system-ui, sans-serif;
+
+  --color-indigo: #26306b;
+  --color-indigo-600: #323d80;
+  --color-indigo-50: #e6e8f4;
+  --color-saffron: #f2a03d;
+  --color-saffron-50: #fce9cf;
+  --color-ink: #0e1124;
+  --color-cream: #eceae3;
+  --color-paper: #f2efe7;
+  --color-muted: #5f6478;
+  --color-line: #d9d3c4;
+  --color-line-strong: #b7ae99;
+  --color-ok: #155c42;
+  --color-ok-50: #e7f4ee;
+  --color-warn: #6b4100;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-indigo);
+  outline-offset: 2px;
+}
+
+/* Printing a receipt: only .print-area is printed, at the paper's width. */
+@media print {
+  body {
+    background: #fff !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    margin: 0;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+}
