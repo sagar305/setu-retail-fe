@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { Link } from "react-router-dom";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Field, Modal, PageHeader, SelectField } from "../components/ui";
-import { ApiError, apiGet, apiPatch, apiPost, apiPut, type Category, type Product } from "../lib/api";
+import { ApiError, apiGet, apiPost, type Category, type Product } from "../lib/api";
+import { newUuid, saveChange } from "../lib/changes";
 import { currentBranch, rememberBranch } from "../lib/branch";
 import { errorMessage } from "../lib/format";
 import { bpToPercent, formatMoney, formatQty, paiseToInput, parseMoney, parseQty } from "../lib/money";
@@ -89,8 +91,22 @@ function ProductForm({ product, categories, branchId, onDone, onClose }: { produ
         trackStock: d.trackStock,
         lowStockMilli: low,
       };
-      if (product) await apiPatch(`/products/${product.id}`, body);
-      else await apiPost("/products", { ...body, openingStock: opening ? [{ branchId, qtyMilli: opening }] : [] });
+      // Saved on this device at once; the cloud gets it in the background (Phase 9b).
+      if (product) {
+        const before: Record<string, unknown> = { name: product.name, categoryId: product.categoryId, sku: product.sku, barcode: product.barcode, hsn: product.hsn, gstRateBp: product.gstRateBp, taxInclusive: product.taxInclusive, unit: product.unit, price: product.defaultPrice, costPrice: product.costPrice, trackStock: product.trackStock, lowStockMilli: product.lowStockMilli };
+        const changed = Object.fromEntries(Object.entries(body).filter(([k, v]) => JSON.stringify(v ?? null) !== JSON.stringify(before[k] ?? null)));
+        if (Object.keys(changed).length) {
+          const base = Object.fromEntries(Object.keys(changed).map((k) => [k, before[k] ?? null]));
+          const { price: newDefault, ...rest } = changed as { price?: number } & Record<string, unknown>;
+          const shown = { ...rest, ...(newDefault !== undefined ? { defaultPrice: newDefault, ...(product.branchPrice === null ? { price: newDefault } : {}) } : {}) };
+          await saveChange({ method: "PATCH", path: `/products/${product.id}`, body: changed, base, label: `${product.name}: details changed`, effects: [{ kind: "update", id: product.id, fields: shown }] });
+        }
+      } else {
+        const id = newUuid();
+        const qty = d.trackStock && opening ? opening : 0;
+        const item = { ...body, id, defaultPrice: price!, branchPrice: null, stockMilli: qty, stockStatus: !d.trackStock ? "untracked" : qty <= 0 ? "out" : "ok", archived: false, nextExpiry: null, createdAt: new Date().toISOString() };
+        await saveChange({ method: "POST", path: "/products", body: { ...body, id, openingStock: opening ? [{ branchId, qtyMilli: opening }] : [] }, label: `New product ${d.name}`, effects: [{ kind: "insert", into: "/products?", key: "products", item }] });
+      }
       onDone();
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_error") setErrors(err.fieldErrors);
@@ -188,7 +204,8 @@ function StockDialog({ product, branchId, onDone, onClose }: { product: Product;
           onClick={async () => {
             setBusy(true);
             try {
-              await apiPost(`/products/${product.id}/stock`, { branchId, type, qtyMilli: parsed, note });
+              const now = type === "ADD" ? product.stockMilli + parsed! : type === "REDUCE" ? product.stockMilli - parsed! : parsed!;
+              await saveChange({ method: "POST", path: `/products/${product.id}/stock`, body: { branchId, type, qtyMilli: parsed, note }, label: `Stock of ${product.name}: ${type === "ADD" ? "+" : type === "REDUCE" ? "−" : "set to "}${formatQty(parsed!)}`, effects: [{ kind: "update", id: product.id, fields: { stockMilli: now } }] });
               onDone();
             } catch (err) {
               setError(errorMessage(err));
@@ -209,7 +226,14 @@ function BranchPriceDialog({ product, branchName, branchId, onDone, onClose }: {
   const parsed = text ? parseMoney(text) : null;
   const save = async (price: number | null) => {
     try {
-      await apiPut(`/products/${product.id}/branches/${branchId}`, { price });
+      await saveChange({
+        method: "PUT",
+        path: `/products/${product.id}/branches/${branchId}`,
+        body: { price },
+        base: { price: product.branchPrice },
+        label: `Price of ${product.name} here: ${price === null ? "default" : formatMoney(price)}`,
+        effects: [{ kind: "update", id: product.id, fields: { branchPrice: price, price: price ?? product.defaultPrice } }],
+      });
       onDone();
     } catch (err) {
       setError(errorMessage(err));
@@ -263,6 +287,7 @@ export function ProductsPage() {
     );
   }, [branch]);
   useEffect(load, [load]);
+  useCacheRefresh(["/products"], load);
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -330,7 +355,7 @@ export function ProductsPage() {
       <input id="p-search" type="search" placeholder="Search name, SKU, barcode or HSN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
       {products?.length === 0 ? (
         <Alert tone="info">
-          No products yet. Add your first one, or bring them from the free POS (import arrives in Phase 2b). <Link to="/billing" className="font-semibold underline">Go to billing</Link>
+          No products yet. Add your first one, or bring them in from a spreadsheet or the free Browser POS in <Link to="/settings/import" className="font-semibold underline">Settings → Import &amp; export</Link>.
         </Alert>
       ) : null}
       <div className="overflow-x-auto rounded-2xl border border-line bg-white">

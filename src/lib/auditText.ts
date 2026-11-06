@@ -20,6 +20,7 @@ const TITLES: Record<string, string> = {
   "account.created": "Account created",
   "trial.started": "Free trial started",
   "license.redeemed": "Key redeemed",
+  "review.resolved": "Change picked in Needs review",
   "license.days_added": "Free days added by Setu",
   "account.locked_by_setu": "Account locked by Setu",
   "account.unlocked_by_setu": "Account unlocked by Setu",

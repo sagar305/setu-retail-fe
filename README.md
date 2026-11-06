@@ -38,5 +38,6 @@ npm run dev                   # http://localhost:5173
 ## Deploy (Vercel)
 
 - Framework preset **Vite**. `vercel.json` adds the SPA fallback, never-cache for `sw.js`, long cache for hashed assets and basic security headers.
-- Env var: `VITE_API_URL=https://api.retail-pos.setutechnology.com`.
+- Env var: `VITE_API_URL=/api`. `vercel.json` passes `/api/*` on to the API (`https://setu-retail-be.vercel.app`), so the browser sees one site and the sign-in cookie is first-party. The API needs `COOKIE_PATH_PREFIX=/api`. After the custom domains you can keep this, or switch to `VITE_API_URL=https://api.retail-pos.setutechnology.com` and clear `COOKIE_PATH_PREFIX`.
+- The production build stops if `VITE_API_URL` is missing or malformed, rather than silently calling `localhost`. Locally, `VITE_API_URL=/api npm run dev` uses the same pass-through to `localhost:4000`.
 - Domain: `app.retail-pos.setutechnology.com`.

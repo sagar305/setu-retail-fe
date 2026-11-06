@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -94,6 +94,9 @@ describe("connected tools", () => {
     await user.type(within(dlg).getByLabelText("Amount (₹)"), "400");
     await user.click(within(dlg).getByRole("button", { name: "Receive ₹400.00" }));
     expect(await screen.findByText("Received ₹400.00. Still owes ₹190.00.")).toBeInTheDocument();
+    // Saved on this device at once and sent in the background (Phase 9b).
+    const { flushChanges } = await import("../../lib/changes");
+    expect(await flushChanges()).toMatchObject({ sent: 1 });
     expect(paid).toMatchObject({ amount: 40000, methodId: METHODS[0]!.id, branchId: BRANCH_ID });
     // Udhaar isn't offered as a way to pay udhaar.
     expect(METHODS.some((m) => m.kind === "CREDIT")).toBe(true);
@@ -110,7 +113,7 @@ describe("connected tools", () => {
       "GET /products": [200, { products: PRODUCTS, total: 3 }],
       "POST /purchases": (body) => {
         saved = body as typeof saved;
-        return [409, { error: { code: "stop", message: "Stop here" } }];
+        return [201, { purchase: { id: "p1" } }];
       },
     });
     const user = userEvent.setup();
@@ -130,14 +133,19 @@ describe("connected tools", () => {
     expect(screen.getByText("₹10.63")).toBeInTheDocument(); // SGST
     expect(screen.getAllByText("₹446.25").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "On credit" }));
-    await user.click(screen.getByRole("button", { name: "Save bill · stock in" }));
-    expect(await screen.findByText("Stop here")).toBeInTheDocument();
-    expect(saved).toMatchObject({ expectedTotal: 44625, paidAmount: 0, lines: [{ productId: PRODUCTS[1]!.id, qtyMilli: 10000, unitCost: 4250, gstRateBp: 500 }] });
 
-    // Another state: IGST instead.
+    // Another state: IGST instead; then back.
     await user.selectOptions(screen.getByLabelText("Supplier"), "s2");
     expect(screen.getByText(/Delhi \(07\) · IGST/)).toBeInTheDocument();
     expect(screen.getByText("IGST")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Supplier"), "s1");
+
+    // Saved on this device at once; the cloud checks the total when it gets it (Phase 9b).
+    await user.click(screen.getByRole("button", { name: "Save bill · stock in" }));
+    await waitFor(async () => expect(await db.changes.count()).toBe(1));
+    const { flushChanges } = await import("../../lib/changes");
+    await flushChanges();
+    expect(saved).toMatchObject({ expectedTotal: 44625, paidAmount: 0, lines: [{ productId: PRODUCTS[1]!.id, qtyMilli: 10000, unitCost: 4250, gstRateBp: 500 }] });
   });
 });
 

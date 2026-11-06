@@ -24,49 +24,10 @@ function renderBilling() {
   );
 }
 
-const savedOrder = (body: { id: string; lines: { productId: string; qtyMilli: number }[] }) => ({
-  order: {
-    id: body.id,
-    invoiceNumber: "B1-C1-00001",
-    status: "COMPLETED",
-    createdAt: "2026-11-04T10:00:00.000Z",
-    branch: { id: "b", code: "B1", name: "Main branch", address: "", phone: "", gstin: "29ABCDE1234F1Z5", stateCode: "29" },
-    counter: { code: "C1", name: "Counter 1" },
-    cashierId: "c",
-    cashierName: "Anil",
-    customer: null,
-    placeOfSupply: "29",
-    interState: false,
-    taxEnabled: true,
-    discount: { type: "flat", value: 0 },
-    subtotal: 69500,
-    discountTotal: 0,
-    taxableTotal: 64931,
-    cgstTotal: 2284,
-    sgstTotal: 2285,
-    igstTotal: 0,
-    total: 69500,
-    returnedTotal: 0,
-    note: "",
-    cancelledAt: null,
-    cancelReason: "",
-    items: [],
-    payments: [{ methodId: METHODS[1]!.id, methodName: "UPI", kind: "UPI", amount: 69500 }],
-    creditNotes: [],
-  },
-});
 
 describe("billing", () => {
-  it("adds items, shows the same GST totals as the server, and charges", async () => {
-    let posted: { id: string; lines: { productId: string; qtyMilli: number }[]; payments: unknown[]; counterId: string } | undefined;
-    mockApi({
-      "POST /auth/refresh": session(makeMe()),
-      ...posRoutes(),
-      "POST /orders": (body) => {
-        posted = body as typeof posted;
-        return [201, savedOrder(posted!)];
-      },
-    });
+  it("adds items, shows the same GST totals as the server, and charges at once (the cloud gets it in the background)", async () => {
+    const api = mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes() });
     const user = userEvent.setup();
     renderBilling();
     await user.click(await screen.findByRole("button", { name: /Wheat Atta/ }));
@@ -83,16 +44,20 @@ describe("billing", () => {
     await user.click(within(bill).getByRole("button", { name: "Charge ₹695.00" }));
     expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00001 saved" })).toBeInTheDocument();
     expect(screen.getByLabelText("TAX INVOICE B1-C1-00001")).toHaveTextContent("Rupees Six Hundred Ninety-Five Only");
-    expect(posted).toMatchObject({
-      counterId: "33333333-3333-4333-8333-333333333333",
+    // Saved on the counter; no waiting on the cloud (decision v1.9).
+    expect(api.calls.some((c) => c.method === "POST" && c.path === "/orders")).toBe(false);
+    const [queued] = await db.outbox.toArray();
+    expect(queued).toMatchObject({ counterId: COUNTER, invoiceNumber: "B1-C1-00001", status: "pending" });
+    expect(queued!.payload).toMatchObject({
       lines: [
         { productId: PRODUCTS[0]!.id, qtyMilli: 1000 },
         { productId: PRODUCTS[1]!.id, qtyMilli: 2000 },
         { productId: PRODUCTS[2]!.id, qtyMilli: 1000 },
       ],
       payments: [{ methodId: METHODS[1]!.id, amount: 69500 }],
+      total: 69500,
     });
-    expect(posted!.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(queued!.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("adds a product by scanning its barcode", async () => {
@@ -177,37 +142,18 @@ describe("billing", () => {
     expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00008 saved" })).toBeInTheDocument();
   });
 
-  it("queues the bill with the same id and number when the network drops mid-charge", async () => {
-    let tried: { id: string; invoiceNumber: string } | undefined;
-    mockApi({
-      "POST /auth/refresh": session(makeMe()),
-      ...posRoutes(),
-      "POST /orders": (body) => {
-        tried = body as typeof tried;
-        throw new TypeError("Failed to fetch");
-      },
-    });
+  it("a bill the cloud refuses later is kept on the counter with the reason", async () => {
+    mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes() });
     const user = userEvent.setup();
     renderBilling();
     await user.click(await screen.findByRole("button", { name: /Tea 250 g/ }));
     await user.click(screen.getByRole("button", { name: /^Charge/ }));
     expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00001 saved" })).toBeInTheDocument();
     const [queued] = await db.outbox.toArray();
-    expect(queued!.id).toBe(tried!.id);
-    expect(tried!.invoiceNumber).toBe("B1-C1-00001");
-  });
-
-  it("shows the server's reason when a bill is refused", async () => {
-    mockApi({
-      "POST /auth/refresh": session(makeMe()),
-      ...posRoutes(),
-      "POST /orders": [409, { error: { code: "out_of_stock", message: "Not enough stock: Tea 250 g." } }],
-    });
-    const user = userEvent.setup();
-    renderBilling();
-    await user.click(await screen.findByRole("button", { name: /Tea 250 g/ }));
-    await user.click(screen.getByRole("button", { name: /^Charge/ }));
-    expect(await screen.findByText("Not enough stock: Tea 250 g.")).toBeInTheDocument();
+    mockApi({ "POST /sync/orders": [200, { results: [{ id: queued!.id, status: "rejected", message: "Bill number already used by another bill." }] }], "POST /sync/customers": [200, { results: [] }], "POST /sync/money": [200, { results: [] }] });
+    const { flushOutbox } = await import("../offline/outbox");
+    await flushOutbox();
+    expect(await db.outbox.get(queued!.id)).toMatchObject({ status: "rejected", message: "Bill number already used by another bill." });
     expect(SETTINGS.taxEnabled).toBe(true);
   });
 });

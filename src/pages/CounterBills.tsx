@@ -3,7 +3,8 @@ import { Alert, Badge, Button, Card, Modal, PageHeader } from "../components/ui"
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import type { OfflinePack } from "../lib/api";
 import { formatMoney } from "../lib/money";
-import { db, type OutboxOrder } from "../offline/db";
+import { db, type OutboxOrder, type PendingChange } from "../offline/db";
+import { dismissChange } from "../lib/changes";
 import { useSync } from "../offline/SyncProvider";
 import { Receipt } from "../pos/Receipt";
 import { designFor } from "../lib/receiptDesign";
@@ -15,10 +16,12 @@ export function CounterBillsPage() {
   const [rows, setRows] = useState<OutboxOrder[]>([]);
   const [packs, setPacks] = useState<Map<string, OfflinePack>>(new Map());
   const [open, setOpen] = useState<OutboxOrder | null>(null);
+  const [changes, setChanges] = useState<PendingChange[]>([]);
 
   const load = useCallback(() => {
-    Promise.all([db.outbox.orderBy("createdAt").reverse().toArray(), db.packs.toArray()]).then(([o, p]) => {
+    Promise.all([db.outbox.orderBy("createdAt").reverse().toArray(), db.packs.toArray(), db.changes.orderBy("createdAt").reverse().toArray()]).then(([o, p, c]) => {
       setRows(o);
+      setChanges(c);
       setPacks(new Map(p.map((x) => [x.branchId, x.pack])));
     });
   }, []);
@@ -33,7 +36,7 @@ export function CounterBillsPage() {
 
   return (
     <div className="w-full">
-      <PageHeader title="Bills on this counter" description="Bills made here wait on this device until the server has them." actions={<Button onClick={kick} disabled={!online || !pending.length}>Sync now</Button>} />
+      <PageHeader title="Waiting to sync" description="Bills and other changes made here wait on this device until the cloud has them." actions={<Button onClick={kick} disabled={!online || !pending.length}>Sync now</Button>} />
       <div className="mb-4 flex flex-col gap-3">
         {!online ? <Alert tone="warn">No internet. {pending.length} bill{pending.length === 1 ? "" : "s"} will sync when it's back. Keep this browser's data: clearing it would lose them.</Alert> : null}
         {state === "blocked" ? <Alert tone="warn">{message ?? "The plan has ended."} The owner can redeem a key in Settings → Plan & key; these bills sync right after.</Alert> : null}
@@ -50,6 +53,27 @@ export function CounterBillsPage() {
             <span className="ml-auto font-semibold">{formatMoney(r.order.total)}</span>
             {r.status === "pending" ? <Badge tone="warn">Waiting to sync</Badge> : <Badge tone="error">Refused: {r.message}</Badge>}
           </button>
+        ))}
+      </Card>
+      <h2 className="mt-6 mb-2 text-lg font-semibold">Other changes on this device</h2>
+      <p className="m-0 mb-3 text-sm text-muted">Products, customers, expenses, payments and more are saved here first and sent in the background.</p>
+      <Card className="!p-0">
+        {changes.length === 0 ? <p className="m-0 p-5 text-muted">Nothing waiting.</p> : null}
+        {changes.map((c) => (
+          <div key={c.id} className="flex min-h-14 flex-wrap items-center gap-3 border-b border-line px-4 py-2 last:border-0">
+            <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.label}</span>
+            <span className="text-sm text-muted">{new Date(c.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+            {c.status === "pending" ? (
+              <Badge tone="warn">Waiting to sync</Badge>
+            ) : (
+              <>
+                <Badge tone="error">Not saved: {c.message}</Badge>
+                <Button variant="ghost" onClick={() => void dismissChange(c.id).then(load)}>
+                  Dismiss
+                </Button>
+              </>
+            )}
+          </div>
         ))}
       </Card>
       {open && packs.get(open.branchId) ? (

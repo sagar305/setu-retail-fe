@@ -1,3 +1,4 @@
+import { db } from "../offline/db";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -71,7 +72,6 @@ describe("reports", () => {
 
 describe("batches at the counter", () => {
   it("lets the cashier pick a batch and sends it with the bill", async () => {
-    let posted: { lines: { batchId?: string | null }[] } | undefined;
     const syrup = { ...PRODUCTS[1]!, name: "Cough syrup", nextExpiry: "2026-11-20" };
     mockApi({
       "POST /auth/refresh": session(makeMe()),
@@ -80,10 +80,6 @@ describe("batches at the counter", () => {
         { id: "88888888-8888-4888-8888-000000000001", productId: syrup.id, batchNo: "E-26", expiry: "2026-11-20", costPrice: null, qtyMilli: 3000, opening: false, receivedAt: "2026-01-01T00:00:00.000Z", status: "soon" },
         { id: "88888888-8888-4888-8888-000000000002", productId: syrup.id, batchNo: "L-27", expiry: "2027-06-30", costPrice: null, qtyMilli: 5000, opening: false, receivedAt: "2026-01-01T00:00:00.000Z", status: "ok" },
       ] }],
-      "POST /orders": (body) => {
-        posted = body as typeof posted;
-        return [409, { error: { code: "stop", message: "stop here" } }];
-      },
     });
     const user = userEvent.setup();
     at("/billing");
@@ -92,7 +88,9 @@ describe("batches at the counter", () => {
     await user.click(screen.getByRole("button", { name: /Batch: earliest expiry/ }));
     await user.click(await screen.findByRole("button", { name: /L-27/ }));
     await user.click(screen.getByRole("button", { name: /^Charge/ }));
-    await screen.findByText("stop here");
-    expect(posted!.lines[0]!.batchId).toBe("88888888-8888-4888-8888-000000000002");
+    // Saved on the counter with the picked batch; the cloud gets it in the background (Phase 9b).
+    await screen.findByRole("dialog", { name: /saved/ });
+    const [queued] = await db.outbox.toArray();
+    expect(queued!.payload.lines[0]!.batchId).toBe("88888888-8888-4888-8888-000000000002");
   });
 });

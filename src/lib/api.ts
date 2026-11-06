@@ -4,6 +4,7 @@
 // - A 401 triggers one shared refresh, then the request is retried once.
 // Types come from the API's OpenAPI spec (npm run api:types).
 import type { components } from "./api-types";
+import { cachePolicy, invalidateCache, noteCloudContact, readCache, resetCacheState, writeCache } from "./cache";
 
 export type Schemas = components["schemas"];
 export type Me = Schemas["Me"];
@@ -49,10 +50,12 @@ export function resetApiState() {
   accessToken = null;
   onSessionLost = null;
   refreshing = null;
+  revalidating.clear();
+  resetCacheState();
 }
 
-async function raw<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const headers: Record<string, string> = {};
+async function raw<T>(method: string, path: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
+  const headers: Record<string, string> = { ...extra };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const res = await fetch(`${API_URL}${path}`, {
@@ -89,9 +92,9 @@ export function refreshSession(): Promise<Session | null> {
   return refreshing;
 }
 
-export async function api<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
   try {
-    return await raw<T>(method, path, body, signal);
+    return await raw<T>(method, path, body, signal, extra);
   } catch (err) {
     if (!(err instanceof ApiError) || err.status !== 401 || path.startsWith("/auth/")) throw err;
     const session = await refreshSession();
@@ -99,11 +102,71 @@ export async function api<T>(method: string, path: string, body?: unknown, signa
       onSessionLost?.();
       throw err;
     }
-    return raw<T>(method, path, body, signal);
+    return raw<T>(method, path, body, signal, extra);
   }
 }
 
-export const apiGet = <T>(path: string, signal?: AbortSignal) => api<T>("GET", path, undefined, signal);
+/** Send a change saved on this device, with its id as the Idempotency-Key (Phase 9b). */
+export async function sendChange<T>(method: string, path: string, body: unknown, key: string): Promise<T> {
+  const result = await call<T>(method, path, body, undefined, { "Idempotency-Key": key });
+  noteCloudContact();
+  return result;
+}
+
+export async function api<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const result = await call<T>(method, path, body, signal);
+  noteCloudContact();
+  // A change was saved: every cached screen may be out of date now.
+  if (method !== "GET") await invalidateCache();
+  return result;
+}
+
+/** The cloud couldn't be reached (no internet, or the host is down) — not an answer from the API. */
+export const isUnreachable = (err: unknown) => err instanceof TypeError || (err instanceof ApiError && [502, 503, 504].includes(err.status) && err.code === "http_error");
+
+// Answers that must always come from the cloud.
+const NO_CACHE = /^\/(me|auth\/|account\/license)/;
+const revalidating = new Map<string, Promise<unknown>>();
+
+/** Fetch from the cloud and keep a copy on the device. One request per path at a time. */
+export function fetchAndCache<T>(path: string): Promise<T> {
+  let p = revalidating.get(path) as Promise<T> | undefined;
+  if (!p) {
+    p = call<T>("GET", path)
+      .then(async (data) => {
+        noteCloudContact();
+        // What the screen gets includes changes saved here that the cloud doesn't have yet.
+        return writeCache(path, data);
+      })
+      .finally(() => revalidating.delete(path));
+    revalidating.set(path, p);
+  }
+  return p;
+}
+
+/**
+ * GET, device-first: a recent copy on this device is returned at once (and
+ * refreshed in the background); otherwise the cloud is asked, and if it can't
+ * be reached the last copy is used. Phase 9a.
+ */
+export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  if (NO_CACHE.test(path)) return api<T>("GET", path, undefined, signal);
+  const cached = await readCache<T>(path);
+  if (cached) {
+    const policy = cachePolicy(cached.fetchedAt);
+    if (policy === "use") return cached.data;
+    if (policy === "use-and-refresh") {
+      fetchAndCache<T>(path).catch(() => {});
+      return cached.data;
+    }
+  }
+  try {
+    return await fetchAndCache<T>(path);
+  } catch (err) {
+    if (cached && isUnreachable(err)) return cached.data;
+    throw err;
+  }
+}
 export const apiPost = <T>(path: string, body?: unknown) => api<T>("POST", path, body ?? {});
 export const apiPatch = <T>(path: string, body: unknown) => api<T>("PATCH", path, body);
 

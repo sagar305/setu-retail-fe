@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Button, Field, Modal, PageHeader } from "../components/ui";
-import { ApiError, apiGet, apiPatch, apiPost, type Customer } from "../lib/api";
+import { ApiError, apiGet, type Customer } from "../lib/api";
+import { newUuid, saveChange } from "../lib/changes";
 import { errorMessage, formatDate } from "../lib/format";
 import { downloadCsv, toCsv } from "../lib/csv";
 
@@ -22,8 +24,22 @@ function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null
     setError(null);
     try {
       const body = { ...d, creditDays: d.creditDays === "" ? null : Number(d.creditDays) };
-      if (customer) await apiPatch(`/customers/${customer.id}`, body);
-      else await apiPost("/customers", body);
+      // Checked here too, because the cloud only sees it later.
+      if (body.phone && body.phone.replace(/\D/g, "").length < 10) {
+        setErrors({ phone: "Enter a 10-digit mobile number." });
+        return setBusy(false);
+      }
+      if (customer) {
+        const before: Record<string, unknown> = { name: customer.name, phone: customer.phone, email: customer.email, gstin: customer.gstin ?? "", stateCode: customer.stateCode ?? "", address: customer.address, notes: customer.notes, creditDays: customer.creditDays };
+        const changed = Object.fromEntries(Object.entries(body).filter(([k, v]) => JSON.stringify(v ?? null) !== JSON.stringify(before[k] ?? null)));
+        if (Object.keys(changed).length) {
+          const base = Object.fromEntries(Object.keys(changed).map((k) => [k, k === "gstin" || k === "stateCode" ? ((customer as Record<string, unknown>)[k] ?? null) : before[k]]));
+          await saveChange({ method: "PATCH", path: `/customers/${customer.id}`, body: changed, base, label: `${customer.name}: details changed`, effects: [{ kind: "update", id: customer.id, fields: changed }] });
+        }
+      } else {
+        const id = newUuid();
+        await saveChange({ method: "POST", path: "/customers", body: { ...body, id }, label: `New customer ${body.name}`, effects: [{ kind: "insert", into: "/customers?", key: "customers", item: { ...body, id, gstin: body.gstin || null, stateCode: body.stateCode || null, balance: 0, archived: false, createdAt: new Date().toISOString() } }] });
+      }
       onDone();
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_error") setErrors(err.fieldErrors);
@@ -80,6 +96,7 @@ export function CustomersPage() {
       (err: unknown) => setError(errorMessage(err)),
     );
   }, [q]);
+  useCacheRefresh(["/customers?"], load);
   useEffect(() => {
     const t = window.setTimeout(load, 200);
     return () => window.clearTimeout(t);

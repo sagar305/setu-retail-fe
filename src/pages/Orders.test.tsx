@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { AuthProvider } from "../auth/AuthProvider";
 import { setAccessToken } from "../lib/api";
+import { db } from "../offline/db";
 import { makeMe, METHODS, mockApi, posRoutes, session } from "../test/mockApi";
 
 afterEach(() => {
@@ -74,6 +75,19 @@ describe("orders", () => {
     await user.type(screen.getByLabelText("Return quantity of Tea 250 g"), "1");
     await user.type(screen.getByLabelText("Reason"), "Damaged");
     await user.click(screen.getByRole("button", { name: "Return and issue credit note" }));
+    // Saved on this device at once; the credit note shows when the cloud has it (Phase 9b).
+    expect(await screen.findByText(/Return saved/)).toBeInTheDocument();
+    const [change] = await db.changes.toArray();
+    expect(change).toMatchObject({ method: "POST", path: `/orders/${order.id}/returns`, status: "pending" });
+    mockApi({
+      [`POST /orders/${order.id}/returns`]: (body) => {
+        posted = body;
+        return [201, { order: { ...order, returnedTotal: 14500, creditNotes: [{ id: "cn1", number: "CN-B1-C1-00001", reason: "Damaged", refundMethodName: "UPI", taxableTotal: 13810, cgstTotal: 345, sgstTotal: 345, igstTotal: 0, total: 14500, createdAt: order.createdAt, items: [{ orderItemId: ITEM, qtyMilli: 1000, total: 14500 }] }] } }];
+      },
+      [`GET /orders/${order.id}`]: () => [200, { order: { ...order, returnedTotal: 14500, creditNotes: [{ id: "cn1", number: "CN-B1-C1-00001", reason: "Damaged", refundMethodName: "UPI", taxableTotal: 13810, cgstTotal: 345, sgstTotal: 345, igstTotal: 0, total: 14500, createdAt: order.createdAt, items: [{ orderItemId: ITEM, qtyMilli: 1000, total: 14500 }] }] } }],
+    });
+    const { flushChanges } = await import("../lib/changes");
+    expect(await flushChanges()).toMatchObject({ sent: 1, state: "done" });
     expect(await screen.findByText("CN-B1-C1-00001")).toBeInTheDocument();
     expect(posted).toMatchObject({ counterId: "33333333-3333-4333-8333-333333333333", items: [{ orderItemId: ITEM, qtyMilli: 1000 }], refundMethodId: METHODS[1]!.id, reason: "Damaged" });
   });

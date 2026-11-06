@@ -5,7 +5,7 @@ const labels = (role: Parameters<typeof navForRole>[0]) => navForRole(role).map(
 
 describe("navForRole", () => {
   it("gives cashiers billing, their own sales, customers and tools (to receive udhaar)", () => {
-    expect(labels("CASHIER")).toEqual(["Billing", "My sales", "Customers", "Tools"]);
+    expect(labels("CASHIER")).toEqual(["Billing", "My sales", "Customers", "Tools", "Help"]);
   });
 
   it("keeps plan, branches and settings to the owner", () => {

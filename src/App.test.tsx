@@ -277,3 +277,37 @@ describe("redeem link from the website", () => {
     expect(screen.getByText(/Filled in from your purchase/)).toBeInTheDocument();
   });
 });
+
+describe("quick start (Phase 9a)", () => {
+  it("opens straight away with the last person on this device, and signs out if the cloud says the session ended", async () => {
+    const { kvSet } = await import("./offline/db");
+    const me = makeMe();
+    await kvSet("lastMe", { me, until: new Date(Date.now() + 3600_000).toISOString() });
+    let answer: (v: Response) => void = () => {};
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      if (String(input).endsWith("/auth/refresh")) return new Promise<Response>((r) => (answer = r));
+      return Promise.reject(new TypeError("offline"));
+    });
+    renderAt("/staff");
+    // Shown before the cloud has answered.
+    expect(await screen.findByRole("heading", { name: "Staff" })).toBeInTheDocument();
+    await act(async () => answer(new Response(JSON.stringify({ error: { code: "session_ended", message: "x" } }), { status: 401 })));
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("keeps working on the device copy when there's no internet", async () => {
+    const { kvSet } = await import("./offline/db");
+    await kvSet("lastMe", { me: makeMe(), until: new Date(Date.now() + 3600_000).toISOString() });
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("offline"));
+    renderAt("/help");
+    expect(await screen.findByRole("heading", { name: "Help" })).toBeInTheDocument();
+  });
+
+  it("an expired shift doesn't open the app", async () => {
+    const { kvSet } = await import("./offline/db");
+    await kvSet("lastMe", { me: makeMe(), until: new Date(Date.now() - 1000).toISOString() });
+    mockApi({ "POST /auth/refresh": NOT_SIGNED_IN });
+    renderAt("/staff");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
+});

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiGet, authApi, onSignedOut, refreshSession, setAccessToken, type Me, type Role } from "../lib/api";
 import { kvDelete, kvGet, kvSet } from "../offline/db";
+import { setCacheOwner } from "../lib/cache";
 import { allPacks } from "../offline/pack";
 import type { BranchLite } from "./sessionInfo";
 
@@ -28,6 +29,23 @@ export type AuthState =
 
 const OFFLINE_KEY = "offlineSession";
 const SHIFT_MS = 12 * 3600_000;
+/**
+ * The last signed-in person on this device, so the app opens at once instead
+ * of waiting for the cloud (Phase 9a). Only the profile is kept, never a token;
+ * the cloud still checks the session in the background. Lasts one shift.
+ */
+const LAST_ME_KEY = "lastMe";
+type LastMe = { me: Me; until: string };
+
+async function rememberMe(me: Me, fresh: boolean) {
+  const prev = await kvGet<LastMe>(LAST_ME_KEY).catch(() => undefined);
+  const until = !fresh && prev && prev.me.user.id === me.user.id ? prev.until : new Date(Date.now() + SHIFT_MS).toISOString();
+  await setCacheOwner(me.user.id);
+  await kvSet(LAST_ME_KEY, { me, until } satisfies LastMe).catch(() => {});
+}
+async function forgetMe() {
+  await kvDelete(LAST_ME_KEY).catch(() => {});
+}
 
 type AuthApi = {
   state: AuthState;
@@ -49,9 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
   const started = useRef(false);
 
-  const restore = useCallback(() => {
-    setState({ status: "loading" });
-    refreshSession()
+  const restore = useCallback(async () => {
+    // Open at once with the last person on this device, if their shift is still on.
+    const last = await kvGet<LastMe>(LAST_ME_KEY).catch(() => undefined);
+    const quick = last && new Date(last.until) > new Date() ? last.me : null;
+    if (quick) {
+      await setCacheOwner(quick.user.id);
+      setState({ status: "signedIn", me: quick });
+    } else {
+      setState({ status: "loading" });
+    }
+    return refreshSession()
       .then(async (s) => {
         // Online again: an offline PIN shift is over. Someone else's saved
         // session on this device doesn't carry over to the PIN user.
@@ -62,9 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAccessToken(null);
           return setState({ status: "signedOut" });
         }
+        if (s) await rememberMe(s.me, false);
+        else await forgetMe();
         setState(s ? { status: "signedIn", me: s.me } : { status: "signedOut" });
       })
       .catch(async () => {
+        // No internet, but this person's shift is on: keep going with what this device has.
+        if (quick) return;
         // No internet. Continue an offline shift, or offer PIN sign-in if this counter can bill offline.
         const saved = await kvGet<OfflineSession>(OFFLINE_KEY).catch(() => undefined);
         if (saved && new Date(saved.expiresAt) > new Date()) return setState({ status: "offline", session: saved });
@@ -74,10 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    onSignedOut(() => setState({ status: "signedOut" }));
+    onSignedOut(() => {
+      void forgetMe();
+      setState({ status: "signedOut" });
+    });
     if (started.current) return;
     started.current = true;
-    restore();
+    void restore();
   }, [restore]);
 
   const signedIn = state.status === "signedIn";
@@ -85,7 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!signedIn) return;
     const id = window.setInterval(() => {
       refreshSession()
-        .then((s) => setState(s ? { status: "signedIn", me: s.me } : { status: "signedOut" }))
+        .then(async (s) => {
+          if (s) await rememberMe(s.me, false);
+          else await forgetMe();
+          setState(s ? { status: "signedIn", me: s.me } : { status: "signedOut" });
+        })
         .catch(() => {
           /* offline: keep the current session until the next try */
         });
@@ -99,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: async (login, password) => {
         const s = await authApi.login(login, password);
         setAccessToken(s.accessToken);
+        await rememberMe(s.me, true);
         setState({ status: "signedIn", me: s.me });
         return s.me;
       },
@@ -115,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return restore();
         }
         try {
+          await forgetMe();
           await authApi.logout();
         } finally {
           setAccessToken(null);
