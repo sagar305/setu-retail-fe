@@ -59,12 +59,13 @@ const TOPICS: Topic[] = [
     roles: ALL,
     body: (
       <ul>
-        <li>Keep billing. Bills are saved on this counter with their own numbers and sent to the cloud as soon as the internet is back.</li>
+        <li>Keep working. Bills, products, customers, expenses, payments and supplier bills are saved on this device first and sent to the cloud in the background, as soon as there's internet. Staff, branches, plan and settings need the internet.</li>
         <li>The sync chip at the top shows how many bills are waiting. Don't clear the browser's data while bills are waiting.</li>
         <li>
           With no internet you sign in with your 4-digit PIN instead of your password. Set it in <A to="/pin">Counter PIN</A> while online.
         </li>
         <li>Prices and stock on the counter are as of its last refresh; the cloud keeps the bill exactly as it was charged.</li>
+        <li>If the same thing was changed on two devices before they synced (say, a price), the owner picks which to keep in Needs review.</li>
       </ul>
     ),
   },

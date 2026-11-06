@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../components/ui";
-import { apiGet, apiPost, type Order, type OrderSummary, type PaymentMethod, type Settings } from "../lib/api";
+import { onChangesUpdate, saveChange } from "../lib/changes";
+import { apiGet, type Order, type OrderSummary, type PaymentMethod, type Settings } from "../lib/api";
 import { currentBranch } from "../lib/branch";
 import { ensureCounter } from "../offline/counter";
 import { errorMessage } from "../lib/format";
@@ -80,13 +82,14 @@ function ReturnDialog({ order, methods, onDone, onClose }: { order: Order; metho
             setError(null);
             try {
               const counter = await ensureCounter(order.branch.id);
-              const { order: updated } = await apiPost<{ order: Order }>(`/orders/${order.id}/returns`, {
-                counterId: counter.id,
-                items: picked.map((x) => ({ orderItemId: x.i.id, qtyMilli: x.q })),
-                refundMethodId: refund,
-                reason,
+              // Saved on this device; the credit note gets its number when the cloud has it.
+              await saveChange({
+                method: "POST",
+                path: `/orders/${order.id}/returns`,
+                body: { counterId: counter.id, items: picked.map((x) => ({ orderItemId: x.i.id, qtyMilli: x.q })), refundMethodId: refund, reason },
+                label: `Return on ${order.invoiceNumber} (${picked.length} item${picked.length === 1 ? "" : "s"})`,
               });
-              onDone(updated);
+              onDone(order);
             } catch (err) {
               setError(errorMessage(err));
               setBusy(false);
@@ -111,9 +114,18 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
   const [reason, setReason] = useState("");
   const canManage = me.user.role !== "CASHIER";
 
+  const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     apiGet<{ order: Order }>(`/orders/${id}`).then((r) => setOrder(r.order), (err: unknown) => setError(errorMessage(err)));
   }, [id]);
+  // A return or cancel saved on this device: show the cloud's copy (credit note number, stock) once it's there.
+  useEffect(
+    () =>
+      onChangesUpdate(() => {
+        apiGet<{ order: Order }>(`/orders/${id}`).then((r) => setOrder(r.order), () => {});
+      }),
+    [id],
+  );
 
   const updated = (o: Order) => {
     setOrder(o);
@@ -126,6 +138,7 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
   return (
     <Modal title={order ? `Bill ${order.invoiceNumber}` : "Bill"} onClose={onClose} wide>
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {notice && !order?.creditNotes.length ? <Alert tone="info">{notice}</Alert> : null}
       {order ? (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +178,17 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
               </Button>
             ) : null}
           </div>
-          {dialog === "return" ? <ReturnDialog order={order} methods={methods} onDone={updated} onClose={() => setDialog(null)} /> : null}
+          {dialog === "return" ? (
+            <ReturnDialog
+              order={order}
+              methods={methods}
+              onDone={(o) => {
+                setNotice("Return saved. The credit note appears here as soon as it reaches the cloud.");
+                updated(o);
+              }}
+              onClose={() => setDialog(null)}
+            />
+          ) : null}
           {dialog === "cancel" ? (
             <Modal title={`Cancel ${order.invoiceNumber}?`} onClose={() => setDialog(null)}>
               <div className="flex flex-col gap-4">
@@ -176,7 +199,10 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
                   disabled={!reason.trim()}
                   onClick={async () => {
                     try {
-                      updated((await apiPost<{ order: Order }>(`/orders/${order.id}/cancel`, { reason })).order);
+                      // Saved on this device at once; stock goes back when the cloud gets it (Phase 9b).
+                      const cancelled = { status: "CANCELLED" as const, cancelledAt: new Date().toISOString(), cancelReason: reason };
+                      await saveChange({ method: "POST", path: `/orders/${order.id}/cancel`, body: { reason }, label: `Cancel ${order.invoiceNumber}`, effects: [{ kind: "update", id: order.id, fields: cancelled }] });
+                      updated({ ...order, ...cancelled });
                     } catch (err) {
                       setError(errorMessage(err));
                       setDialog(null);
@@ -231,6 +257,8 @@ export function OrdersPage() {
     const t = window.setTimeout(() => load(), 250);
     return () => window.clearTimeout(t);
   }, [load]);
+  const reloadFirstPage = useCallback(() => load(), [load]);
+  useCacheRefresh(["/orders?"], reloadFirstPage);
   useEffect(() => {
     Promise.all([apiGet<Settings>("/settings"), apiGet<{ methods: PaymentMethod[] }>("/payment-methods")]).then(([s, m]) => {
       setSettings(s);

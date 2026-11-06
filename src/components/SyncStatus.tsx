@@ -16,7 +16,7 @@ export function SyncStatus() {
   } else if (!online) {
     tone = "border-[#E08A1E] bg-saffron-50 text-ink";
     dot = "bg-[#B4630A]";
-    text = <>Offline{pending ? ` · ${pending}` : ""}<span className="hidden sm:inline">{pending ? ` bill${pending === 1 ? "" : "s"} waiting` : " · bills will sync later"}</span></>;
+    text = <>Offline{pending ? ` · ${pending}` : ""}<span className="hidden sm:inline">{pending ? " waiting" : " · changes sync later"}</span></>;
   } else if (state === "syncing") {
     text = `Syncing ${pending}…`;
   } else if (pending) {
@@ -25,7 +25,7 @@ export function SyncStatus() {
   if (rejected) {
     tone = "border-[#E7B3A6] bg-[#FBEAE6] text-[#7A2412]";
     dot = "bg-[#A3361F]";
-    text = `${rejected} bill${rejected === 1 ? "" : "s"} need attention`;
+    text = `${rejected} need${rejected === 1 ? "s" : ""} attention`;
   }
   return (
     <Link to="/counter-bills" role="status" className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-[13px] font-semibold no-underline ${tone}`}>

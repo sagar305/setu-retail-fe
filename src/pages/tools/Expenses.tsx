@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { useMe } from "../../auth/AuthProvider";
 import { BranchSelect } from "../../components/BranchSelect";
 import { useBranchChoice } from "../../hooks/useBranchChoice";
 import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Button, Field, Modal, PageHeader, SelectField } from "../../components/ui";
-import { apiDelete, apiGet, apiPatch, apiPost, type Expense, type PaymentMethod, type Supplier } from "../../lib/api";
+import { newUuid, saveChange } from "../../lib/changes";
+import { apiGet, type Expense, type PaymentMethod, type Supplier } from "../../lib/api";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage, formatDate } from "../../lib/format";
 import { formatMoney, paiseToInput, parseMoney } from "../../lib/money";
@@ -42,8 +44,13 @@ function ExpenseForm({ expense, branchId, methods, categories, onDone, onClose }
     setError(null);
     const body = { category: category.trim(), description, amount: paise, methodId, spentAt: new Date(when).toISOString(), supplierId: supplierId || null };
     try {
-      if (expense) await apiPatch(`/expenses/${expense.id}`, body);
-      else await apiPost("/expenses", { id: crypto.randomUUID(), branchId, ...body });
+      // Saved on this device at once; the cloud gets it in the background (Phase 9b).
+      const shown = { ...body, methodName: methods.find((m) => m.id === methodId)?.name ?? "", supplierName: suppliers.find((x) => x.id === supplierId)?.name ?? null };
+      if (expense) await saveChange({ method: "PATCH", path: `/expenses/${expense.id}`, body, label: `Expense ${body.category} changed`, effects: [{ kind: "update", id: expense.id, fields: shown }] });
+      else {
+        const id = newUuid();
+        await saveChange({ method: "POST", path: "/expenses", body: { id, branchId, ...body }, label: `Expense ${body.category} ${formatMoney(body.amount)}`, effects: [{ kind: "insert", into: "/expenses?", key: "expenses", item: { id, branchId, ...shown, userName: "You" } }] });
+      }
       onDone();
     } catch (err) {
       setError(errorMessage(err));
@@ -113,11 +120,12 @@ export function ExpensesPage() {
     apiGet<{ categories: string[] }>("/expense-categories").then((r) => setCategories(r.categories), () => {});
   }, [branch, range]);
   useEffect(load, [load]);
+  useCacheRefresh(["/expenses"], load);
 
   async function remove(x: Expense) {
     if (!window.confirm(`Delete ${x.category} ${formatMoney(x.amount)}?`)) return;
     try {
-      await apiDelete(`/expenses/${x.id}`);
+      await saveChange({ method: "DELETE", path: `/expenses/${x.id}`, label: `Delete expense ${x.category} ${formatMoney(x.amount)}`, effects: [{ kind: "remove", id: x.id }] });
       load();
     } catch (e) {
       setError(errorMessage(e));

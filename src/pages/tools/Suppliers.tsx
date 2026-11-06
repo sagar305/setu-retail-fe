@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { Link, useParams } from "react-router-dom";
 import { useMe } from "../../auth/AuthProvider";
 import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Button, Field, Modal, PageHeader } from "../../components/ui";
 import { useSettings } from "../../hooks/useSettings";
-import { ApiError, apiDelete, apiGet, apiPatch, apiPost, type Statement, type Supplier } from "../../lib/api";
+import { ApiError, apiGet, type Statement, type Supplier } from "../../lib/api";
+import { newUuid, saveChange } from "../../lib/changes";
 import { currentBranch } from "../../lib/branch";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
@@ -28,8 +30,25 @@ export function SupplierForm({ supplier, onDone, onClose }: { supplier: Supplier
     setErrors({});
     setError(null);
     try {
-      const r = supplier ? await apiPatch<{ supplier: Supplier }>(`/suppliers/${supplier.id}`, d) : await apiPost<{ supplier: Supplier }>("/suppliers", d);
-      onDone(r.supplier);
+      // Saved on this device at once; the cloud gets it in the background (Phase 9b).
+      if (d.phone && d.phone.replace(/\D/g, "").length < 10) {
+        setErrors({ phone: "Enter a 10-digit mobile number." });
+        return setBusy(false);
+      }
+      if (supplier) {
+        const before = supplier as unknown as Record<string, unknown>;
+        const changed = Object.fromEntries(Object.entries(d).filter(([k, v]) => JSON.stringify(v ?? "") !== JSON.stringify(before[k] ?? "")));
+        if (Object.keys(changed).length) {
+          const base = Object.fromEntries(Object.keys(changed).map((k) => [k, before[k] ?? null]));
+          await saveChange({ method: "PATCH", path: `/suppliers/${supplier.id}`, body: changed, base, label: `${supplier.name}: details changed`, effects: [{ kind: "update", id: supplier.id, fields: changed }] });
+        }
+        onDone({ ...supplier, ...changed } as Supplier);
+      } else {
+        const id = newUuid();
+        const item = { ...d, id, balance: 0, createdAt: new Date().toISOString() } as unknown as Supplier;
+        await saveChange({ method: "POST", path: "/suppliers", body: { ...d, id }, label: `New supplier ${d.name}`, effects: [{ kind: "insert", into: "/suppliers", key: "suppliers", item: item as unknown as Record<string, unknown> & { id: string } }] });
+        onDone(item);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_error") setErrors(err.fieldErrors);
       else if (err instanceof ApiError && err.code === "invalid_phone") setErrors({ phone: err.message });
@@ -77,6 +96,7 @@ export function SupplierBookPage() {
   const load = useCallback(() => {
     apiGet<{ suppliers: Supplier[] }>(`/suppliers?q=${encodeURIComponent(q)}`).then((r) => setRows(r.suppliers), (e: unknown) => setError(errorMessage(e)));
   }, [q]);
+  useCacheRefresh(["/suppliers?"], load);
   useEffect(() => {
     const t = window.setTimeout(load, 200);
     return () => window.clearTimeout(t);
@@ -85,7 +105,7 @@ export function SupplierBookPage() {
   async function remove(s: Supplier) {
     if (!window.confirm(`Remove ${s.name} from the Supplier Book? Their old bills stay.`)) return;
     try {
-      await apiDelete(`/suppliers/${s.id}`);
+      await saveChange({ method: "DELETE", path: `/suppliers/${s.id}`, label: `Remove supplier ${s.name}`, effects: [{ kind: "remove", id: s.id }] });
       load();
     } catch (e) {
       setError(errorMessage(e));
@@ -203,11 +223,12 @@ export function SupplierStatementPage() {
     apiGet<Statement & { supplier: Supplier }>(`/suppliers/${id}/ledger`).then(setData, (e: unknown) => setError(errorMessage(e)));
   }, [id]);
   useEffect(load, [load]);
+  useCacheRefresh(["/suppliers/"], load);
 
   async function undo(entryId: string) {
     if (!window.confirm("Undo this entry?")) return;
     try {
-      await apiPost(`/ledger/supplier-entries/${entryId}/void`, { reason: "Undone from the ledger" });
+      await saveChange({ method: "POST", path: `/ledger/supplier-entries/${entryId}/void`, body: { reason: "Undone from the ledger" }, label: "Undo a supplier ledger entry", effects: [{ kind: "remove", id: entryId }] });
       load();
     } catch (e) {
       setError(errorMessage(e));
@@ -246,10 +267,11 @@ export function SupplierStatementPage() {
           submitLabel="Record payment of"
           onClose={() => setDialog(null)}
           onSubmit={async (p) => {
-            const r = await apiPost<Statement & { supplier: Supplier }>(`/suppliers/${id}/payments`, { id: crypto.randomUUID(), ...p });
-            setData(r);
+            await saveChange({ method: "POST", path: `/suppliers/${id}/payments`, body: { id: newUuid(), ...p }, label: `Payment to ${data.supplier.name} ${formatMoney(p.amount)}` });
+            const left = data.balance - p.amount;
+            setData({ ...data, balance: left });
             setDialog(null);
-            setNotice(`Paid ${formatMoney(p.amount)}. ${r.balance > 0 ? `Still owed: ${formatMoney(r.balance)}.` : "All settled."}`);
+            setNotice(`Paid ${formatMoney(p.amount)}. ${left > 0 ? `Still owed: ${formatMoney(left)}.` : "All settled."}`);
           }}
         />
       ) : null}
@@ -259,7 +281,8 @@ export function SupplierStatementPage() {
           withDue
           onClose={() => setDialog(null)}
           onSubmit={async (p) => {
-            setData(await apiPost<Statement & { supplier: Supplier }>(`/suppliers/${id}/opening`, { id: crypto.randomUUID(), ...p }));
+            await saveChange({ method: "POST", path: `/suppliers/${id}/opening`, body: { id: newUuid(), ...p }, label: "Supplier opening balance" });
+            if (data) setData({ ...data, balance: data.balance + p.amount });
             setDialog(null);
           }}
         />

@@ -58,7 +58,7 @@ function DeviceBanner() {
     const at = lastCloudContact();
     return (
       <div role="status" className="border-b border-line bg-cream px-4 py-2 text-sm md:px-6">
-        No internet. Showing what this device saved{at ? ` (last updated ${time(at)})` : ""}. Billing keeps working; other changes need the internet.
+        No internet. Showing what this device saved{at ? ` (last updated ${time(at)})` : ""}. Keep working: changes are saved here and sync when it's back.
       </div>
     );
   }

@@ -6,7 +6,7 @@ import { App } from "../../App";
 import { AuthProvider } from "../../auth/AuthProvider";
 import { setAccessToken } from "../../lib/api";
 import { kindFor } from "../../lib/barcodes";
-import { BRANCH_ID, makeMe, makePack, METHODS, mockApi, posRoutes, PRODUCTS, SETTINGS, session } from "../../test/mockApi";
+import { BRANCH_ID, makeMe, makePack, mockApi, posRoutes, PRODUCTS, SETTINGS, session } from "../../test/mockApi";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -105,10 +105,6 @@ describe("report tools", () => {
       "POST /auth/refresh": session(makeMe()),
       ...posRoutes(),
       "GET /sync/pack": [200, pack],
-      "POST /orders": (body) => {
-        const b = body as { id: string; invoiceNumber: string };
-        return [201, { order: { id: b.id, invoiceNumber: b.invoiceNumber, status: "COMPLETED", createdAt: "2026-11-04T10:00:00.000Z", branch: pack.branch, counter: { code: "C1", name: "Counter 1" }, cashierId: "c", cashierName: "Anil", customer: null, placeOfSupply: null, interState: false, taxEnabled: true, discount: { type: "flat", value: 0 }, subtotal: 14500, discountTotal: 0, taxableTotal: 13810, cgstTotal: 345, sgstTotal: 345, igstTotal: 0, total: 14500, returnedTotal: 0, note: "", cancelledAt: null, cancelReason: "", offline: false, priceDiffers: false, items: [{ id: "i", productId: PRODUCTS[1]!.id, name: "Tea 250 g", hsn: "0902", unit: "pcs", qtyMilli: 1000, unitPrice: 14500, gstRateBp: 500, taxInclusive: true, gross: 14500, discount: 0, taxable: 13810, cgst: 345, sgst: 345, igst: 0, total: 14500, returnedQtyMilli: 0, batches: [] }], payments: [{ methodId: METHODS[1]!.id, methodName: "UPI", kind: "UPI", amount: 14500 }], creditNotes: [] } }];
-      },
     });
     const user = userEvent.setup();
     at("/billing");
@@ -117,11 +113,12 @@ describe("report tools", () => {
     const receipt = await screen.findByLabelText(/TAX INVOICE/);
     expect(receipt).toHaveTextContent("Happy Diwali!");
     expect(receipt).toHaveTextContent("Free delivery above ₹500");
-    expect(receipt).not.toHaveTextContent("HSN 0902");
+    expect(receipt).not.toHaveTextContent(`HSN ${PRODUCTS[1]!.hsn}`);
     expect(receipt).not.toHaveTextContent("Rupees");
     await user.selectOptions(screen.getByLabelText("Receipt design"), "t1");
     expect(screen.getByLabelText(/TAX INVOICE/)).toHaveTextContent("Default footer");
-    expect(screen.getByLabelText(/TAX INVOICE/)).toHaveTextContent("HSN 0902");
+    // The bill is made on the counter (Phase 9b), from the counter's own product list.
+    expect(screen.getByLabelText(/TAX INVOICE/)).toHaveTextContent(`HSN ${PRODUCTS[1]!.hsn}`);
   });
 
   it("picks EAN-13 only for valid 13-digit codes", () => {

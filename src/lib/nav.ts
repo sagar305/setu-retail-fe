@@ -3,6 +3,7 @@ import {
   BarChart3,
   Building2,
   CircleHelp,
+  GitMerge,
   LayoutDashboard,
   LayoutGrid,
   ListChecks,
@@ -44,6 +45,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { path: "/branches", label: "Branches", icon: Building2, roles: O, phase: 1 },
   { path: "/staff", label: "Staff", icon: UserCog, roles: OM, phase: 1 },
   { path: "/audit-log", label: "Audit log", icon: ScrollText, roles: OM, phase: 5 },
+  { path: "/review", label: "Needs review", icon: GitMerge, roles: O, phase: 9 },
   { path: "/settings/plan", label: "Settings", icon: Settings, roles: O, phase: 1 },
   { path: "/help", label: "Help", icon: CircleHelp, roles: ALL, phase: 8 },
 ];

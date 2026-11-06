@@ -10,7 +10,7 @@ import { designFor } from "../lib/receiptDesign";
 import { DesignPicker } from "../pos/DesignPicker";
 import { Alert, Badge, Button, Field, Modal } from "../components/ui";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import { ApiError, apiDelete, apiGet, apiPost, type Customer, type HeldCart, type OfflinePack, type Order, type PaymentMethod, type Product } from "../lib/api";
+import { apiDelete, apiGet, apiPost, type Customer, type HeldCart, type OfflinePack, type Order, type PaymentMethod, type Product } from "../lib/api";
 import { rememberBranch } from "../lib/branch";
 import { errorMessage } from "../lib/format";
 import { computeBill, placeOfSupply, type Discount } from "../lib/gst";
@@ -138,6 +138,13 @@ export function BillingPage() {
     };
   }, [branch, s.mode, version]);
 
+  // Bills never wait for the cloud, so keep the counter's prices and stock fresh in the background.
+  useEffect(() => {
+    if (!online) return;
+    const id = window.setInterval(() => setVersion((v) => v + 1), 5 * 60_000);
+    return () => window.clearInterval(id);
+  }, [online]);
+
   // What's waiting to sync from this counter: its stock is already taken here.
   const counterId = setup?.counterId;
   useEffect(() => {
@@ -229,36 +236,8 @@ export function BillingPage() {
     const createdAt = new Date().toISOString();
     const priced = lines.filter((l) => byId.has(l.productId)).map((l) => ({ ...l, product: byId.get(l.productId)! }));
     try {
-      // Online with nothing waiting: the server checks and saves the bill now.
-      if (canTryOnline && (await pendingOrders(setup.counterId)).length === 0) {
-        try {
-          const { order } = await apiPost<{ order: Order }>("/orders", {
-            id,
-            branchId: branch.id,
-            counterId: setup.counterId,
-            invoiceNumber: number,
-            customerId: customer?.id ?? null,
-            lines: priced.map((l) => ({ productId: l.productId, qtyMilli: l.qtyMilli, batchId: l.batchId ?? null })),
-            discount,
-            payments: [{ methodId: method.id, amount: bill.total }],
-          });
-          await takeSeq(setup.counterId, n);
-          setDone({ order, queued: false });
-          reset();
-          setVersion((v) => v + 1);
-          return;
-        } catch (err) {
-          if (err instanceof ApiError) {
-            setError(err.code === "payment_mismatch" ? "Prices changed on the server. The counter has been refreshed: check the bill and charge again." : errorMessage(err));
-            if (["payment_mismatch", "unknown_product", "out_of_stock", "invoice_number_used"].includes(err.code)) {
-              if (err.code === "invoice_number_used") await takeSeq(setup.counterId, n);
-              setVersion((v) => v + 1);
-            }
-            return;
-          }
-          // Network trouble: fall through and keep the bill on this counter, same id and number.
-        }
-      }
+      // Every bill is saved on this counter at once and printed; the cloud gets
+      // it a moment later in the background (decision v1.9: Charge never waits).
       if (!settings?.allowNegativeStock) {
         const short = priced.filter((l) => l.product.trackStock && l.product.stockMilli < l.qtyMilli);
         if (short.length) return setError(`Not enough stock: ${short.map((l) => l.product.name).join(", ")}.`);
@@ -596,7 +575,7 @@ export function BillingPage() {
       {done ? (
         <Modal title={`Bill ${done.order.invoiceNumber} saved`} onClose={() => setDone(null)} wide>
           <div className="flex flex-col gap-4">
-            {done.queued ? <Alert tone="info">Saved on this counter. It syncs automatically when the internet is back.</Alert> : null}
+            {done.queued && !online ? <Alert tone="info">Saved on this counter. It syncs automatically when the internet is back.</Alert> : null}
             <div className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
               <Receipt order={done.order} settings={settings} template={design} />
             </div>

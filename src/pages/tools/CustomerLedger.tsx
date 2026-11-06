@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMe } from "../../auth/AuthProvider";
 import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Button, PageHeader } from "../../components/ui";
 import { CustomerPicker } from "../../pos/CustomerPicker";
-import { apiGet, apiPost, type Customer, type Statement } from "../../lib/api";
+import { apiGet, type Customer, type Statement } from "../../lib/api";
+import { newUuid, saveChange } from "../../lib/changes";
 import { currentBranch } from "../../lib/branch";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
@@ -100,11 +102,13 @@ export function CustomerStatementPage() {
     apiGet<Statement & { customer: Customer }>(`/customers/${id}/ledger`).then(setData, (e: unknown) => setError(errorMessage(e)));
   }, [id]);
   useEffect(load, [load]);
+  useCacheRefresh(["/customers/"], load);
 
   async function undo(entryId: string) {
     if (!window.confirm("Undo this entry? The amount goes back on the customer's balance.")) return;
     try {
-      await apiPost(`/ledger/customer-entries/${entryId}/void`, { reason: "Undone from the ledger" });
+      await saveChange({ method: "POST", path: `/ledger/customer-entries/${entryId}/void`, body: { reason: "Undone from the ledger" }, label: "Undo a ledger entry", effects: [{ kind: "remove", id: entryId }] });
+      setNotice("Undone on this device. The balance updates when it syncs.");
       load();
     } catch (e) {
       setError(errorMessage(e));
@@ -146,10 +150,12 @@ export function CustomerStatementPage() {
           submitLabel="Receive"
           onClose={() => setDialog(null)}
           onSubmit={async (p) => {
-            const r = await apiPost<Statement & { customer: Customer }>(`/customers/${id}/payments`, { id: crypto.randomUUID(), ...p });
-            setData(r);
+            // Saved on this device at once; the statement fills in when the cloud has it (Phase 9b).
+            await saveChange({ method: "POST", path: `/customers/${id}/payments`, body: { id: newUuid(), ...p }, label: `Payment from ${data.customer.name} ${formatMoney(p.amount)}` });
+            const left = data.balance - p.amount;
+            setData({ ...data, balance: left });
             setDialog(null);
-            setNotice(`Received ${formatMoney(p.amount)}. ${r.balance > 0 ? `Still owes ${formatMoney(r.balance)}.` : "All clear."}`);
+            setNotice(`Received ${formatMoney(p.amount)}. ${left > 0 ? `Still owes ${formatMoney(left)}.` : "All clear."}`);
           }}
         />
       ) : null}
@@ -158,7 +164,8 @@ export function CustomerStatementPage() {
           title="Opening balance"
           onClose={() => setDialog(null)}
           onSubmit={async (p) => {
-            setData(await apiPost<Statement & { customer: Customer }>(`/customers/${id}/opening`, { id: crypto.randomUUID(), amount: p.amount, date: p.date, note: p.note }));
+            await saveChange({ method: "POST", path: `/customers/${id}/opening`, body: { id: newUuid(), amount: p.amount, date: p.date, note: p.note }, label: `Opening balance for ${data?.customer.name ?? "customer"}` });
+            if (data) setData({ ...data, balance: data.balance + p.amount });
             setDialog(null);
           }}
         />

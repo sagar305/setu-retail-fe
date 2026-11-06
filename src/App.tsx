@@ -41,13 +41,14 @@ import { TransfersPage } from "./pages/Transfers";
 import { BranchReportsPage } from "./pages/BranchReports";
 import { AuditLogPage } from "./pages/AuditLog";
 import { HelpPage } from "./pages/Help";
+import { ReviewPage } from "./pages/Review";
 import { AgingPage } from "./pages/tools/Aging";
 import { ProfitPage } from "./pages/tools/Profit";
 import { StockRegisterPage } from "./pages/tools/StockRegister";
 import { BarcodesPage } from "./pages/tools/Barcodes";
 import { ReceiptDesignerPage } from "./pages/tools/ReceiptDesigner";
 
-const BUILT = new Set(["/help", "/stock-transfers", "/branch-reports", "/audit-log", "/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
+const BUILT = new Set(["/review", "/help", "/stock-transfers", "/branch-reports", "/audit-log", "/tools", "/branches", "/staff", "/settings/plan", "/billing", "/products", "/orders", "/customers", "/dashboard", "/reports"]);
 
 export function App() {
   const { state } = useAuth();
@@ -154,6 +155,7 @@ export function App() {
             <Route path="/help" element={<HelpPage />} />
           </Route>
           <Route element={<Allow roles={["OWNER"]} />}>
+            <Route path="/review" element={<ReviewPage />} />
             <Route path="/settings/pos" element={<PosSettingsPage />} />
             <Route path="/settings/tools" element={<ConnectedToolsPage />} />
           </Route>

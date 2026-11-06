@@ -54,8 +54,8 @@ export function resetApiState() {
   resetCacheState();
 }
 
-async function raw<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const headers: Record<string, string> = {};
+async function raw<T>(method: string, path: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
+  const headers: Record<string, string> = { ...extra };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const res = await fetch(`${API_URL}${path}`, {
@@ -92,9 +92,9 @@ export function refreshSession(): Promise<Session | null> {
   return refreshing;
 }
 
-async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal, extra?: Record<string, string>): Promise<T> {
   try {
-    return await raw<T>(method, path, body, signal);
+    return await raw<T>(method, path, body, signal, extra);
   } catch (err) {
     if (!(err instanceof ApiError) || err.status !== 401 || path.startsWith("/auth/")) throw err;
     const session = await refreshSession();
@@ -102,8 +102,15 @@ async function call<T>(method: string, path: string, body?: unknown, signal?: Ab
       onSessionLost?.();
       throw err;
     }
-    return raw<T>(method, path, body, signal);
+    return raw<T>(method, path, body, signal, extra);
   }
+}
+
+/** Send a change saved on this device, with its id as the Idempotency-Key (Phase 9b). */
+export async function sendChange<T>(method: string, path: string, body: unknown, key: string): Promise<T> {
+  const result = await call<T>(method, path, body, undefined, { "Idempotency-Key": key });
+  noteCloudContact();
+  return result;
 }
 
 export async function api<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -128,8 +135,8 @@ export function fetchAndCache<T>(path: string): Promise<T> {
     p = call<T>("GET", path)
       .then(async (data) => {
         noteCloudContact();
-        await writeCache(path, data);
-        return data;
+        // What the screen gets includes changes saved here that the cloud doesn't have yet.
+        return writeCache(path, data);
       })
       .finally(() => revalidating.delete(path));
     revalidating.set(path, p);

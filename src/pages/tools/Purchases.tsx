@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMe } from "../../auth/AuthProvider";
 import { BranchSelect } from "../../components/BranchSelect";
@@ -6,7 +7,8 @@ import { useBranchChoice } from "../../hooks/useBranchChoice";
 import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../../components/ui";
 import { useSettings } from "../../hooks/useSettings";
-import { ApiError, apiGet, apiPost, type Product, type Purchase, type PurchaseSummary, type Supplier } from "../../lib/api";
+import { newUuid, saveChange } from "../../lib/changes";
+import { ApiError, apiGet, type Product, type Purchase, type PurchaseSummary, type Supplier } from "../../lib/api";
 import { computePurchase } from "../../lib/books";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage, formatDate } from "../../lib/format";
@@ -28,12 +30,15 @@ export function PurchasesPage() {
   const [q, setQ] = useState("");
   const [data, setData] = useState<{ totals: { bills: number; total: number; inputGst: number }; purchases: PurchaseSummary[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fresh, setFresh] = useState(0);
   useEffect(() => {
     const t = window.setTimeout(() => {
       apiGet<NonNullable<typeof data>>(`/purchases?q=${encodeURIComponent(q)}`).then(setData, (e: unknown) => setError(errorMessage(e)));
     }, 200);
     return () => window.clearTimeout(t);
-  }, [q]);
+  }, [q, fresh]);
+  const bump = useCallback(() => setFresh((n) => n + 1), []);
+  useCacheRefresh(["/purchases?"], bump);
   return (
     <div className="w-full">
       <PageHeader
@@ -139,7 +144,8 @@ export function NewPurchasePage() {
     setBusy(true);
     setError(null);
     try {
-      const r = await apiPost<{ purchase: Purchase }>("/purchases", {
+      // Saved on this device at once; stock and the supplier's balance update when the cloud has it (Phase 9b).
+      const body = {
         id,
         branchId: branch.id,
         supplierId,
@@ -151,8 +157,11 @@ export function NewPurchasePage() {
         paidMethodId: paidPaise > 0 ? effectiveMethod : null,
         notes,
         expectedTotal: bill.total,
-      });
-      navigate(`/tools/purchases/${r.purchase.id}`, { replace: true });
+      };
+      const supplierName = suppliers.find((x) => x.id === supplierId)?.name ?? "";
+      const summary = { id, branchId: branch.id, supplierId, supplierName, billNumber: body.billNumber, billDate, dueDate: body.dueDate, interState: false, taxableTotal: bill.taxableTotal, cgstTotal: 0, sgstTotal: 0, igstTotal: 0, total: bill.total, paidAmount: paidPaise, paidMethodName: "", returnedTotal: 0, notes, stockApplied: false, imported: false, cancelledAt: null, cancelReason: "", createdAt: new Date().toISOString() };
+      await saveChange({ method: "POST", path: "/purchases", body, label: `Supplier bill ${body.billNumber} · ${supplierName}`, effects: [{ kind: "insert", into: "/purchases?", key: "purchases", item: summary }] });
+      navigate("/tools/purchases", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError && err.code === "total_mismatch" ? "The server worked the bill out differently. Check the lines and save again." : errorMessage(err));
       setBusy(false);
@@ -319,7 +328,8 @@ function ReturnDialog({ p, onDone, onClose }: { p: Purchase; onDone: (p: Purchas
     setBusy(true);
     setError(null);
     try {
-      onDone((await apiPost<{ purchase: Purchase }>(`/purchases/${p.id}/returns`, { id: crypto.randomUUID(), mode, items: chosen, note })).purchase);
+      await saveChange({ method: "POST", path: `/purchases/${p.id}/returns`, body: { id: newUuid(), mode, items: chosen, note }, label: `Return goods on bill ${p.billNumber}` });
+      onDone(p);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -386,14 +396,16 @@ export function PurchaseDetailPage() {
     const reason = window.prompt("Why cancel this bill? Its stock comes back out.");
     if (!reason) return;
     try {
-      setP((await apiPost<{ purchase: Purchase }>(`/purchases/${id}/cancel`, { reason })).purchase);
+      const cancelled = { cancelledAt: new Date().toISOString(), cancelReason: reason };
+      await saveChange({ method: "POST", path: `/purchases/${id}/cancel`, body: { reason }, label: "Cancel a supplier bill", effects: [{ kind: "update", id: id!, fields: cancelled }] });
+      if (p) setP({ ...p, ...cancelled });
     } catch (e) {
       setError(errorMessage(e));
     }
   }
   async function receive(returnId: string) {
     try {
-      setP((await apiPost<{ purchase: Purchase }>(`/purchase-returns/${returnId}/receive`, {})).purchase);
+      await saveChange({ method: "POST", path: `/purchase-returns/${returnId}/receive`, label: "Replacement goods received" });
     } catch (e) {
       setError(errorMessage(e));
     }

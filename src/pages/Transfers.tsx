@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { Link } from "react-router-dom";
 import { useMe } from "../auth/AuthProvider";
 import { DataTable } from "../components/DataTable";
@@ -231,6 +232,7 @@ export function TransfersPage() {
     apiGet<{ transfers: Transfer[] }>(`/transfers${tab ? `?status=${tab}` : ""}`).then((r) => setRows(r.transfers), (e: unknown) => setError(errorMessage(e)));
   }, [tab]);
   useEffect(load, [load]);
+  useCacheRefresh(["/transfers"], load);
 
   if (me.branches.filter((b) => b.withinPlan).length < 2) {
     return (

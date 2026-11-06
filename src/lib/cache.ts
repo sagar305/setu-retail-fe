@@ -8,7 +8,8 @@
 // - Each user's copy is separate: when a different person signs in on this
 //   device, the previous person's copy is wiped.
 // Access tokens are never stored here (or anywhere on disk).
-import { db, type CachedResponse } from "../offline/db";
+import { db, type CachedResponse, type Effect } from "../offline/db";
+import { applyEffects } from "./effects";
 
 /** Answers younger than this are shown without waiting for the cloud. */
 const INSTANT_MS = 10 * 60_000;
@@ -55,13 +56,36 @@ export async function readCache<T>(path: string): Promise<{ data: T; fetchedAt: 
   return { data: row.data as T, fetchedAt: row.fetchedAt };
 }
 
-export async function writeCache(path: string, data: unknown) {
-  if (!owner) return;
+/** Effects of this user's changes still waiting to reach the cloud, oldest first. */
+async function pendingEffects(): Promise<Effect[]> {
+  if (!owner) return [];
+  const rows = await db.changes.where("userId").equals(owner).toArray().catch(() => []);
+  return rows.filter((c) => c.status === "pending").sort((a, b) => a.createdAt.localeCompare(b.createdAt)).flatMap((c) => c.effects);
+}
+
+/** Save a fresh cloud answer; returns it as screens should see it (with this device's pending changes on top). */
+export async function writeCache<T>(path: string, fresh: T): Promise<T> {
+  if (!owner) return fresh;
   const now = Date.now();
   lastSuccess = now;
+  // The cloud doesn't have this device's pending changes yet: keep showing them.
+  const effects = await pendingEffects();
+  const data = effects.length ? applyEffects(path, fresh, effects) : fresh;
   const row: CachedResponse = { key: keyOf(path), owner, path, data, fetchedAt: now, usedAt: now };
   await db.responses.put(row).catch(() => {});
   for (const l of listeners) l(path);
+  return data as T;
+}
+
+/** A change was just saved on this device: show it on every cached screen at once. */
+export async function applyToCache(effects: readonly Effect[]) {
+  if (!owner || !effects.length) return;
+  const rows = await db.responses.where("owner").equals(owner).toArray().catch(() => [] as CachedResponse[]);
+  for (const r of rows) {
+    const data = applyEffects(r.path, r.data, effects);
+    if (data !== r.data) await db.responses.update(r.key, { data }).catch(() => {});
+  }
+  for (const r of rows) for (const l of listeners) l(r.path);
 }
 
 /** After a change: everything is stale, so the next read asks the cloud first. */

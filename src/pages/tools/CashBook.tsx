@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { useMe } from "../../auth/AuthProvider";
 import { BranchSelect } from "../../components/BranchSelect";
 import { useBranchChoice } from "../../hooks/useBranchChoice";
 import { Stat } from "../../components/DataTable";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader } from "../../components/ui";
-import { apiDelete, apiGet, apiPost, apiPut, type CashBook } from "../../lib/api";
+import { apiGet, apiPut, type CashBook } from "../../lib/api";
+import { newUuid, saveChange } from "../../lib/changes";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
 import { formatMoney, parseMoney } from "../../lib/money";
@@ -26,7 +28,8 @@ function EntryForm({ branchId, onDone, onClose }: { branchId: string; onDone: ()
     if (!paise || !description.trim()) return;
     setBusy(true);
     try {
-      await apiPost("/cash-book/entries", { id: crypto.randomUUID(), branchId, type, amount: paise, description: description.trim() });
+      // Saved on this device; the day's totals update when the cloud has it (Phase 9b).
+      await saveChange({ method: "POST", path: "/cash-book/entries", body: { id: newUuid(), branchId, type, amount: paise, description: description.trim() }, label: `Cash ${type === "IN" ? "in" : "out"}: ${description.trim()} ${formatMoney(paise)}` });
       onDone();
     } catch (err) {
       setError(errorMessage(err));
@@ -113,11 +116,12 @@ export function CashBookPage() {
     apiGet<CashBook>(`/cash-book?branchId=${branch.id}&from=${from}&to=${to}`).then(setData, (e: unknown) => setError(errorMessage(e)));
   }, [branch, from, to]);
   useEffect(load, [load]);
+  useCacheRefresh(["/cash-book"], load);
 
   async function remove(id: string) {
     if (!window.confirm("Delete this cash line?")) return;
     try {
-      await apiDelete(`/cash-book/entries/${id}`);
+      await saveChange({ method: "DELETE", path: `/cash-book/entries/${id}`, label: "Delete a cash line", effects: [{ kind: "remove", id }] });
       load();
     } catch (e) {
       setError(errorMessage(e));

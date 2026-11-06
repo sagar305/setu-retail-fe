@@ -1,11 +1,31 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { apiGet } from "../lib/api";
 import { navForRole } from "../lib/nav";
 import type { Role } from "../lib/roles";
 import { Logo } from "./Logo";
 
 type Props = { role: Role; businessName: string; expired?: boolean; onNavigate?: () => void; className?: string };
 
+/** How many changes wait for the owner's pick (Phase 9b). */
+function useReviewCount(enabled: boolean): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const load = () => void apiGet<{ open: number }>("/conflicts/count").then((r) => setN(r.open), () => {});
+    load();
+    const id = window.setInterval(load, 5 * 60_000);
+    window.addEventListener("setu:review", load);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("setu:review", load);
+    };
+  }, [enabled]);
+  return n;
+}
+
 export function Sidebar({ role, businessName, expired, onNavigate, className = "" }: Props) {
+  const review = useReviewCount(role === "OWNER" && !expired);
   // When the plan has ended the owner can only reach the plan screen.
   const items = navForRole(role).filter((item) => !expired || item.path === "/settings/plan");
   return (
@@ -29,6 +49,11 @@ export function Sidebar({ role, businessName, expired, onNavigate, className = "
         >
           <Icon size={18} aria-hidden="true" />
           {label}
+          {path === "/review" && review > 0 ? (
+            <span className="ml-auto rounded-full bg-saffron px-2 py-0.5 text-xs font-bold text-ink" aria-label={`${review} to review`}>
+              {review}
+            </span>
+          ) : null}
         </NavLink>
       ))}
     </nav>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { Link } from "react-router-dom";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Card, PageHeader, SelectField } from "../components/ui";
@@ -23,6 +24,7 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const branchName = new Map(me.branches.map((b) => [b.id, `${b.name} (${b.code})`]));
 
+  const [fresh, setFresh] = useState(0);
   useEffect(() => {
     let alive = true;
     apiGet<Dashboard>(`/reports/dashboard${branchId ? `?branchId=${branchId}` : ""}`).then(
@@ -32,7 +34,9 @@ export function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [branchId]);
+  }, [branchId, fresh]);
+  const bump = useCallback(() => setFresh((n) => n + 1), []);
+  useCacheRefresh(["/reports/dashboard"], bump);
 
   const max = Math.max(1, ...(d?.week ?? []).map((w) => w.sales));
   const vsYesterday = d && d.yesterday.sales > 0 ? Math.round(((d.today.sales - d.yesterday.sales) / d.yesterday.sales) * 100) : null;
