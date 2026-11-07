@@ -106,6 +106,8 @@ export const SETTINGS = {
   tools: {} as Record<string, boolean>,
   creditDays: 0,
   logoDataUrl: null as string | null,
+  upiId: "",
+  printUpiQrOnReceipt: false,
 };
 
 /** The endpoints the billing screen loads. */

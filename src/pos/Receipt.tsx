@@ -1,6 +1,8 @@
 import type { Order, ReceiptTemplate, Settings } from "../lib/api";
 import { stateLabel } from "../lib/gstStates";
 import { amountInWords, bpToPercent, formatMoney, formatQty } from "../lib/money";
+import { receiptUpi } from "../lib/payments";
+import { useQrDataUrl } from "../hooks/useQrDataUrl";
 
 type Paper = Settings["receiptPaperSize"];
 const WIDTH: Record<Paper, string> = { "80mm": "w-[80mm]", "58mm": "w-[58mm]", a4: "w-[190mm]" };
@@ -24,7 +26,7 @@ function gstSummary(order: Order) {
 type Look = Pick<ReceiptTemplate, "paperSize" | "accentColor" | "headerText" | "footerText" | "showLogo" | "showBusinessInfo" | "showGstin" | "showHsn" | "showGstSummary" | "showAmountWords" | "boldTotals" | "separator">;
 
 /** A GST tax invoice for printing (thermal 80/58 mm or A4). Monospace, black on white. */
-export function Receipt({ order, settings, creditNoteId, template }: { order: Order; settings: Settings; creditNoteId?: string; template?: Look | null }) {
+export function Receipt({ order, settings, creditNoteId, template, upiQr }: { order: Order; settings: Settings; creditNoteId?: string; template?: Look | null; upiQr?: boolean }) {
   const t: Look = template ?? { paperSize: settings.receiptPaperSize, accentColor: "#000000", headerText: "", footerText: "", showLogo: false, showBusinessInfo: true, showGstin: true, showHsn: true, showGstSummary: true, showAmountWords: true, boldTotals: true, separator: "dashed" };
   const paper = t.paperSize;
   const sep = t.separator === "none" ? "my-1.5 border-0" : `my-1.5 border-0 border-t ${t.separator === "solid" ? "border-solid" : "border-dashed"} border-black`;
@@ -41,6 +43,9 @@ export function Receipt({ order, settings, creditNoteId, template }: { order: Or
     : order.items;
   const small = paper === "58mm";
   const igst = order.interState;
+  // A UPI QR for what's still to be paid by UPI (or the udhaar), if asked for.
+  const upi = receiptUpi(order, settings);
+  const qr = useQrDataUrl(!cn && (upiQr ?? settings.printUpiQrOnReceipt) ? upi.link : "", 320);
 
   return (
     <div className={`print-area mx-auto bg-white p-3 font-mono text-black ${WIDTH[paper]} ${small ? "text-[10px]" : "text-[12px]"} leading-snug`} aria-label={`${title} ${cn?.number ?? order.invoiceNumber}`}>
@@ -150,6 +155,13 @@ export function Receipt({ order, settings, creditNoteId, template }: { order: Or
       {cn ? <Row a="Refunded by" b={cn.refundMethodName} /> : order.payments.map((p, i) => <Row key={i} a={p.methodName} b={money(p.amount)} />)}
       {t.showAmountWords ? <span className="block">{amountInWords(cn?.total ?? order.total)}</span> : null}
       {order.taxEnabled && !cn ? <span className="block text-[#333]">Amounts are in ₹, exact to the paisa.</span> : null}
+      {qr ? (
+        <div className="mt-2 flex flex-col items-center text-center">
+          <img src={qr} alt={`UPI QR to pay ${money(upi.amount)}`} className={small ? "size-[30mm]" : "size-[36mm]"} />
+          <span>Scan to pay ₹{money(upi.amount)} by UPI</span>
+          <span className="break-all">{settings.upiId}</span>
+        </div>
+      ) : null}
       {order.status === "CANCELLED" ? <strong className="mt-1 block text-center">*** CANCELLED ***</strong> : null}
       <hr className={sep} />
       <div className="text-center">

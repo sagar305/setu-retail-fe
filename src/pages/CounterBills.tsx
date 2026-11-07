@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Modal, PageHeader } from "../components/ui";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import type { OfflinePack } from "../lib/api";
@@ -7,6 +7,7 @@ import { db, type OutboxOrder, type PendingChange } from "../offline/db";
 import { dismissChange } from "../lib/changes";
 import { useSync } from "../offline/SyncProvider";
 import { Receipt } from "../pos/Receipt";
+import { printReceipt, receiptPaper } from "../pos/print";
 import { designFor } from "../lib/receiptDesign";
 
 /** Bills made on this device that the server hasn't confirmed yet. */
@@ -17,6 +18,9 @@ export function CounterBillsPage() {
   const [packs, setPacks] = useState<Map<string, OfflinePack>>(new Map());
   const [open, setOpen] = useState<OutboxOrder | null>(null);
   const [changes, setChanges] = useState<PendingChange[]>([]);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const openPack = open ? packs.get(open.branchId) : undefined;
+  const openDesign = openPack ? designFor(openPack.receiptTemplates ?? [], openPack.branch.receiptTemplateId) : null;
 
   const load = useCallback(() => {
     Promise.all([db.outbox.orderBy("createdAt").reverse().toArray(), db.packs.toArray(), db.changes.orderBy("createdAt").reverse().toArray()]).then(([o, p, c]) => {
@@ -79,10 +83,10 @@ export function CounterBillsPage() {
       {open && packs.get(open.branchId) ? (
         <Modal title={`Bill ${open.invoiceNumber}`} onClose={() => setOpen(null)} wide>
           <div className="flex flex-col gap-4">
-            <div className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
-              <Receipt order={open.order} settings={packs.get(open.branchId)!.settings} template={designFor(packs.get(open.branchId)!.receiptTemplates ?? [], packs.get(open.branchId)!.branch.receiptTemplateId)} />
+            <div ref={receiptRef} className="max-h-[55vh] overflow-auto rounded-xl border border-line bg-cream p-3">
+              <Receipt order={open.order} settings={packs.get(open.branchId)!.settings} template={openDesign} />
             </div>
-            <Button onClick={() => window.print()} className="self-start">
+            <Button onClick={() => printReceipt(receiptRef.current, receiptPaper(packs.get(open.branchId)!.settings, openDesign))} className="self-start">
               Print receipt
             </Button>
           </div>
