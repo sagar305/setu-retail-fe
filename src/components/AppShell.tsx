@@ -1,3 +1,4 @@
+import { DemoBanner } from "./DemoBanner";
 import { KeyRound, LogOut, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
@@ -186,6 +187,7 @@ export function AppShell() {
             <LogOut size={18} aria-hidden="true" />
           </button>
         </header>
+        <DemoBanner />
         <DeviceBanner />
         <PlanBanner />
         <main className="flex-1 p-4 md:p-6">

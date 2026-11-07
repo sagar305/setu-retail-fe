@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert, Button, Field } from "../../components/ui";
 import { ApiError, authApi, type SignupInput } from "../../lib/api";
+import { DEMO_MODE, PRODUCTION_APP_URL } from "../../lib/demo";
 import { errorMessage } from "../../lib/format";
 import { AuthLayout } from "./AuthLayout";
 
@@ -15,6 +16,15 @@ const CODE_TO_FIELD: Record<string, keyof SignupInput> = {
 };
 
 export function SignUp() {
+  // Shops made on the demo would be wiped within hours: sign up on the real app.
+  if (DEMO_MODE) {
+    window.location.replace(`${PRODUCTION_APP_URL}/sign-up`);
+    return null;
+  }
+  return <SignUpForm />;
+}
+
+function SignUpForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState<SignupInput>({ businessName: "", ownerName: "", email: "", username: "", password: "", phone: "", taxNumber: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
