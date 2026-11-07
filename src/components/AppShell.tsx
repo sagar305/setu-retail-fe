@@ -1,6 +1,6 @@
 import { KeyRound, LogOut, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth, useMe } from "../auth/AuthProvider";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { useSidebar } from "../hooks/useSidebar";
@@ -107,6 +107,7 @@ function PlanBanner() {
 
 export function AppShell() {
   const me = useMe();
+  const fitScreen = useLocation().pathname.startsWith("/billing");
   const { logout } = useAuth();
   const sync = useSync();
   useBackgroundRefresh();
@@ -137,7 +138,7 @@ export function AppShell() {
   const sidebar = { role: me.user.role, businessName: me.account.name, expired: me.plan.expired };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-dvh overflow-clip">
       {isDesktop && open ? <Sidebar {...sidebar} /> : null}
       {!isDesktop && open ? (
         <div className="fixed inset-0 z-40 flex">
@@ -145,7 +146,7 @@ export function AppShell() {
           <button type="button" aria-label="Close menu" onClick={closeDrawer} className="flex-1 bg-ink/40" />
         </div>
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-2 border-b border-line bg-white px-3 py-3 sm:gap-3 md:px-6">
           <button
             type="button"
@@ -188,7 +189,8 @@ export function AppShell() {
         </header>
         <DeviceBanner />
         <PlanBanner />
-        <main className="flex-1 p-4 md:p-6">
+        {/* Only the page scrolls, never the menu. Billing scrolls its own lists on wide screens. */}
+        <main id="main" className={`min-h-0 flex-1 overflow-y-auto p-4 md:p-6 ${fitScreen ? "lg:flex lg:flex-col lg:overflow-clip" : ""}`}>
           <Outlet />
         </main>
       </div>

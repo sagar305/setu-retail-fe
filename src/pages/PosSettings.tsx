@@ -4,6 +4,7 @@ import { apiGet, apiPatch, apiPost, type PaymentMethod, type Settings } from "..
 import { setSettings } from "../hooks/useSettings";
 import { errorMessage } from "../lib/format";
 import { bpToPercent, parseMoney } from "../lib/money";
+import { looksLikeUpiId } from "../lib/payments";
 import { SettingsTabs } from "./SettingsTabs";
 
 export function PosSettingsPage() {
@@ -11,6 +12,7 @@ export function PosSettingsPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [cap, setCap] = useState("");
   const [footer, setFooter] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [newMethod, setNewMethod] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +22,7 @@ export function PosSettingsPage() {
       setS(settings);
       setCap(bpToPercent(settings.cashierMaxDiscountBp));
       setFooter(settings.receiptFooter);
+      setUpiId(settings.upiId);
       setMethods(m.methods);
     }, (err: unknown) => setError(errorMessage(err)));
   useEffect(() => {
@@ -45,6 +48,7 @@ export function PosSettingsPage() {
 
   if (!s) return <div className="w-full">{error ? <Alert tone="error">{error}</Alert> : <p className="text-muted">Loading…</p>}</div>;
   const capBp = parseMoney(cap);
+  const upiBad = upiId.trim() !== "" && !looksLikeUpiId(upiId);
 
   return (
     <div className="w-full">
@@ -96,6 +100,23 @@ export function PosSettingsPage() {
               Save
             </Button>
           </div>
+        </Card>
+        <Card className="flex flex-col gap-4">
+          <h2 className="m-0 text-lg font-semibold">UPI QR</h2>
+          <p className="m-0 text-sm text-muted">With your UPI ID, billing shows a QR for the exact amount when the customer pays by UPI, or for the UPI part of a split bill.</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Shop's UPI ID" placeholder="e.g. shopname@okaxis" autoCapitalize="none" spellCheck={false} value={upiId} onChange={(e) => setUpiId(e.target.value)} error={upiBad ? "Enter a UPI ID like shopname@okaxis." : undefined} className="flex-[1_1_240px]" />
+            <Button variant="secondary" disabled={upiBad || upiId.trim() === s.upiId} onClick={() => save({ upiId: upiId.trim() }, upiId.trim() ? "Saved. Billing shows a UPI QR for the amount." : "Saved. Billing won't show a UPI QR.")}>
+              Save
+            </Button>
+          </div>
+          <label className="flex min-h-11 items-start gap-3">
+            <input type="checkbox" checked={s.printUpiQrOnReceipt} disabled={!s.upiId} onChange={(e) => void save({ printUpiQrOnReceipt: e.target.checked })} className="mt-1 size-[18px] accent-indigo" />
+            <span className="flex flex-col">
+              <span className="font-medium">Print a UPI QR on receipts</span>
+              <span className="text-sm text-muted">For the amount paid by UPI (the UPI part of a split bill) or left on udhaar, so the customer can pay later. Bills paid fully in cash or card don't get one. The cashier can switch it off for a receipt.{!s.upiId ? " Save your UPI ID first." : ""}</span>
+            </span>
+          </label>
         </Card>
         <Card className="flex flex-col gap-3 xl:col-span-2">
           <h2 className="m-0 text-lg font-semibold">Payment methods</h2>

@@ -1561,6 +1561,8 @@ export interface paths {
                             "barcode-generator"?: boolean;
                         };
                         creditDays?: number;
+                        upiId?: "" | string;
+                        printUpiQrOnReceipt?: boolean;
                         logoDataUrl?: string | null;
                     };
                 };
@@ -9632,6 +9634,8 @@ export interface components {
             };
             creditDays: number;
             logoDataUrl: string | null;
+            upiId: string;
+            printUpiQrOnReceipt: boolean;
         };
         PaymentMethod: {
             /** Format: uuid */
