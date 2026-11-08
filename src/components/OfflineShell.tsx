@@ -1,5 +1,5 @@
 import { LogOut } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { ROLE_LABEL } from "../lib/roles";
@@ -10,11 +10,12 @@ import { SyncStatus } from "./SyncStatus";
 export function OfflineShell() {
   const { state, logout, leaveOffline } = useAuth();
   const online = useOnlineStatus();
+  const { pathname } = useLocation();
   if (state.status !== "offline") return null;
   const s = state.session;
   const tab = ({ isActive }: { isActive: boolean }) => `flex min-h-10 items-center rounded-[10px] px-3.5 text-sm no-underline ${isActive ? "bg-saffron font-semibold text-ink" : "text-white"}`;
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-dvh flex-col overflow-clip">
       <header className="flex flex-wrap items-center gap-3 bg-indigo px-4 py-3 text-white md:px-6">
         <Logo subtitle={`${s.branch.name} (${s.branch.code})`} />
         <nav aria-label="Main" className="flex flex-wrap gap-1">
@@ -47,7 +48,7 @@ export function OfflineShell() {
           </button>
         </div>
       ) : null}
-      <main className="flex-1 p-4 md:p-6">
+      <main id="main" className={`min-h-0 flex-1 overflow-y-auto p-4 md:p-6 ${pathname.startsWith("/billing") ? "lg:flex lg:flex-col lg:overflow-clip" : ""}`}>
         <Outlet />
       </main>
     </div>
