@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAdmin, useAdminAuth } from "./AdminAuth";
+import { Logo } from "../components/Logo";
 
 const NAV = [
   { to: "/super-admin", label: "Dashboard", end: true },
@@ -18,12 +19,7 @@ export function AdminShell() {
     <div className="flex min-h-screen flex-col bg-cream">
       <header className="bg-ink text-white">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-saffron font-bold text-ink" aria-hidden="true">
-            S
-          </div>
-          <span className="font-semibold">
-            Setu Retail <span className="text-saffron">Admin</span>
-          </span>
+          <Logo product="Retail admin" size={32} />
           <span className="ml-auto hidden truncate text-sm text-[#D9DCEE] sm:inline">{admin.name}</span>
           <button type="button" onClick={() => void logout()} className="flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold text-white hover:bg-white/10 max-sm:ml-auto">
             <LogOut size={16} aria-hidden="true" /> Sign out
