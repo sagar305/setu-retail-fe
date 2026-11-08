@@ -6,16 +6,14 @@ import { errorMessage } from "../lib/format";
 import { NewPasswordForm } from "../pages/auth/NewPasswordForm";
 import { adminAuth, type AdminLoginStep } from "./api";
 import { useAdminAuth } from "./AdminAuth";
+import { Logo } from "../components/Logo";
 
 /** Plain, clearly-not-the-shop-app frame for the Setu team's sign-in screens. */
 export function AdminAuthFrame({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <header className="flex items-center gap-3 bg-ink px-5 py-3.5 text-white">
-        <div className="flex size-9 items-center justify-center rounded-[9px] bg-saffron font-bold text-ink" aria-hidden="true">
-          S
-        </div>
-        <span className="font-semibold">Setu Retail · Admin</span>
+        <Logo product="Retail admin" size={32} />
       </header>
       <main className="flex flex-1 items-start justify-center px-4 py-10 sm:items-center">
         <div className="flex w-full max-w-[420px] flex-col gap-5 rounded-2xl border border-line bg-white p-6">

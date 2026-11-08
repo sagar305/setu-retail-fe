@@ -1,16 +1,12 @@
 import type { ReactNode } from "react";
+import { Logo } from "../../components/Logo";
 
 /** Indigo brand panel + form, as in the approved sign-in prototype. Stacks on phones. */
 export function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-wrap">
       <div className="flex flex-[1_1_420px] flex-col justify-between gap-8 bg-indigo px-6 py-8 text-white md:px-12 md:py-14">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-[10px] bg-saffron text-xl font-bold text-ink" aria-hidden="true">
-            S
-          </div>
-          <span className="text-lg font-semibold">Setu Retail</span>
-        </div>
+        <Logo size={42} />
         <div className="hidden max-w-[460px] flex-col gap-5 md:flex">
           <p className="m-0 text-4xl leading-tight font-semibold">Your shop's billing, stock and books — on every counter, in every branch.</p>
           <p className="m-0 leading-relaxed text-[#D9DCEE]">Bills keep going when the internet drops and sync when it's back.</p>
