@@ -84,10 +84,10 @@ function Compare({ r }: { r: BranchComparison }) {
   const best = [...r.branches].sort((a, b) => b.netProfit - a.netProfit)[0];
   const rows: [string, (b: BranchComparison["branches"][number]) => number, boolean?][] = [
     ["Bills", (b) => b.bills, true],
-    ["Sales (incl. GST)", (b) => b.sales],
+    ["Sales (incl. tax)", (b) => b.sales],
     ["Returns", (b) => b.returns],
     ["Average bill", (b) => b.averageBill],
-    ["Net sales before GST", (b) => b.revenue],
+    ["Net sales before tax", (b) => b.revenue],
     ["Cost of goods", (b) => b.cost],
     ["Gross profit", (b) => b.grossProfit],
     ["Expenses", (b) => b.expenses],

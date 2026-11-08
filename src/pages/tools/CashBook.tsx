@@ -9,7 +9,7 @@ import { apiGet, apiPut, type CashBook } from "../../lib/api";
 import { newUuid, saveChange } from "../../lib/changes";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
-import { formatMoney, parseMoney } from "../../lib/money";
+import { currencySign, formatMoney, parseMoney } from "../../lib/money";
 import { shopDay } from "../../lib/ranges";
 
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
@@ -48,7 +48,7 @@ function EntryForm({ branchId, onDone, onClose }: { branchId: string; onDone: ()
             </button>
           ))}
         </div>
-        <Field label="Amount (₹)" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Field label={`Amount (${currencySign()})`} inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
         <Field label="What for" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Deposited at bank" />
         <div className="flex gap-3">
           <Button type="submit" busy={busy} disabled={!paise || !description.trim()}>
@@ -84,7 +84,7 @@ function OpeningForm({ branchId, current, today, onDone, onClose }: { branchId: 
         <p className="m-0 text-sm text-muted">Count the cash in the drawer once. From that day on, each day opens with the previous day's closing.</p>
         {error ? <Alert tone="error">{error}</Alert> : null}
         <Field label="Counted on" type="date" value={day} max={today} onChange={(e) => setDay(e.target.value)} />
-        <Field label="Cash in the drawer that morning (₹)" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Field label={`Cash in the drawer that morning (${currencySign()})`} inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
         <div className="flex gap-3">
           <Button type="submit" disabled={paise === null}>
             Save opening cash

@@ -49,7 +49,7 @@ export function SignUp() {
         <Field label="Username" name="username" autoComplete="username" required value={form.username} onChange={set("username")} error={errors.username} hint="You can sign in with this or your email." />
         <Field label="Password" name="password" type="password" autoComplete="new-password" required value={form.password} onChange={set("password")} error={errors.password} hint="At least 8 characters." />
         <Field label="Mobile number" name="phone" type="tel" autoComplete="tel" required value={form.phone} onChange={set("phone")} error={errors.phone} />
-        <Field label="GSTIN (optional)" name="taxNumber" value={form.taxNumber} onChange={set("taxNumber")} error={errors.taxNumber} hint="Printed on your GST bills. You can add it later." />
+        <Field label="GSTIN or tax number (optional)" name="taxNumber" value={form.taxNumber} onChange={set("taxNumber")} error={errors.taxNumber} hint="Printed on your bills. You can add it later." />
         <Button type="submit" busy={busy} className="h-[50px] text-base">
           Create account
         </Button>

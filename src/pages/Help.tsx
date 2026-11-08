@@ -27,7 +27,7 @@ const TOPICS: Topic[] = [
           Add your products in <A to="/products">Products</A>, or bring them in from a spreadsheet or the free Browser POS in <A to="/settings/import">Settings → Import &amp; export</A>.
         </li>
         <li>
-          Check your shop details, GST and receipt in <A to="/settings/pos">Settings → Billing &amp; receipt</A>.
+          Check your shop details, tax, currency and receipt in <A to="/settings/pos">Settings → Billing &amp; receipt</A>.
         </li>
         <li>
           Add your team in <A to="/staff">Staff</A>. Each person gets an email to set their password.

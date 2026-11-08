@@ -39,7 +39,7 @@ function ReturnDialog({ order, methods, onDone, onClose }: { order: Order; metho
     <Modal title={`Return items · ${order.invoiceNumber}`} onClose={onClose} wide>
       <div className="flex flex-col gap-4">
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <p className="m-0 text-sm text-muted">Returned items go back into stock. A GST credit note is issued for the refund.</p>
+        <p className="m-0 text-sm text-muted">Returned items go back into stock. A credit note is issued for the refund.</p>
         <div className="flex flex-col gap-2">
           {items.map(({ i, left, q }) => (
             <div key={i.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2">

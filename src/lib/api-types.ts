@@ -1563,6 +1563,14 @@ export interface paths {
                         creditDays?: number;
                         upiId?: "" | string;
                         printUpiQrOnReceipt?: boolean;
+                        /** @enum {string} */
+                        taxMode?: "INDIA_GST" | "CUSTOM";
+                        taxLabel?: string;
+                        taxNumberLabel?: string;
+                        itemCodeLabel?: string;
+                        invoiceTitle?: string;
+                        currency?: string;
+                        timezone?: string;
                         logoDataUrl?: string | null;
                     };
                 };
@@ -1575,6 +1583,216 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Settings"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/tax-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tax groups (custom tax mode); products counts the ones that use each */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            groups: components["schemas"]["TaxGroup"][];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add a tax group (owner); the first one is the default */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        taxes: {
+                            name: string;
+                            rateBp: number;
+                        }[];
+                        isDefault?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            group: components["schemas"]["TaxGroup"];
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tax-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a tax group (owner); its products use the default group */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit a tax group or make it the default (owner); bills keep their taxes */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        taxes?: {
+                            name: string;
+                            rateBp: number;
+                        }[];
+                        isDefault?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            group: components["schemas"]["TaxGroup"];
+                        };
                     };
                 };
                 /** @description Invalid request */
@@ -2207,6 +2425,8 @@ export interface paths {
                         barcode?: string;
                         hsn?: string;
                         gstRateBp?: number;
+                        /** Format: uuid */
+                        taxGroupId?: string | null;
                         taxInclusive?: boolean;
                         unit?: string;
                         price: number;
@@ -2374,6 +2594,8 @@ export interface paths {
                         barcode?: string;
                         hsn?: string;
                         gstRateBp?: number;
+                        /** Format: uuid */
+                        taxGroupId?: string | null;
                         taxInclusive?: boolean;
                         unit?: string;
                         price?: number;
@@ -3629,6 +3851,60 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SalesReport"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/taxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Custom taxes: collected on sales and paid on supplier bills, by tax and rate, net of returns (?from=&to= ISO instants, ?branchId=) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TaxReport"];
                     };
                 };
                 /** @description Invalid request */
@@ -6052,6 +6328,10 @@ export interface paths {
                             qtyMilli: number;
                             unitCost: number;
                             gstRateBp: number;
+                            taxes?: {
+                                name: string;
+                                rateBp: number;
+                            }[];
                             batchNo?: string;
                             expiry?: string | null;
                         }[];
@@ -9636,6 +9916,12 @@ export interface components {
             logoDataUrl: string | null;
             upiId: string;
             printUpiQrOnReceipt: boolean;
+            /** @enum {string} */
+            taxMode: "INDIA_GST" | "CUSTOM";
+            taxLabel: string;
+            taxNumberLabel: string;
+            itemCodeLabel: string;
+            invoiceTitle: string;
         };
         PaymentMethod: {
             /** Format: uuid */
@@ -9671,6 +9957,8 @@ export interface components {
             barcode: string;
             hsn: string;
             gstRateBp: number;
+            /** Format: uuid */
+            taxGroupId: string | null;
             taxInclusive: boolean;
             unit: string;
             defaultPrice: number;
@@ -9734,6 +10022,13 @@ export interface components {
             placeOfSupply: string | null;
             interState: boolean;
             taxEnabled: boolean;
+            /** @enum {string} */
+            taxMode: "INDIA_GST" | "CUSTOM";
+            taxTotals: {
+                name: string;
+                rateBp: number;
+                amount: number;
+            }[];
             discount: {
                 /** @enum {string} */
                 type: "flat" | "percent";
@@ -9772,6 +10067,11 @@ export interface components {
                 sgst: number;
                 igst: number;
                 total: number;
+                taxes: {
+                    name: string;
+                    rateBp: number;
+                    amount: number;
+                }[];
                 returnedQtyMilli: number;
                 batches: {
                     batchNo: string;
@@ -9797,6 +10097,11 @@ export interface components {
                 cgstTotal: number;
                 sgstTotal: number;
                 igstTotal: number;
+                taxTotals: {
+                    name: string;
+                    rateBp: number;
+                    amount: number;
+                }[];
                 total: number;
                 /** Format: date-time */
                 createdAt: string;
@@ -9889,6 +10194,8 @@ export interface components {
             barcode?: string;
             hsn?: string;
             gstRateBp?: number;
+            /** Format: uuid */
+            taxGroupId?: string | null;
             taxInclusive?: boolean;
             unit?: string;
             price: number;
@@ -9900,6 +10207,18 @@ export interface components {
                 branchId: string;
                 qtyMilli: number;
             }[];
+        };
+        TaxGroup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            taxes: {
+                name: string;
+                rateBp: number;
+            }[];
+            isDefault: boolean;
+            rateBp: number;
+            products: number;
         };
         Batch: {
             /** Format: uuid */
@@ -10166,6 +10485,33 @@ export interface components {
             }[];
             expiringSoon: number;
         };
+        TaxReport: {
+            from: string;
+            to: string;
+            bills: number;
+            taxableSales: number;
+            totalSales: number;
+            byTax: {
+                name: string;
+                rateBp: number;
+                sales: number;
+                returns: number;
+                collected: number;
+                purchases: number;
+                purchaseReturns: number;
+                paid: number;
+                net: number;
+            }[];
+            invoices: {
+                invoiceNumber: string;
+                date: string;
+                customerName: string;
+                customerTaxNumber: string | null;
+                taxable: number;
+                tax: number;
+                total: number;
+            }[];
+        };
         SyncOrder: {
             /** Format: uuid */
             id: string;
@@ -10177,6 +10523,8 @@ export interface components {
             /** Format: uuid */
             customerId?: string | null;
             taxEnabled: boolean;
+            /** @enum {string} */
+            taxMode?: "INDIA_GST" | "CUSTOM";
             discount: {
                 /** @enum {string} */
                 type: "flat" | "percent";
@@ -10191,6 +10539,10 @@ export interface components {
                 unitPrice: number;
                 gstRateBp: number;
                 taxInclusive: boolean;
+                taxes?: {
+                    name: string;
+                    rateBp: number;
+                }[];
                 qtyMilli: number;
                 /** Format: uuid */
                 batchId?: string | null;
@@ -10295,6 +10647,7 @@ export interface components {
                 separator: "dashed" | "solid" | "none";
                 isDefault: boolean;
             }[];
+            taxGroups: components["schemas"]["TaxGroup"][];
         };
         SyncMoneyOp: {
             /** @enum {string} */
@@ -10434,6 +10787,8 @@ export interface components {
             billDate: string;
             dueDate: string | null;
             interState: boolean;
+            /** @enum {string} */
+            taxMode: "INDIA_GST" | "CUSTOM";
             taxableTotal: number;
             cgstTotal: number;
             sgstTotal: number;
@@ -10448,6 +10803,11 @@ export interface components {
             cancelledAt: string | null;
             cancelReason: string;
             createdAt: string;
+            taxTotals: {
+                name: string;
+                rateBp: number;
+                amount: number;
+            }[];
             items: {
                 id: string;
                 productId: string | null;
@@ -10461,6 +10821,11 @@ export interface components {
                 cgst: number;
                 sgst: number;
                 igst: number;
+                taxes: {
+                    name: string;
+                    rateBp: number;
+                    amount: number;
+                }[];
                 total: number;
                 batchNo: string;
                 expiry: string | null;
@@ -10479,6 +10844,11 @@ export interface components {
                 cgstTotal: number;
                 sgstTotal: number;
                 igstTotal: number;
+                taxTotals: {
+                    name: string;
+                    rateBp: number;
+                    amount: number;
+                }[];
                 total: number;
                 items: {
                     id: string;
@@ -10489,6 +10859,11 @@ export interface components {
                     cgst: number;
                     sgst: number;
                     igst: number;
+                    taxes: {
+                        name: string;
+                        rateBp: number;
+                        amount: number;
+                    }[];
                     total: number;
                 }[];
             }[];
@@ -10502,6 +10877,8 @@ export interface components {
             billDate: string;
             dueDate: string | null;
             interState: boolean;
+            /** @enum {string} */
+            taxMode: "INDIA_GST" | "CUSTOM";
             taxableTotal: number;
             cgstTotal: number;
             sgstTotal: number;
@@ -10536,6 +10913,10 @@ export interface components {
                 qtyMilli: number;
                 unitCost: number;
                 gstRateBp: number;
+                taxes?: {
+                    name: string;
+                    rateBp: number;
+                }[];
                 batchNo?: string;
                 expiry?: string | null;
             }[];

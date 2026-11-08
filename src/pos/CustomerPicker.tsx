@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTaxWords } from "../hooks/useSettings";
 import { Alert, Button, Field, Modal } from "../components/ui";
 import { ApiError, apiGet, apiPost, type Customer } from "../lib/api";
 import { errorMessage } from "../lib/format";
@@ -6,6 +7,7 @@ import { errorMessage } from "../lib/format";
 /** Search saved customers or add one, from the counter. */
 /** `local`: no internet — search the counter's saved customers and add new ones to the sync queue. */
 export function CustomerPicker({ onPick, onClose, local }: { onPick: (c: Customer) => void; onClose: () => void; local?: { customers: Customer[]; add: (c: { name: string; phone: string; gstin: string }) => Promise<Customer> } }) {
+  const words = useTaxWords();
   const [q, setQ] = useState("");
   const [remote, setRemote] = useState<Customer[]>([]);
   const [adding, setAdding] = useState(false);
@@ -61,7 +63,7 @@ export function CustomerPicker({ onPick, onClose, local }: { onPick: (c: Custome
           {error ? <Alert tone="error">{error}</Alert> : null}
           <Field label="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} error={errors.name} />
           <Field label="Mobile" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} error={errors.phone} />
-          <Field label="GSTIN (for business customers)" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value })} error={errors.gstin} hint="Their state sets CGST/SGST or IGST." />
+          <Field label={`${words.number} (for business customers)`} value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value })} error={errors.gstin} hint={words.custom ? undefined : "Their state sets CGST/SGST or IGST."} />
           <div className="flex gap-3">
             <Button type="submit" busy={busy} disabled={!form.name.trim()}>
               Save and use
@@ -73,7 +75,7 @@ export function CustomerPicker({ onPick, onClose, local }: { onPick: (c: Custome
         </form>
       ) : (
         <div className="flex flex-col gap-3">
-          <Field label="Search name, mobile or GSTIN" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Field label={`Search name, mobile or ${words.number}`} value={q} onChange={(e) => setQ(e.target.value)} />
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {rows.map((c) => (
               <li key={c.id}>

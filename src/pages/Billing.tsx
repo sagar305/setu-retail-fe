@@ -15,7 +15,8 @@ import { apiDelete, apiGet, apiPost, type Customer, type HeldCart, type OfflineP
 import { rememberBranch } from "../lib/branch";
 import { errorMessage } from "../lib/format";
 import { computeBill, placeOfSupply, type Discount } from "../lib/gst";
-import { bpToPercent, formatMoney, formatQty, parseMoney, parseQty } from "../lib/money";
+import { productTaxes, taxesLabel, taxWordsFor } from "../lib/taxWords";
+import { bpToPercent, currencySign, formatMoney, formatQty, parseMoney, parseQty, setMoneyCurrency } from "../lib/money";
 import { CustomerPicker } from "../pos/CustomerPicker";
 import { Receipt } from "../pos/Receipt";
 import { printReceipt, receiptPaper } from "../pos/print";
@@ -49,6 +50,8 @@ function localOrder(args: { id: string; number: string; createdAt: string; pack:
     cashierName: args.cashierName,
     customer: args.customer ? { id: args.customer.id, name: args.customer.name, phone: args.customer.phone, gstin: args.customer.gstin } : null,
     placeOfSupply: bill.placeOfSupply,
+    taxMode: pack.settings.taxMode,
+    taxTotals: bill.taxTotals,
     interState: bill.interState,
     taxEnabled: pack.settings.taxEnabled,
     discount: args.discount,
@@ -84,6 +87,7 @@ function localOrder(args: { id: string; number: string; createdAt: string; pack:
         cgst: l.cgst,
         sgst: l.sgst,
         igst: l.igst,
+        taxes: l.taxes,
         total: l.total,
         returnedQtyMilli: 0,
         batches: batch ? [{ batchNo: batch.batchNo, expiry: batch.expiry, qtyMilli: l.qtyMilli }] : [],
@@ -186,6 +190,14 @@ export function BillingPage() {
   const templates = useMemo(() => (pack?.settings.tools?.["receipt-designer"] === false ? [] : (pack?.receiptTemplates ?? [])), [pack]);
   const design = templates.find((t) => t.id === designId) ?? designFor(templates, pack?.branch.receiptTemplateId);
   const settings = pack?.settings;
+  // Offline there may be no settings load: the pack sets the currency.
+  useEffect(() => setMoneyCurrency(pack?.settings.business.currency), [pack]);
+  const words = taxWordsFor(settings);
+  /** "GST 5%", or the product's custom taxes: "VAT 5% + Tourism fee 2%". */
+  const rateText = (p: Product) => {
+    const taxes = productTaxes(settings?.taxMode, p.taxGroupId, pack?.taxGroups);
+    return taxes ? taxesLabel(taxes) : `${words.tax} ${bpToPercent(p.gstRateBp)}%`;
+  };
   // Udhaar only while the owner has the Customer Ledger switched on.
   const methods = (pack?.methods ?? []).filter((m) => m.kind !== "CREDIT" || settings?.tools?.["customer-ledger"] !== false);
   const products = useMemo(() => (pack?.products ?? []).map((p) => (pendingQty.has(p.id) && p.trackStock ? { ...p, stockMilli: p.stockMilli - pendingQty.get(p.id)! } : p)), [pack, pendingQty]);
@@ -200,12 +212,14 @@ export function BillingPage() {
 
   const bill = useMemo(() => {
     const priced = lines.filter((l) => byId.has(l.productId));
-    const pos = placeOfSupply(settings?.taxEnabled ? (pack?.branch.stateCode ?? null) : null, settings?.taxEnabled ? (customer?.stateCode ?? null) : null);
+    // Place of supply and CGST/SGST/IGST are India GST only.
+    const gst = Boolean(settings?.taxEnabled) && settings?.taxMode !== "CUSTOM";
+    const pos = placeOfSupply(gst ? (pack?.branch.stateCode ?? null) : null, gst ? (customer?.stateCode ?? null) : null);
     return {
       ...computeBill(
         priced.map((l) => {
           const p = byId.get(l.productId)!;
-          return { unitPrice: p.price, qtyMilli: l.qtyMilli, gstRateBp: p.gstRateBp, taxInclusive: p.taxInclusive };
+          return { unitPrice: p.price, qtyMilli: l.qtyMilli, gstRateBp: p.gstRateBp, taxInclusive: p.taxInclusive, taxes: productTaxes(settings?.taxMode, p.taxGroupId, pack?.taxGroups) };
         }),
         discount,
         { taxEnabled: Boolean(settings?.taxEnabled), interState: pos.interState },
@@ -330,8 +344,12 @@ export function BillingPage() {
           createdAt,
           customerId: customer?.id ?? null,
           taxEnabled: Boolean(settings?.taxEnabled),
+          taxMode: settings?.taxMode ?? "INDIA_GST",
           discount,
-          lines: priced.map((l) => ({ productId: l.product.id, name: l.product.name, hsn: l.product.hsn, unit: l.product.unit, unitPrice: l.product.price, gstRateBp: l.product.gstRateBp, taxInclusive: l.product.taxInclusive, qtyMilli: l.qtyMilli, batchId: l.batchId ?? null })),
+          lines: priced.map((l) => {
+            const taxes = productTaxes(settings?.taxMode, l.product.taxGroupId, pack.taxGroups);
+            return { productId: l.product.id, name: l.product.name, hsn: l.product.hsn, unit: l.product.unit, unitPrice: l.product.price, gstRateBp: l.product.gstRateBp, taxInclusive: l.product.taxInclusive, ...(taxes ? { taxes } : {}), qtyMilli: l.qtyMilli, batchId: l.batchId ?? null };
+          }),
           payments,
           total: bill.total,
         },
@@ -459,7 +477,7 @@ export function BillingPage() {
                   className="flex min-h-[116px] flex-col gap-1.5 rounded-xl border border-line bg-white p-3.5 text-left text-ink hover:border-indigo disabled:opacity-50"
                 >
                   <span className="text-sm leading-tight font-semibold">{p.name}</span>
-                  {settings.taxEnabled ? <span className="text-xs text-muted">GST {bpToPercent(p.gstRateBp)}%{p.hsn ? ` · HSN ${p.hsn}` : ""}</span> : null}
+                  {settings.taxEnabled ? <span className="text-xs text-muted">{rateText(p)}{p.hsn && words.code ? ` · ${words.code} ${p.hsn}` : ""}</span> : null}
                   {settings.batchTracking && p.nextExpiry ? <ExpiryHint day={p.nextExpiry} timeZone={settings.business.timezone} /> : null}
                   <span className="mt-auto flex w-full items-baseline justify-between gap-2">
                     <span className="font-bold text-indigo">{formatMoney(p.price)}</span>
@@ -493,7 +511,7 @@ export function BillingPage() {
               {customer ? (
                 <>
                   <strong>{customer.name}</strong>
-                  {customer.gstin ? ` · GSTIN ${customer.gstin}` : customer.phone ? ` · ${customer.phone}` : ""} <span className="text-indigo underline">change</span>
+                  {customer.gstin ? ` · ${words.number} ${customer.gstin}` : customer.phone ? ` · ${customer.phone}` : ""} <span className="text-indigo underline">change</span>
                 </>
               ) : (
                 "Customer: Walk-in · tap to add"
@@ -515,7 +533,7 @@ export function BillingPage() {
                     <span className="flex flex-col text-xs text-muted">
                       <span>
                         {formatMoney(p.price)}/{p.unit}
-                        {settings.taxEnabled ? ` · GST ${bpToPercent(p.gstRateBp)}%` : ""}
+                        {settings.taxEnabled ? ` · ${rateText(p)}` : ""}
                       </span>
                       {settings.batchTracking && p.trackStock ? (
                         <button type="button" onClick={() => setPickBatchFor(p.id)} className="min-h-7 self-start text-indigo underline">
@@ -550,7 +568,9 @@ export function BillingPage() {
             {settings.taxEnabled ? (
               <>
                 <Line a="Taxable value" b={formatMoney(bill.taxableTotal)} />
-                {bill.interState ? (
+                {words.custom ? (
+                  bill.taxTotals.map((x) => <Line key={`${x.name}${x.rateBp}`} a={`${x.name} ${bpToPercent(x.rateBp)}%`} b={formatMoney(x.amount)} />)
+                ) : bill.interState ? (
                   <Line a="IGST" b={formatMoney(bill.igstTotal)} />
                 ) : (
                   <>
@@ -561,7 +581,7 @@ export function BillingPage() {
               </>
             ) : null}
             <div className="mt-1 flex items-baseline justify-between border-t border-line pt-2">
-              <span className="text-[15px] font-semibold">Total{settings.taxEnabled ? " (incl. GST)" : ""}</span>
+              <span className="text-[15px] font-semibold">Total{settings.taxEnabled ? ` (incl. ${words.tax})` : ""}</span>
               <span className="text-2xl font-bold text-indigo">{formatMoney(bill.total)}</span>
             </div>
           </div>
@@ -711,8 +731,10 @@ export function BillingPage() {
                     const id = crypto.randomUUID();
                     const createdAt = new Date().toISOString();
                     const g = form.gstin.trim().toUpperCase().replace(/\s/g, "");
-                    await queueCustomer({ id, counterId: setup.counterId, createdAt, payload: { id, name: form.name.trim(), phone: form.phone.trim(), gstin: g || undefined, stateCode: g ? g.slice(0, 2) : undefined } });
-                    const c: Customer = { id, name: form.name.trim(), phone: form.phone.replace(/\D/g, "").slice(-10), email: "", address: "", gstin: g || null, stateCode: g ? g.slice(0, 2) : null, notes: "", creditDays: null, createdAt };
+                    // A GSTIN starts with the GST state code; other tax numbers carry no state.
+                    const st = g && !words.custom ? g.slice(0, 2) : null;
+                    await queueCustomer({ id, counterId: setup.counterId, createdAt, payload: { id, name: form.name.trim(), phone: form.phone.trim(), gstin: g || undefined, stateCode: st ?? undefined } });
+                    const c: Customer = { id, name: form.name.trim(), phone: form.phone.replace(/\D/g, "").slice(-10), email: "", address: "", gstin: g || null, stateCode: st, notes: "", creditDays: null, createdAt };
                     setQueuedCustomers((q) => [c, ...q]);
                     return c;
                   },
@@ -826,17 +848,17 @@ function DiscountDialog({ current, maxBp, onSave, onClose }: { current: Discount
         <div role="group" aria-label="Discount type" className="grid grid-cols-2 gap-2">
           {(["flat", "percent"] as const).map((t) => (
             <button key={t} type="button" aria-pressed={type === t} onClick={() => setType(t)} className={`min-h-11 rounded-[10px] ${type === t ? "border-2 border-indigo bg-indigo-50 font-semibold text-indigo" : "border border-line"}`}>
-              {t === "flat" ? "Amount (₹)" : "Percent (%)"}
+              {t === "flat" ? `Amount (${currencySign()})` : "Percent (%)"}
             </button>
           ))}
         </div>
         <Field
-          label={type === "flat" ? "Discount in ₹" : "Discount in %"}
+          label={type === "flat" ? `Discount in ${currencySign()}` : "Discount in %"}
           inputMode="decimal"
           value={text}
           onChange={(e) => setText(e.target.value)}
           error={invalid ? "Enter a number." : over ? `Cashiers can give up to ${bpToPercent(maxBp!)}%.` : undefined}
-          hint={maxBp !== null ? `You can give up to ${bpToPercent(maxBp)}%.` : "Applied before GST, shared across the items."}
+          hint={maxBp !== null ? `You can give up to ${bpToPercent(maxBp)}%.` : "Applied before tax, shared across the items."}
         />
         <div className="flex gap-3">
           {/* parseMoney gives hundredths: ₹ → paise, % → basis points. */}

@@ -30,7 +30,7 @@ function rangeDays(r: Range, today: string): { from: string; to: string } {
 const periodLabel = (p: string, monthly: boolean) =>
   new Date(`${monthly ? `${p}-01` : p}T12:00:00Z`).toLocaleDateString("en-IN", monthly ? { month: "short", year: "numeric", timeZone: "UTC" } : { day: "numeric", month: "short", timeZone: "UTC" });
 
-/** Profit Dashboard: net sales before GST − cost of goods sold − expenses. */
+/** Profit Dashboard: net sales before tax − cost of goods sold − expenses. */
 export function ProfitPage() {
   const me = useMe();
   const today = shopDay(new Date(), me.account.timezone);
@@ -51,12 +51,12 @@ export function ProfitPage() {
     <div className="w-full">
       <PageHeader
         title="Profit Dashboard"
-        description="Net sales before GST, after returns, minus what the goods cost and minus expenses."
+        description="Net sales before tax, after returns, minus what the goods cost and minus expenses."
         actions={
           <Button
             variant="secondary"
             disabled={!r?.byPeriod.length}
-            onClick={() => downloadCsv(`Profit_${from}_${to}.csv`, toCsv([monthly ? "Month" : "Day", "Net sales (before GST)", "Cost of goods", "Gross profit", "Expenses", "Net profit"], (r?.byPeriod ?? []).map((p) => [p.period, (p.revenue / 100).toFixed(2), (p.cost / 100).toFixed(2), (p.grossProfit / 100).toFixed(2), (p.expenses / 100).toFixed(2), (p.netProfit / 100).toFixed(2)])))}
+            onClick={() => downloadCsv(`Profit_${from}_${to}.csv`, toCsv([monthly ? "Month" : "Day", "Net sales (before tax)", "Cost of goods", "Gross profit", "Expenses", "Net profit"], (r?.byPeriod ?? []).map((p) => [p.period, (p.revenue / 100).toFixed(2), (p.cost / 100).toFixed(2), (p.grossProfit / 100).toFixed(2), (p.expenses / 100).toFixed(2), (p.netProfit / 100).toFixed(2)])))}
           >
             Export CSV
           </Button>
@@ -86,7 +86,7 @@ export function ProfitPage() {
         </Alert>
       ) : null}
       <div className="my-4 flex flex-wrap gap-3">
-        <Stat label="Net sales (before GST)" value={formatMoney(r?.revenue ?? 0)} />
+        <Stat label="Net sales (before tax)" value={formatMoney(r?.revenue ?? 0)} />
         <Stat label="Cost of goods sold" value={formatMoney(r?.cost ?? 0)} />
         <Stat label={`Gross profit${r?.grossMarginBp !== null && r?.grossMarginBp !== undefined ? ` · ${bpToPercent(r.grossMarginBp)}%` : ""}`} value={formatMoney(r?.grossProfit ?? 0)} />
         <Stat label="Expenses" value={formatMoney(r?.expenses ?? 0)} />

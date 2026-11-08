@@ -1,13 +1,14 @@
 import type { Order, ReceiptTemplate, Settings } from "../lib/api";
 import { stateLabel } from "../lib/gstStates";
-import { amountInWords, bpToPercent, formatMoney, formatQty } from "../lib/money";
+import { amountInWords, bpToPercent, formatAmount, formatMoney, formatQty } from "../lib/money";
+import { taxesLabel, taxWordsFor } from "../lib/taxWords";
 import { receiptUpi } from "../lib/payments";
 import { useQrDataUrl } from "../hooks/useQrDataUrl";
 
 type Paper = Settings["receiptPaperSize"];
 const WIDTH: Record<Paper, string> = { "80mm": "w-[80mm]", "58mm": "w-[58mm]", a4: "w-[190mm]" };
 
-const money = (p: number) => (p / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 
 function gstSummary(order: Order) {
   const byRate = new Map<number, { taxable: number; cgst: number; sgst: number; igst: number }>();
@@ -25,7 +26,7 @@ function gstSummary(order: Order) {
 /** What a receipt design changes; no design = the classic receipt. */
 type Look = Pick<ReceiptTemplate, "paperSize" | "accentColor" | "headerText" | "footerText" | "showLogo" | "showBusinessInfo" | "showGstin" | "showHsn" | "showGstSummary" | "showAmountWords" | "boldTotals" | "separator">;
 
-/** A GST tax invoice for printing (thermal 80/58 mm or A4). Monospace, black on white. */
+/** A tax invoice for printing (thermal 80/58 mm or A4), in the shop's tax words and currency. Monospace, black on white. */
 export function Receipt({ order, settings, creditNoteId, template, upiQr }: { order: Order; settings: Settings; creditNoteId?: string; template?: Look | null; upiQr?: boolean }) {
   const t: Look = template ?? { paperSize: settings.receiptPaperSize, accentColor: "#000000", headerText: "", footerText: "", showLogo: false, showBusinessInfo: true, showGstin: true, showHsn: true, showGstSummary: true, showAmountWords: true, boldTotals: true, separator: "dashed" };
   const paper = t.paperSize;
@@ -33,7 +34,13 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
   const footer = t.footerText || settings.receiptFooter;
   const cn = creditNoteId ? order.creditNotes.find((c) => c.id === creditNoteId) : undefined;
   const gstin = order.branch.gstin ?? settings.business.taxNumber;
-  const title = cn ? "CREDIT NOTE" : order.taxEnabled ? "TAX INVOICE" : "INVOICE";
+  const words = taxWordsFor(settings);
+  const currency = settings.business.currency;
+  const money = (p: number) => formatAmount(p, currency);
+  // The bill's own mode: a bill keeps its taxes even if the shop changed mode later.
+  const custom = order.taxMode === "CUSTOM";
+  const code = words.code;
+  const title = cn ? "CREDIT NOTE" : order.taxEnabled ? words.title.toUpperCase() : "INVOICE";
   const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: settings.business.timezone }).format(new Date(cn?.createdAt ?? order.createdAt));
   const lines = cn
     ? cn.items.map((ci) => {
@@ -62,7 +69,7 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
             {order.branch.phone || settings.business.phone ? <span>Ph {order.branch.phone || settings.business.phone}</span> : null}
           </>
         ) : null}
-        {order.taxEnabled && gstin && t.showGstin ? <span>GSTIN {gstin}</span> : null}
+        {order.taxEnabled && gstin && t.showGstin ? <span>{words.number} {gstin}</span> : null}
         <strong className="mt-1" style={{ color: t.accentColor }}>
           {title}
         </strong>
@@ -72,12 +79,12 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
       {cn ? <Row a="Against bill" b={order.invoiceNumber} /> : null}
       <Row a="Date" b={date} />
       <Row a="Cashier" b={order.cashierName ?? "—"} />
-      {order.taxEnabled && order.placeOfSupply ? <Row a="Place of supply" b={stateLabel(order.placeOfSupply)} /> : null}
+      {order.taxEnabled && !custom && order.placeOfSupply ? <Row a="Place of supply" b={stateLabel(order.placeOfSupply)} /> : null}
       <Row a="Customer" b={order.customer?.name ?? "Walk-in"} />
-      {order.customer?.gstin ? <Row a="Customer GSTIN" b={order.customer.gstin} /> : null}
+      {order.customer?.gstin ? <Row a={`Customer ${words.number}`} b={order.customer.gstin} /> : null}
       <hr className={sep} />
       <div className="flex font-bold">
-        <span className="flex-1">Item{order.taxEnabled && t.showHsn ? " / HSN" : ""}</span>
+        <span className="flex-1">Item{order.taxEnabled && t.showHsn && code ? ` / ${code}` : ""}</span>
         <span className="w-10 text-right">Qty</span>
         <span className="w-[4.5rem] text-right">Amount</span>
       </div>
@@ -89,8 +96,8 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
             <span className="w-[4.5rem] text-right">{money(i.total)}</span>
           </div>
           <span className="text-[#333]">
-            {order.taxEnabled && i.hsn && t.showHsn ? `HSN ${i.hsn} · ` : ""}@{money(i.unitPrice)}/{i.unit}
-            {order.taxEnabled ? ` · GST ${bpToPercent(i.gstRateBp)}%` : ""}
+            {order.taxEnabled && i.hsn && t.showHsn && code ? `${code} ${i.hsn} · ` : ""}@{money(i.unitPrice)}/{i.unit}
+            {order.taxEnabled && (!custom || i.gstRateBp > 0) ? ` · ${custom && i.taxes.length ? taxesLabel(i.taxes) : `${words.tax} ${bpToPercent(i.gstRateBp)}%`}` : ""}
           </span>
           {/* Only batches with real details (not the catch-all opening stock). */}
           {"batches" in i && i.batches.some((b) => b.batchNo || b.expiry) ? (
@@ -110,10 +117,18 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
           <Row a="Discount" b={`−${money(order.discountTotal)}`} />
         </>
       ) : null}
-      {order.taxEnabled && !cn && t.showGstSummary ? (
+      {order.taxEnabled && !cn && t.showGstSummary && custom ? (
+        <div className="flex flex-col">
+          <Row a="Taxable value" b={money(order.taxableTotal)} />
+          {order.taxTotals.map((x) => (
+            <Row key={`${x.name}${x.rateBp}`} a={`${x.name} ${bpToPercent(x.rateBp)}%`} b={money(x.amount)} />
+          ))}
+        </div>
+      ) : null}
+      {order.taxEnabled && !cn && t.showGstSummary && !custom ? (
         <div className="flex flex-col">
           <div className="flex font-bold">
-            <span className="flex-1">GST</span>
+            <span className="flex-1">{words.tax}</span>
             <span className="w-[4.2rem] text-right">Taxable</span>
             {igst ? <span className="w-[3.6rem] text-right">IGST</span> : (
               <>
@@ -136,7 +151,15 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
           ))}
         </div>
       ) : null}
-      {cn && order.taxEnabled ? (
+      {cn && order.taxEnabled && custom ? (
+        <>
+          <Row a="Taxable" b={money(cn.taxableTotal)} />
+          {cn.taxTotals.map((x) => (
+            <Row key={`${x.name}${x.rateBp}`} a={`${x.name} ${bpToPercent(x.rateBp)}%`} b={money(x.amount)} />
+          ))}
+        </>
+      ) : null}
+      {cn && order.taxEnabled && !custom ? (
         <>
           <Row a="Taxable" b={money(cn.taxableTotal)} />
           {igst ? <Row a="IGST" b={money(cn.igstTotal)} /> : (
@@ -153,8 +176,8 @@ export function Receipt({ order, settings, creditNoteId, template, upiQr }: { or
         <span>{formatMoney(cn?.total ?? order.total, settings.business.currency)}</span>
       </div>
       {cn ? <Row a="Refunded by" b={cn.refundMethodName} /> : order.payments.map((p, i) => <Row key={i} a={p.methodName} b={money(p.amount)} />)}
-      {t.showAmountWords ? <span className="block">{amountInWords(cn?.total ?? order.total)}</span> : null}
-      {order.taxEnabled && !cn ? <span className="block text-[#333]">Amounts are in ₹, exact to the paisa.</span> : null}
+      {t.showAmountWords ? <span className="block">{amountInWords(cn?.total ?? order.total, currency)}</span> : null}
+      {order.taxEnabled && !cn && currency === "INR" ? <span className="block text-[#333]">Amounts are in ₹, exact to the paisa.</span> : null}
       {qr ? (
         <div className="mt-2 flex flex-col items-center text-center">
           <img src={qr} alt={`UPI QR to pay ${money(upi.amount)}`} className={small ? "size-[30mm]" : "size-[36mm]"} />

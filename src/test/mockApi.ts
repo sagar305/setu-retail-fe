@@ -77,6 +77,7 @@ const product = (id: string, name: string, price: number, gstRateBp: number, sto
   barcode: id.endsWith("1") ? "8901234567890" : "",
   hsn: "1101",
   gstRateBp,
+  taxGroupId: null as string | null,
   taxInclusive: true,
   unit: "pcs",
   defaultPrice: price,
@@ -106,12 +107,17 @@ export const SETTINGS = {
   tools: {} as Record<string, boolean>,
   creditDays: 0,
   logoDataUrl: null as string | null,
+  taxMode: "INDIA_GST" as "INDIA_GST" | "CUSTOM",
+  taxLabel: "GST",
+  taxNumberLabel: "GSTIN",
+  itemCodeLabel: "HSN",
+  invoiceTitle: "TAX INVOICE",
   upiId: "",
   printUpiQrOnReceipt: false,
 };
 
 /** The endpoints the billing screen loads. */
-export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; nextInvoiceNumber?: number } = {}): Record<string, Reply> {
+export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; nextInvoiceNumber?: number; taxGroups?: unknown[] } = {}): Record<string, Reply> {
   return {
     "GET /settings": [200, { ...SETTINGS, ...over.settings }],
     "GET /payment-methods": [200, { methods }],
@@ -127,7 +133,7 @@ export function posRoutes(over: { products?: unknown[]; settings?: Partial<typeo
 export const COUNTER = COUNTER_ID;
 
 /** What GET /sync/pack returns for the default shop. */
-export function makePack(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; users?: unknown[]; customers?: unknown[]; nextInvoiceNumber?: number; expired?: boolean } = {}) {
+export function makePack(over: { products?: unknown[]; settings?: Partial<typeof SETTINGS>; users?: unknown[]; customers?: unknown[]; nextInvoiceNumber?: number; expired?: boolean; taxGroups?: unknown[] } = {}) {
   return {
     at: "2026-11-04T09:00:00.000Z",
     settings: { ...SETTINGS, ...over.settings },
@@ -145,5 +151,6 @@ export function makePack(over: { products?: unknown[]; settings?: Partial<typeof
     suppliers: [] as { id: string; name: string; phone: string; balance: number }[],
     expenseCategories: ["Rent", "Salaries", "Electricity", "Other"],
     receiptTemplates: [] as unknown[],
+    taxGroups: over.taxGroups ?? [],
   };
 }
