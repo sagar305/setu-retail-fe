@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { Alert, Button, Field } from "../../components/ui";
-import { ApiError, authApi } from "../../lib/api";
+import { ApiError, authApi, lastRefreshProblem } from "../../lib/api";
 import { errorMessage } from "../../lib/format";
 import { AuthLayout } from "./AuthLayout";
 
@@ -31,9 +31,11 @@ export function SignIn() {
 
   const code = error instanceof ApiError ? error.code : null;
 
+  const problem = lastRefreshProblem();
   return (
     <AuthLayout title="Sign in" subtitle="Use your email or username.">
       <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
+        {problem && !error ? <Alert tone="warn">{problem}</Alert> : null}
         {error ? (
           <Alert tone="error">
             {errorMessage(error)}

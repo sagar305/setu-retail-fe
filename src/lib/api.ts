@@ -75,14 +75,28 @@ async function raw<T>(method: string, path: string, body?: unknown, signal?: Abo
 }
 
 /** One refresh at a time; null when there's no valid session. */
+/**
+ * Why the last refresh couldn't keep the user signed in, when it's a setup
+ * problem rather than a normal sign-out (shown on the sign-in page).
+ */
+let refreshProblem: string | null = null;
+export const lastRefreshProblem = () => refreshProblem;
+
 export function refreshSession(): Promise<Session | null> {
   refreshing ??= raw<Session>("POST", "/auth/refresh")
     .then((s) => {
       setAccessToken(s.accessToken);
+      refreshProblem = null;
       return s;
     })
     .catch((err: unknown) => {
       setAccessToken(null);
+      // The API refuses this app's address (its CORS_ORIGINS doesn't list it):
+      // sign-in works but every page refresh signs out. Say so instead of failing silently.
+      refreshProblem =
+        err instanceof ApiError && err.code === "bad_origin"
+          ? `You were signed out because the server doesn't accept this address (${window.location.origin}). Setu: add it to CORS_ORIGINS and APP_URL on the API, then redeploy.`
+          : null;
       if (err instanceof ApiError && (err.status === 401 || err.status === 403 || err.status === 402)) return null;
       throw err;
     })
