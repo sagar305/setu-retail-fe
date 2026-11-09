@@ -15,6 +15,12 @@ function checkApiUrl(mode: string, command: string) {
   if (!url) throw new Error("VITE_API_URL is not set. In Vercel set it to /api (Settings → Environment Variables), then redeploy.");
   const ok = /^\/[a-z0-9-]+$/.test(url) || /^https:\/\/[^/]+\/?$/.test(url) || /^http:\/\/localhost(:\d+)?$/.test(url);
   if (!ok) throw new Error(`VITE_API_URL "${url}" should be /api or an https:// address with no path.`);
+  // Browsers treat every *.vercel.app address as its own site: the sign-in
+  // cookie set by the API's address is never sent from the app's, so sign-in
+  // works but every page refresh signs out. Go through the app's /api instead.
+  if (/^https:\/\/[^/]+\.(vercel\.app|netlify\.app|onrender\.com|pages\.dev)\/?$/i.test(url)) {
+    throw new Error(`VITE_API_URL "${url}" is a different site from the app, so the browser won't send the sign-in cookie and every refresh signs out. Set VITE_API_URL to /api (the vercel.json pass-through), then redeploy.`);
+  }
 }
 
 export default defineConfig(({ mode, command }) => (checkApiUrl(mode, command), {
