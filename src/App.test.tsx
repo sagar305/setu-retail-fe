@@ -23,6 +23,20 @@ function renderAt(path: string) {
 }
 
 describe("signing in", () => {
+  it("says why when the server refuses this address, instead of a silent sign-out on refresh", async () => {
+    mockApi({ "POST /auth/refresh": [403, { error: { code: "bad_origin", message: "Request origin not allowed." } }] });
+    renderAt("/dashboard");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByText(/the server doesn't accept this address \(http:\/\/localhost:3000\)\. Setu: add it to CORS_ORIGINS/)).toBeInTheDocument();
+  });
+
+  it("a normal sign-out shows no such message", async () => {
+    mockApi({ "POST /auth/refresh": NOT_SIGNED_IN });
+    renderAt("/dashboard");
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByText(/CORS_ORIGINS/)).toBeNull();
+  });
+
   it("sends a signed-out visitor to sign in, then to where they were going", async () => {
     const me = makeMe();
     const api = mockApi({ "POST /auth/refresh": NOT_SIGNED_IN, "POST /auth/login": session(me) });
