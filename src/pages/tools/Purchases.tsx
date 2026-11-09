@@ -6,25 +6,28 @@ import { BranchSelect } from "../../components/BranchSelect";
 import { useBranchChoice } from "../../hooks/useBranchChoice";
 import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../../components/ui";
-import { useSettings } from "../../hooks/useSettings";
+import { useSettings, useTaxWords } from "../../hooks/useSettings";
 import { newUuid, saveChange } from "../../lib/changes";
 import { ApiError, apiGet, type Product, type Purchase, type PurchaseSummary, type Supplier } from "../../lib/api";
+import { productTaxes, taxesLabel, taxWordsFor } from "../../lib/taxWords";
+import { useTaxGroups } from "../../hooks/useTaxGroups";
 import { computePurchase } from "../../lib/books";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage, formatDate } from "../../lib/format";
 import { stateLabel } from "../../lib/gstStates";
-import { bpToPercent, formatMoney, formatQty, parseMoney, parseQty } from "../../lib/money";
+import { bpToPercent, currencySign, formatMoney, formatQty, parseMoney, parseQty } from "../../lib/money";
 import { shopDay } from "../../lib/ranges";
 import { useMoneyMethods } from "../../hooks/useMoneyMethods";
 import { SupplierForm } from "./Suppliers";
 
 const RATES = [0, 500, 1200, 1800, 2800];
 
-type Line = { key: string; productId: string | null; name: string; qty: string; cost: string; rateBp: number; batchNo: string; expiry: string };
-const blankLine = (): Line => ({ key: crypto.randomUUID(), productId: null, name: "", qty: "1", cost: "", rateBp: 0, batchNo: "", expiry: "" });
+type Line = { key: string; productId: string | null; name: string; qty: string; cost: string; rateBp: number; groupId: string; batchNo: string; expiry: string };
+const blankLine = (): Line => ({ key: crypto.randomUUID(), productId: null, name: "", qty: "1", cost: "", rateBp: 0, groupId: "", batchNo: "", expiry: "" });
 
 /** Purchase Register: supplier bills. */
 export function PurchasesPage() {
+  const words = useTaxWords();
   const me = useMe();
   const tz = me.account.timezone;
   const [q, setQ] = useState("");
@@ -43,10 +46,10 @@ export function PurchasesPage() {
     <div className="w-full">
       <PageHeader
         title="Purchase Register"
-        description="Supplier bills: stock goes up, cost prices update and input GST is recorded."
+        description={`Supplier bills: stock goes up, cost prices update and input ${words.tax} is recorded.`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={!data?.purchases.length} onClick={() => downloadCsv("Purchases.csv", toCsv(["Bill date", "Supplier", "Bill no.", "Taxable", "CGST", "SGST", "IGST", "Total", "Paid", "Returned", "Status"], (data?.purchases ?? []).map((p) => [p.billDate, p.supplierName, p.billNumber, (p.taxableTotal / 100).toFixed(2), (p.cgstTotal / 100).toFixed(2), (p.sgstTotal / 100).toFixed(2), (p.igstTotal / 100).toFixed(2), (p.total / 100).toFixed(2), (p.paidAmount / 100).toFixed(2), (p.returnedTotal / 100).toFixed(2), p.cancelledAt ? "Cancelled" : ""])))}>
+            <Button variant="secondary" disabled={!data?.purchases.length} onClick={() => downloadCsv("Purchases.csv", toCsv(["Bill date", "Supplier", "Bill no.", "Taxable", "CGST", "SGST", "IGST", words.tax, "Total", "Paid", "Returned", "Status"], (data?.purchases ?? []).map((p) => [p.billDate, p.supplierName, p.billNumber, (p.taxableTotal / 100).toFixed(2), (p.cgstTotal / 100).toFixed(2), (p.sgstTotal / 100).toFixed(2), (p.igstTotal / 100).toFixed(2), ((p.total - p.taxableTotal) / 100).toFixed(2), (p.total / 100).toFixed(2), (p.paidAmount / 100).toFixed(2), (p.returnedTotal / 100).toFixed(2), p.cancelledAt ? "Cancelled" : ""])))}>
               Export CSV
             </Button>
             <Link to="/tools/purchases/new" className="inline-flex min-h-11 items-center rounded-[10px] bg-indigo px-4 text-sm font-semibold text-white no-underline">
@@ -58,8 +61,8 @@ export function PurchasesPage() {
       {error ? <Alert tone="error">{error}</Alert> : null}
       <div className="mb-4 flex flex-wrap gap-3">
         <Stat label="Bills" value={data?.totals.bills ?? 0} />
-        <Stat label="Bought (incl. GST)" value={formatMoney(data?.totals.total ?? 0)} />
-        <Stat label="Input GST" value={formatMoney(data?.totals.inputGst ?? 0)} />
+        <Stat label={`Bought (incl. ${words.tax})`} value={formatMoney(data?.totals.total ?? 0)} />
+        <Stat label={`Input ${words.tax}`} value={formatMoney(data?.totals.inputGst ?? 0)} />
       </div>
       <label htmlFor="pu-q" className="sr-only">
         Search bills
@@ -68,7 +71,7 @@ export function PurchasesPage() {
       <DataTable
         minW={720}
         left={3}
-        head={["Bill date", "Supplier", "Bill no.", "Input GST", "Total", "Paid"]}
+        head={["Bill date", "Supplier", "Bill no.", `Input ${words.tax}`, "Total", "Paid"]}
         empty={data ? "No supplier bills yet." : "Loading…"}
         rows={(data?.purchases ?? []).map((p) => ({
           key: p.id,
@@ -81,7 +84,7 @@ export function PurchasesPage() {
             <span key="b">
               {p.billNumber} {p.imported ? <Badge tone="muted">imported</Badge> : null}
             </span>,
-            formatMoney(p.cgstTotal + p.sgstTotal + p.igstTotal),
+            formatMoney(p.total - p.taxableTotal),
             formatMoney(p.total),
             p.paidAmount >= p.total ? "Paid" : p.paidAmount ? `${formatMoney(p.paidAmount)} paid` : "On credit",
           ],
@@ -115,6 +118,14 @@ export function NewPurchasePage() {
   const [adding, setAdding] = useState(false);
   const id = useMemo(() => crypto.randomUUID(), []);
   const batches = Boolean(settings?.batchTracking);
+  const words = taxWordsFor(settings);
+  const { groups } = useTaxGroups(words.custom);
+  /** Custom taxes: the line's chosen group, else its product's group (or the default). */
+  const lineTaxes = (l: Line) => {
+    if (!words.custom) return undefined;
+    const g = l.groupId ? groups.find((x) => x.id === l.groupId) : undefined;
+    return g ? g.taxes : (productTaxes("CUSTOM", products.find((p) => p.id === l.productId)?.taxGroupId, groups) ?? []);
+  };
 
   useEffect(() => {
     apiGet<{ suppliers: Supplier[] }>("/suppliers").then((r) => setSuppliers(r.suppliers), () => {});
@@ -124,18 +135,18 @@ export function NewPurchasePage() {
   }, [branch]);
   const effectiveMethod = methodId || methods.find((m) => m.kind === "CASH")?.id || methods[0]?.id || "";
   const supplier = suppliers.find((s) => s.id === supplierId);
-  const interState = Boolean(branch?.stateCode && supplier?.stateCode && branch.stateCode !== supplier.stateCode);
+  const interState = !words.custom && Boolean(branch?.stateCode && supplier?.stateCode && branch.stateCode !== supplier.stateCode);
   const byName = useMemo(() => new Map(products.map((p) => [p.name.toLowerCase(), p])), [products]);
 
   const parsed = lines.map((l) => ({ l, qtyMilli: parseQty(l.qty), unitCost: parseMoney(l.cost) }));
   const ready = parsed.filter((p) => p.l.name.trim() && p.qtyMilli && p.qtyMilli > 0 && p.unitCost !== null);
-  const bill = computePurchase(ready.map((p) => ({ qtyMilli: p.qtyMilli!, unitCost: p.unitCost!, gstRateBp: p.l.rateBp })), interState);
+  const bill = computePurchase(ready.map((p) => ({ qtyMilli: p.qtyMilli!, unitCost: p.unitCost!, gstRateBp: p.l.rateBp, taxes: lineTaxes(p.l) })), interState);
   const paidPaise = paidMode === "all" ? bill.total : paidMode === "credit" ? 0 : (parseMoney(paid) ?? 0);
 
   const setLine = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   function pickName(key: string, name: string) {
     const p = byName.get(name.trim().toLowerCase());
-    setLine(key, p ? { name: p.name, productId: p.id, rateBp: p.gstRateBp, cost: p.costPrice ? String(p.costPrice / 100) : "" } : { name, productId: null });
+    setLine(key, p ? { name: p.name, productId: p.id, rateBp: p.gstRateBp, groupId: "", cost: p.costPrice ? String(p.costPrice / 100) : "" } : { name, productId: null });
   }
 
   async function submit(e: FormEvent) {
@@ -152,7 +163,7 @@ export function NewPurchasePage() {
         billNumber: billNumber.trim(),
         billDate,
         dueDate: paidPaise < bill.total && dueDate ? dueDate : null,
-        lines: ready.map((p) => ({ productId: p.l.productId, name: p.l.name.trim(), qtyMilli: p.qtyMilli!, unitCost: p.unitCost!, gstRateBp: p.l.rateBp, batchNo: p.l.batchNo || undefined, expiry: p.l.expiry || null })),
+        lines: ready.map((p) => ({ productId: p.l.productId, name: p.l.name.trim(), qtyMilli: p.qtyMilli!, unitCost: p.unitCost!, gstRateBp: p.l.rateBp, ...(words.custom ? { taxes: lineTaxes(p.l) } : {}), batchNo: p.l.batchNo || undefined, expiry: p.l.expiry || null })),
         paidAmount: paidPaise,
         paidMethodId: paidPaise > 0 ? effectiveMethod : null,
         notes,
@@ -172,7 +183,7 @@ export function NewPurchasePage() {
   const canSave = supplierId && billNumber.trim() && ready.length > 0 && ready.length === lines.filter((l) => l.name.trim()).length && paidPaise <= bill.total && (paidPaise === 0 || effectiveMethod);
   return (
     <form onSubmit={submit} className="flex w-full flex-col gap-5" noValidate>
-      <PageHeader title="Enter a supplier bill" description="Type costs before GST, as printed on the supplier's bill." actions={<BranchSelect value={branch.id} onChange={setBranch} />} />
+      <PageHeader title="Enter a supplier bill" description={`Type costs before ${words.tax}, as printed on the supplier's bill.`} actions={<BranchSelect value={branch.id} onChange={setBranch} />} />
       {error ? <Alert tone="error">{error}</Alert> : null}
       <Card>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -186,7 +197,7 @@ export function NewPurchasePage() {
               ))}
               <option value="+">+ New supplier…</option>
             </SelectField>
-            {supplier ? <span className="text-[13px] text-muted">{supplier.stateCode ? `${stateLabel(supplier.stateCode)} · ${interState ? "IGST" : "CGST + SGST"}` : "No GST state: CGST + SGST"}</span> : null}
+            {supplier && !words.custom ? <span className="text-[13px] text-muted">{supplier.stateCode ? `${stateLabel(supplier.stateCode)} · ${interState ? "IGST" : "CGST + SGST"}` : "No GST state: CGST + SGST"}</span> : null}
           </div>
           <Field label="Bill number" value={billNumber} onChange={(e) => setBillNumber(e.target.value)} />
           <Field label="Bill date" type="date" max={today} value={billDate} onChange={(e) => setBillDate(e.target.value)} />
@@ -210,14 +221,25 @@ export function NewPurchasePage() {
               <div key={l.key} className="flex flex-wrap items-end gap-3 border-b border-cream pb-3">
                 <Field label={`Item ${i + 1}`} list="purchase-products" value={l.name} onChange={(e) => pickName(l.key, e.target.value)} className="min-w-[220px] flex-[3_1_220px]" hint={product ? `In stock: ${formatQty(product.stockMilli)} ${product.unit}` : l.name ? "Not in Products: no stock change" : undefined} />
                 <Field label={`Qty${product ? ` (${product.unit})` : ""}`} inputMode="decimal" value={l.qty} onChange={(e) => setLine(l.key, { qty: e.target.value })} className="w-24" />
-                <Field label="Cost / unit (₹)" inputMode="decimal" value={l.cost} onChange={(e) => setLine(l.key, { cost: e.target.value })} className="w-32" />
-                <SelectField label="GST" value={l.rateBp} onChange={(e) => setLine(l.key, { rateBp: Number(e.target.value) })}>
-                  {[...new Set([...RATES, l.rateBp])].map((r) => (
-                    <option key={r} value={r}>
-                      {bpToPercent(r)}%
-                    </option>
-                  ))}
-                </SelectField>
+                <Field label={`Cost / unit (${currencySign()})`} inputMode="decimal" value={l.cost} onChange={(e) => setLine(l.key, { cost: e.target.value })} className="w-32" />
+                {words.custom ? (
+                  <SelectField label="Tax" value={l.groupId} onChange={(e) => setLine(l.key, { groupId: e.target.value })}>
+                    <option value="">{product ? "Product's group" : "Default group"}: {taxesLabel(productTaxes("CUSTOM", product?.taxGroupId, groups) ?? [])}</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}: {taxesLabel(g.taxes)}
+                      </option>
+                    ))}
+                  </SelectField>
+                ) : (
+                  <SelectField label={words.tax} value={l.rateBp} onChange={(e) => setLine(l.key, { rateBp: Number(e.target.value) })}>
+                    {[...new Set([...RATES, l.rateBp])].map((r) => (
+                      <option key={r} value={r}>
+                        {bpToPercent(r)}%
+                      </option>
+                    ))}
+                  </SelectField>
+                )}
                 {batches && product?.trackStock ? (
                   <>
                     <Field label="Batch no." value={l.batchNo} onChange={(e) => setLine(l.key, { batchNo: e.target.value })} className="w-28" />
@@ -226,7 +248,7 @@ export function NewPurchasePage() {
                 ) : null}
                 <span className="ml-auto flex min-h-12 flex-col items-end justify-center text-sm">
                   <strong>{a ? formatMoney(a.total) : "—"}</strong>
-                  {a && a.cgst + a.sgst + a.igst ? <span className="text-xs text-muted">GST {formatMoney(a.cgst + a.sgst + a.igst)}</span> : null}
+                  {a && a.total - a.taxable ? <span className="text-xs text-muted">{words.tax} {formatMoney(a.total - a.taxable)}</span> : null}
                 </span>
                 {lines.length > 1 ? (
                   <Button variant="ghost" aria-label={`Remove item ${i + 1}`} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>
@@ -258,7 +280,7 @@ export function NewPurchasePage() {
               </button>
             ))}
           </div>
-          {paidMode === "part" ? <Field label="Paid now (₹)" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} error={paidPaise > bill.total ? "More than the bill." : undefined} /> : null}
+          {paidMode === "part" ? <Field label={`Paid now (${currencySign()})`} inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value)} error={paidPaise > bill.total ? "More than the bill." : undefined} /> : null}
           {paidPaise > 0 ? (
             <div role="group" aria-label="Paid by" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {methods.map((m) => (
@@ -274,7 +296,9 @@ export function NewPurchasePage() {
           <dl className="m-0 flex flex-col gap-1.5 text-sm">
             {[
               ["Taxable value", bill.taxableTotal],
-              ...(interState
+              ...(words.custom
+                ? bill.taxTotals.map((x) => [`${x.name} ${bpToPercent(x.rateBp)}%`, x.amount] as const)
+                : interState
                 ? [["IGST", bill.igstTotal] as const]
                 : [
                     ["CGST", bill.cgstTotal] as const,
@@ -381,6 +405,7 @@ function ReturnDialog({ p, onDone, onClose }: { p: Purchase; onDone: (p: Purchas
 }
 
 export function PurchaseDetailPage() {
+  const words = useTaxWords();
   const { id = "" } = useParams();
   const me = useMe();
   const tz = me.account.timezone;
@@ -412,7 +437,7 @@ export function PurchaseDetailPage() {
   }
 
   if (!p) return error ? <Alert tone="error">{error}</Alert> : <p className="text-muted">Loading…</p>;
-  const tax = p.cgstTotal + p.sgstTotal + p.igstTotal;
+  const tax = p.total - p.taxableTotal;
   const canReturn = !p.cancelledAt && p.items.some((i) => i.qtyMilli > i.returnedQtyMilli);
   return (
     <div className="w-full">
@@ -441,26 +466,26 @@ export function PurchaseDetailPage() {
       {p.cancelledAt ? <Alert tone="warn">Cancelled on {formatDate(p.cancelledAt, tz)}: {p.cancelReason}</Alert> : null}
       <div className="my-4 flex flex-wrap gap-3">
         <Stat label="Bill total" value={formatMoney(p.total)} />
-        <Stat label={p.interState ? "IGST" : "CGST + SGST"} value={formatMoney(tax)} />
+        <Stat label={p.taxMode === "CUSTOM" ? p.taxTotals.map((x) => x.name).filter((n, i, a) => a.indexOf(n) === i).join(" + ") || words.tax : p.interState ? "IGST" : "CGST + SGST"} value={formatMoney(tax)} />
         <Stat label="Paid with the bill" value={p.paidAmount ? `${formatMoney(p.paidAmount)} · ${p.paidMethodName}` : "Nothing (credit)"} />
         {p.returnedTotal ? <Stat label="Credit notes" value={formatMoney(p.returnedTotal)} /> : null}
       </div>
       <DataTable
         minW={720}
         left={1}
-        head={["Item", "Qty", "Cost / unit", "GST", "Taxable", "Tax", "Total"]}
+        head={["Item", "Qty", "Cost / unit", words.tax, "Taxable", "Tax", "Total"]}
         rows={p.items.map((i) => ({
           key: i.id,
           cells: [
             <span key="n" className="flex flex-col">
               <strong>{i.name}</strong>
-              <span className="text-xs text-muted">{[i.hsn && `HSN ${i.hsn}`, i.batchNo && `Batch ${i.batchNo}`, i.expiry && `exp ${i.expiry}`, i.returnedQtyMilli && `${formatQty(i.returnedQtyMilli)} returned`, !i.productId && "no stock change"].filter(Boolean).join(" · ")}</span>
+              <span className="text-xs text-muted">{[i.hsn && words.code && `${words.code} ${i.hsn}`, i.batchNo && `Batch ${i.batchNo}`, i.expiry && `exp ${i.expiry}`, i.returnedQtyMilli && `${formatQty(i.returnedQtyMilli)} returned`, !i.productId && "no stock change"].filter(Boolean).join(" · ")}</span>
             </span>,
             `${formatQty(i.qtyMilli)} ${i.unit}`,
             formatMoney(i.unitCost),
-            `${bpToPercent(i.gstRateBp)}%`,
+            i.taxes.length ? taxesLabel(i.taxes) : `${bpToPercent(i.gstRateBp)}%`,
             formatMoney(i.taxable),
-            formatMoney(i.cgst + i.sgst + i.igst),
+            formatMoney(i.total - i.taxable),
             formatMoney(i.total),
           ],
         }))}

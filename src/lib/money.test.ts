@@ -25,3 +25,21 @@ describe("money", () => {
     expect(amountInWords(0)).toBe("Rupees Zero Only");
   });
 });
+
+describe("money in the shop's currency", () => {
+  it("formats and words amounts in other currencies; INR keeps Indian numbering", async () => {
+    const { amountInWords, formatMoney, setMoneyCurrency, parseMoney } = await import("./money");
+    expect(amountInWords(123_456_750, "AED")).toBe("One Million Two Hundred Thirty-Four Thousand Five Hundred Sixty-Seven United Arab Emirates Dirhams and 50/100 Only");
+    expect(amountInWords(10_000, "USD")).toBe("One Hundred US Dollars Only");
+    expect(amountInWords(1_00_00_000_00, "INR")).toBe("Rupees One Crore Only");
+    setMoneyCurrency("AED");
+    try {
+      expect(formatMoney(12_345)).toMatch(/AED\s?123\.45/);
+      expect(parseMoney("AED 12.50")).toBe(1250);
+      expect(parseMoney("$9")).toBe(900);
+    } finally {
+      setMoneyCurrency("INR");
+    }
+    expect(formatMoney(12_345)).toBe("₹123.45");
+  });
+});

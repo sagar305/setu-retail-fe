@@ -60,6 +60,48 @@ describe("billing", () => {
     expect(queued!.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("a VAT shop: the shop's tax groups, words and currency on the bill and the receipt", async () => {
+    const STD = "66666666-6666-4666-8666-000000000001";
+    const HOTEL = "66666666-6666-4666-8666-000000000002";
+    const taxGroups = [
+      { id: STD, name: "Standard", taxes: [{ name: "VAT", rateBp: 500 }], isDefault: true, rateBp: 500, products: 2 },
+      { id: HOTEL, name: "Hotel", taxes: [{ name: "VAT", rateBp: 500 }, { name: "Tourism fee", rateBp: 200 }], isDefault: false, rateBp: 700, products: 1 },
+    ];
+    const products = [{ ...PRODUCTS[0]!, price: 10500 }, { ...PRODUCTS[1]!, name: "Room night", price: 10700, taxGroupId: HOTEL }];
+    const settings = { taxMode: "CUSTOM" as const, taxLabel: "VAT", taxNumberLabel: "TRN", itemCodeLabel: "", invoiceTitle: "Tax invoice", business: { ...SETTINGS.business, currency: "AED", timezone: "Asia/Dubai" } };
+    mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes({ products, settings, taxGroups }) });
+    const user = userEvent.setup();
+    renderBilling();
+    expect(await screen.findByRole("button", { name: /Wheat Atta.*VAT 5%/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Room night.*VAT 5% \+ Tourism fee 2%/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Wheat Atta/ }));
+    await user.click(screen.getByRole("button", { name: /Room night/ }));
+
+    const bill = screen.getByRole("complementary", { name: "Current bill" });
+    expect(within(bill).getByText("VAT 5%").nextSibling).toHaveTextContent("AED 10.00");
+    expect(within(bill).getByText("Tourism fee 2%").nextSibling).toHaveTextContent("AED 2.00");
+    expect(within(bill).queryByText("CGST")).toBeNull();
+    expect(within(bill).getByText("Total (incl. VAT)")).toBeInTheDocument();
+    await user.click(within(bill).getByRole("button", { name: "Cash" }));
+    await user.click(within(bill).getByRole("button", { name: /^Charge AED\s?212\.00/ }));
+
+    const receipt = await screen.findByLabelText("TAX INVOICE B1-C1-00001");
+    expect(receipt).toHaveTextContent("VAT 5%10.00");
+    expect(receipt).toHaveTextContent("Tourism fee 2%2.00");
+    expect(receipt).toHaveTextContent("Two Hundred Twelve United Arab Emirates Dirhams Only");
+    expect(receipt).not.toHaveTextContent("HSN");
+    expect(receipt).not.toHaveTextContent("Amounts are in ₹");
+    const [queued] = await db.outbox.toArray();
+    expect(queued!.payload).toMatchObject({
+      taxMode: "CUSTOM",
+      total: 21200,
+      lines: [
+        { productId: PRODUCTS[0]!.id, taxes: [{ name: "VAT", rateBp: 500 }] },
+        { productId: PRODUCTS[1]!.id, taxes: [{ name: "VAT", rateBp: 500 }, { name: "Tourism fee", rateBp: 200 }] },
+      ],
+    });
+  });
+
   it("adds a product by scanning its barcode", async () => {
     mockApi({ "POST /auth/refresh": session(makeMe()), ...posRoutes() });
     const user = userEvent.setup();

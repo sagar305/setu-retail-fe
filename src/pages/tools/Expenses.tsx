@@ -9,7 +9,7 @@ import { newUuid, saveChange } from "../../lib/changes";
 import { apiGet, type Expense, type PaymentMethod, type Supplier } from "../../lib/api";
 import { downloadCsv, toCsv } from "../../lib/csv";
 import { errorMessage, formatDate } from "../../lib/format";
-import { formatMoney, paiseToInput, parseMoney } from "../../lib/money";
+import { currencySign, formatMoney, paiseToInput, parseMoney } from "../../lib/money";
 import { PRESETS, presetDays, type Preset } from "../../lib/ranges";
 import { useMoneyMethods } from "../../hooks/useMoneyMethods";
 
@@ -69,7 +69,7 @@ function ExpenseForm({ expense, branchId, methods, categories, onDone, onClose }
           ))}
         </datalist>
         <Field label="What for (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <Field label="Amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Field label={`Amount (${currencySign()})`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <div role="group" aria-label="Paid by" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {methods.map((m) => (
             <button key={m.id} type="button" aria-pressed={m.id === methodId} onClick={() => setMethodId(m.id)} className={`min-h-11 rounded-[10px] px-2 text-[13px] ${m.id === methodId ? "border-2 border-indigo bg-indigo-50 font-semibold text-indigo" : "border border-line bg-white"}`}>

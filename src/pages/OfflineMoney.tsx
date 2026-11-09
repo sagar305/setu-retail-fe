@@ -3,7 +3,7 @@ import { useSessionInfo } from "../auth/sessionInfo";
 import { Alert, Badge, Button, Card, Field, PageHeader, SelectField } from "../components/ui";
 import type { OfflinePack, SyncMoneyOp } from "../lib/api";
 import { formatDate } from "../lib/format";
-import { formatMoney, parseMoney } from "../lib/money";
+import { currencySign, formatMoney, parseMoney } from "../lib/money";
 import { readPref } from "../lib/storage";
 import { toolOn } from "../lib/tools";
 import { savedCounterId } from "../offline/counter";
@@ -159,7 +159,7 @@ export function OfflineMoneyPage() {
                 Fill the full {formatMoney(party.balance)}
               </button>
             ) : null}
-            <Field label="Amount (₹)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <Field label={`Amount (${currencySign()})`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <div role="group" aria-label="Paid by" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {methods.map((m) => (
                 <button key={m.id} type="button" aria-pressed={m.id === method} onClick={() => setMethodId(m.id)} className={`min-h-11 rounded-[10px] px-2 text-[13px] ${m.id === method ? "border-2 border-indigo bg-indigo-50 font-semibold text-indigo" : "border border-line bg-white"}`}>

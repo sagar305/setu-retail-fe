@@ -65,18 +65,24 @@ export function Field({
 
 export function SelectField({
   label,
+  hint,
   children,
   ...select
-}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: ReactNode }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: string; children: ReactNode }) {
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      <select id={id} {...select} className="h-12 rounded-[10px] border border-line-strong bg-white px-3 text-base text-ink">
+      <select id={id} aria-describedby={hint ? `${id}-hint` : undefined} {...select} className="h-12 rounded-[10px] border border-line-strong bg-white px-3 text-base text-ink">
         {children}
       </select>
+      {hint ? (
+        <span id={`${id}-hint`} className="text-[13px] text-muted">
+          {hint}
+        </span>
+      ) : null}
     </div>
   );
 }

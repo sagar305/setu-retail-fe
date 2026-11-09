@@ -1,5 +1,6 @@
 // Split payments and the UPI QR amount (same rules as the free Browser POS).
 // Money is in paise. Pure functions, shared by billing and receipts.
+import { formatMoney } from "./money";
 import type { Order, PaymentMethod, Settings } from "./api";
 
 /** The method that shows a UPI QR: kind UPI, or named "UPI", "UPI / GPay"… */
@@ -27,7 +28,7 @@ export function upiPaymentLink(opts: { upiId: string | null | undefined; amount:
 export type SplitPart = { methodId: string; amount: number };
 export type SplitCheck = { paid: number; remaining: number; ok: boolean; error: string };
 
-const rupees = (paise: number) => (paise / 100).toFixed(2);
+const rupees = (paise: number) => formatMoney(paise);
 
 /** Validate split parts against the bill total. */
 export function checkSplit(parts: SplitPart[], total: number, methods: Pick<PaymentMethod, "id">[]): SplitCheck {
@@ -37,12 +38,12 @@ export function checkSplit(parts: SplitPart[], total: number, methods: Pick<Paym
   if (parts.length < 2) return fail("Add at least two payment methods to split.");
   // Overpaid first. On the billing screen the balance line then goes below zero.
   const over = Math.max(0, -remaining) + parts.reduce((sum, p) => sum + (p.amount < 0 ? -p.amount : 0), 0);
-  if (over > 0) return fail(`Parts add up to ₹${rupees(over)} more than the total.`);
+  if (over > 0) return fail(`Parts add up to ${rupees(over)} more than the total.`);
   for (const p of parts) {
     if (!methods.some((m) => m.id === p.methodId)) return fail("Pick a payment method for every part.");
     if (!Number.isFinite(p.amount) || p.amount <= 0) return fail("Every part needs an amount greater than zero.");
   }
-  if (remaining > 0) return fail(`₹${rupees(remaining)} is still due.`);
+  if (remaining > 0) return fail(`${rupees(remaining)} is still due.`);
   return { paid, remaining: 0, ok: true, error: "" };
 }
 
