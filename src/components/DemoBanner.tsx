@@ -7,7 +7,8 @@ export function DemoBanner() {
   const { status, secondsLeft } = useDemoReset();
   if (!status?.enabled) return null;
   const resetting = status.resetting || secondsLeft <= 0;
-  const every = status.intervalHours ? ` every ${status.intervalHours} hour${status.intervalHours === 1 ? "" : "s"}` : "";
+  const h = status.intervalHours;
+  const every = !h ? "" : h === 24 ? " every day" : h % 24 === 0 ? ` every ${h / 24} days` : ` every ${h} hour${h === 1 ? "" : "s"}`;
   return (
     <div
       role="status"

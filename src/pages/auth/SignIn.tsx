@@ -31,7 +31,7 @@ export function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      // The demo is wiped every few hours: start from a clean device copy.
+      // The demo is wiped regularly: start from a clean device copy.
       if (DEMO_MODE) await clearDemoDevice();
       await login(loginName, password);
       // PublicOnly sends the now signed-in user on to where they were going.
@@ -53,7 +53,7 @@ export function SignIn() {
           <div className="flex flex-col gap-3 rounded-xl border border-[#F2C98E] bg-[#FDF1DE] px-4 py-3 text-sm">
             <div>
               <p className="m-0 font-semibold">This is a demo shop — try it as any role</p>
-              <p className="m-0 mt-0.5 text-[13px] text-muted">The sample data is restored every few hours, so changes you make here aren't kept.</p>
+              <p className="m-0 mt-0.5 text-[13px] text-muted">The sample data is restored every day, so changes you make here aren't kept.</p>
             </div>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {DEMO_LOGINS.map((d) => (
