@@ -12,7 +12,7 @@ export const PREFETCH_EVERY_MS = 3 * 60_000;
 export function seedPaths(me: Me): string[] {
   const role = me.user.role;
   const manager = role === "OWNER" || role === "MANAGER";
-  const paths = ["/settings", "/payment-methods", "/categories", "/receipt-templates", "/customers?q=&limit=200", "/ledger/customers"];
+  const paths = ["/settings", "/payment-methods", "/categories", "/receipt-templates", "/tax-groups", "/customers?q=&limit=200", "/ledger/customers"];
   for (const b of me.branches) paths.push(`/products?branchId=${b.id}&limit=2000`, `/held-carts?branchId=${b.id}`);
   if (manager) {
     paths.push("/reports/dashboard", "/suppliers", "/suppliers?q=", "/purchases?q=", "/ledger/suppliers", "/expense-categories", "/transfers", "/staff", "/branches", "/reports/aging/customers", "/reports/aging/suppliers");

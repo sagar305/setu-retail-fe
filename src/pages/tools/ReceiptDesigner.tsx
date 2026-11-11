@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { taxWordsFor } from "../../lib/taxWords";
 import { useMe } from "../../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, PageHeader, SelectField } from "../../components/ui";
-import { setSettings, useSettings } from "../../hooks/useSettings";
+import { setSettings, useSettings, useTaxWords } from "../../hooks/useSettings";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, type Order, type ReceiptTemplate, type Settings } from "../../lib/api";
 import { computeBill } from "../../lib/gst";
 import { errorMessage } from "../../lib/format";
@@ -26,7 +27,14 @@ function sampleOrder(settings: Settings, branch: { id: string; code: string; nam
     { name: "Tea 250 g", hsn: "0902", unit: "pcs", unitPrice: 14500, qtyMilli: 2000, gstRateBp: 500, taxInclusive: true },
     { name: "Detergent 1 kg", hsn: "3402", unit: "pcs", unitPrice: 12000, qtyMilli: 1000, gstRateBp: 1800, taxInclusive: true },
   ];
-  const bill = computeBill(lines, { type: "flat", value: 0 }, { taxEnabled: settings.taxEnabled, interState: false });
+  // Custom tax mode: the sample shows one tax at each line's rate, by the shop's tax name.
+  const custom = settings.taxMode === "CUSTOM";
+  const label = taxWordsFor(settings).tax;
+  const bill = computeBill(
+    lines.map((l) => (custom ? { ...l, taxes: [{ name: label, rateBp: l.gstRateBp }] } : l)),
+    { type: "flat", value: 0 },
+    { taxEnabled: settings.taxEnabled, interState: false },
+  );
   return {
     id: "sample",
     invoiceNumber: `${branch.code}-C1-00042`,
@@ -37,9 +45,11 @@ function sampleOrder(settings: Settings, branch: { id: string; code: string; nam
     cashierId: "sample",
     cashierName: "Ravi",
     customer: null,
-    placeOfSupply: branch.stateCode,
+    placeOfSupply: custom ? null : branch.stateCode,
     interState: false,
     taxEnabled: settings.taxEnabled,
+    taxMode: settings.taxMode,
+    taxTotals: bill.taxTotals,
     discount: { type: "flat", value: 0 },
     subtotal: bill.subtotal,
     discountTotal: 0,
@@ -54,7 +64,7 @@ function sampleOrder(settings: Settings, branch: { id: string; code: string; nam
     cancelReason: "",
     offline: false,
     priceDiffers: false,
-    items: bill.lines.map((l, i) => ({ id: `s${i}`, productId: null, name: lines[i]!.name, hsn: lines[i]!.hsn, unit: "pcs", qtyMilli: l.qtyMilli, unitPrice: l.unitPrice, gstRateBp: l.gstRateBp, taxInclusive: true, gross: l.gross, discount: 0, taxable: l.taxable, cgst: l.cgst, sgst: l.sgst, igst: l.igst, total: l.total, returnedQtyMilli: 0, batches: [] })),
+    items: bill.lines.map((l, i) => ({ id: `s${i}`, productId: null, name: lines[i]!.name, hsn: lines[i]!.hsn, unit: "pcs", qtyMilli: l.qtyMilli, unitPrice: l.unitPrice, gstRateBp: l.gstRateBp, taxInclusive: true, gross: l.gross, discount: 0, taxable: l.taxable, cgst: l.cgst, sgst: l.sgst, igst: l.igst, taxes: l.taxes, total: l.total, returnedQtyMilli: 0, batches: [] })),
     payments: [{ methodId: "s", methodName: "UPI", kind: "UPI", amount: bill.total }],
     creditNotes: [],
   } as Order;
@@ -75,6 +85,7 @@ async function toLogo(file: File): Promise<string> {
 export function ReceiptDesignerPage() {
   const me = useMe();
   const settings = useSettings();
+  const words = useTaxWords();
   const isOwner = me.user.role === "OWNER";
   const [templates, setTemplates] = useState<ReceiptTemplate[] | null>(null);
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
@@ -154,14 +165,14 @@ export function ReceiptDesignerPage() {
                 <input type="color" value={editing.draft.accentColor} onChange={(e) => set("accentColor", e.target.value)} className="h-11 w-16 cursor-pointer rounded-[10px] border border-line-strong bg-white" />
                 <span className="text-muted">{editing.draft.accentColor}</span>
               </label>
-              <Field label="Header text (optional)" value={editing.draft.headerText} onChange={(e) => set("headerText", e.target.value)} placeholder="e.g. Free home delivery above ₹500" />
+              <Field label="Header text (optional)" value={editing.draft.headerText} onChange={(e) => set("headerText", e.target.value)} placeholder="e.g. Free home delivery on big orders" />
               <Field label="Footer text" value={editing.draft.footerText} onChange={(e) => set("footerText", e.target.value)} placeholder="Thank you! Visit again." />
               <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
                 <legend className="mb-1 text-sm font-medium">Show</legend>
                 {TOGGLES.map((t) => (
                   <label key={t.key} className="flex min-h-10 items-center gap-2 text-sm">
                     <input type="checkbox" checked={Boolean(editing.draft[t.key])} onChange={(e) => set(t.key, e.target.checked as never)} className="size-5 accent-indigo" />
-                    {t.label}
+                    {t.key === "showGstin" ? words.number : t.key === "showHsn" ? `${words.code || "Item"} codes on items` : t.key === "showGstSummary" ? `${words.tax} summary` : t.label}
                     {t.key === "showLogo" && !settings.logoDataUrl ? <span className="text-xs text-muted">(add a logo below)</span> : null}
                   </label>
                 ))}

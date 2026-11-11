@@ -3,7 +3,7 @@ import { EXPIRY_TONE, expiryLabel, useBatches } from "../lib/batches";
 import { Alert, Badge, Button, Field, Modal } from "../components/ui";
 import { apiPost, type Batch, type Product } from "../lib/api";
 import { errorMessage } from "../lib/format";
-import { formatMoney, formatQty, parseMoney, parseQty } from "../lib/money";
+import { currencySign, formatMoney, formatQty, parseMoney, parseQty } from "../lib/money";
 
 /** Owner/manager: see a product's batches in this branch and receive a new one. */
 export function BatchesDialog({ product, branchId, onChanged, onClose }: { product: Product; branchId: string; onChanged: () => void; onClose: () => void }) {
@@ -56,7 +56,7 @@ export function BatchesDialog({ product, branchId, onChanged, onClose }: { produ
             <Field label="Batch no." value={form.batchNo} onChange={(e) => setForm({ ...form, batchNo: e.target.value })} />
             <Field label="Expiry" type="date" value={form.expiry} onChange={(e) => setForm({ ...form, expiry: e.target.value })} />
             <Field label={`Quantity (${product.unit})`} inputMode="decimal" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} error={form.qty && qty === null ? "Enter a quantity." : undefined} />
-            <Field label="Cost per unit (₹)" inputMode="decimal" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} error={form.cost && cost === null ? "Enter an amount." : undefined} />
+            <Field label={`Cost per unit (${currencySign()})`} inputMode="decimal" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} error={form.cost && cost === null ? "Enter an amount." : undefined} />
           </div>
           <Button type="submit" busy={busy} disabled={!qty || (Boolean(form.cost) && cost === null)} className="self-start">
             Add batch to stock

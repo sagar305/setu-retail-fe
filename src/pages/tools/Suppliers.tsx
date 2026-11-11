@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useTaxWords } from "../../hooks/useSettings";
 import { useCacheRefresh } from "../../hooks/useCacheRefresh";
 import { Link, useParams } from "react-router-dom";
 import { useMe } from "../../auth/AuthProvider";
@@ -18,6 +19,7 @@ import { useMoneyMethods } from "../../hooks/useMoneyMethods";
 type Draft = { name: string; phone: string; email: string; gstin: string; stateCode: string; address: string; notes: string };
 
 export function SupplierForm({ supplier, onDone, onClose }: { supplier: Supplier | null; onDone: (s: Supplier) => void; onClose: () => void }) {
+  const words = useTaxWords();
   const [d, setD] = useState<Draft>({ name: supplier?.name ?? "", phone: supplier?.phone ?? "", email: supplier?.email ?? "", gstin: supplier?.gstin ?? "", stateCode: supplier?.stateCode ?? "", address: supplier?.address ?? "", notes: supplier?.notes ?? "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +67,8 @@ export function SupplierForm({ supplier, onDone, onClose }: { supplier: Supplier
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Name" required autoFocus value={d.name} onChange={set("name")} error={errors.name} />
           <Field label="Phone" type="tel" value={d.phone} onChange={set("phone")} error={errors.phone} />
-          <Field label="GSTIN" value={d.gstin} onChange={set("gstin")} error={errors.gstin} hint="Sets their state, which decides CGST/SGST or IGST on their bills." />
-          <Field label="GST state code" inputMode="numeric" maxLength={2} value={d.stateCode} onChange={set("stateCode")} error={errors.stateCode} hint="If they have no GSTIN, e.g. 29 for Karnataka." />
+          <Field label={words.number} value={d.gstin} onChange={set("gstin")} error={errors.gstin} hint={words.custom ? undefined : "Sets their state, which decides CGST/SGST or IGST on their bills."} />
+          {words.custom ? null : <Field label="GST state code" inputMode="numeric" maxLength={2} value={d.stateCode} onChange={set("stateCode")} error={errors.stateCode} hint="If they have no GSTIN, e.g. 29 for Karnataka." />}
           <Field label="Email" type="email" value={d.email} onChange={set("email")} error={errors.email} />
           <Field label="Address" value={d.address} onChange={set("address")} />
           <Field label="Notes" value={d.notes} onChange={set("notes")} className="md:col-span-2" />
@@ -84,8 +86,9 @@ export function SupplierForm({ supplier, onDone, onClose }: { supplier: Supplier
   );
 }
 
-/** Supplier Book: contacts, GSTINs and what you owe each. */
+/** Supplier Book: contacts, tax numbers and what you owe each. */
 export function SupplierBookPage() {
+  const words = useTaxWords();
   const settings = useSettings();
   const [rows, setRows] = useState<Supplier[] | null>(null);
   const [q, setQ] = useState("");
@@ -116,10 +119,10 @@ export function SupplierBookPage() {
     <div className="w-full">
       <PageHeader
         title="Supplier Book"
-        description="Supplier contacts and GSTINs, shared with the Purchase Register and Supplier Ledger."
+        description={`Supplier contacts and ${words.number}s, shared with the Purchase Register and Supplier Ledger.`}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={!rows?.length} onClick={() => downloadCsv("Suppliers.csv", toCsv(["Name", "Phone", "Email", "GSTIN", "State Code", "Address", "Notes", "Balance"], (rows ?? []).map((s) => [s.name, s.phone, s.email, s.gstin ?? "", s.stateCode ?? "", s.address, s.notes, (s.balance / 100).toFixed(2)])))}>
+            <Button variant="secondary" disabled={!rows?.length} onClick={() => downloadCsv("Suppliers.csv", toCsv(["Name", "Phone", "Email", words.number, "State Code", "Address", "Notes", "Balance"], (rows ?? []).map((s) => [s.name, s.phone, s.email, s.gstin ?? "", s.stateCode ?? "", s.address, s.notes, (s.balance / 100).toFixed(2)])))}>
               Export CSV
             </Button>
             <Button onClick={() => setDialog({ supplier: null })}>Add supplier</Button>
@@ -130,11 +133,11 @@ export function SupplierBookPage() {
       <label htmlFor="s-q" className="sr-only">
         Search suppliers
       </label>
-      <input id="s-q" type="search" placeholder="Search name, phone or GSTIN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-3 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
+      <input id="s-q" type="search" placeholder={`Search name, phone or ${words.number}`} value={q} onChange={(e) => setQ(e.target.value)} className="mb-3 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
       <DataTable
         minW={640}
         left={3}
-        head={["Supplier", "Phone", "GSTIN · state", "You owe", <span key="a" className="sr-only">Actions</span>]}
+        head={["Supplier", "Phone", words.custom ? words.number : `${words.number} · state`, "You owe", <span key="a" className="sr-only">Actions</span>]}
         empty={rows ? "No suppliers yet." : "Loading…"}
         rows={(rows ?? []).map((s) => ({
           key: s.id,

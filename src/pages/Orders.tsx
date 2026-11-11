@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../components/ui";
@@ -9,6 +9,7 @@ import { ensureCounter } from "../offline/counter";
 import { errorMessage } from "../lib/format";
 import { formatMoney, formatQty, parseQty } from "../lib/money";
 import { Receipt } from "../pos/Receipt";
+import { printReceipt, receiptPaper } from "../pos/print";
 import { DesignPicker } from "../pos/DesignPicker";
 import { designFor } from "../lib/receiptDesign";
 import { useReceiptTemplates } from "../hooks/useReceiptTemplates";
@@ -38,7 +39,7 @@ function ReturnDialog({ order, methods, onDone, onClose }: { order: Order; metho
     <Modal title={`Return items · ${order.invoiceNumber}`} onClose={onClose} wide>
       <div className="flex flex-col gap-4">
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <p className="m-0 text-sm text-muted">Returned items go back into stock. A GST credit note is issued for the refund.</p>
+        <p className="m-0 text-sm text-muted">Returned items go back into stock. A credit note is issued for the refund.</p>
         <div className="flex flex-col gap-2">
           {items.map(({ i, left, q }) => (
             <div key={i.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2">
@@ -111,6 +112,7 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | "cancel" | "return">(null);
   const [printCn, setPrintCn] = useState<string | undefined>(undefined);
+  const receiptRef = useRef<HTMLDivElement>(null);
   const [reason, setReason] = useState("");
   const canManage = me.user.role !== "CASHIER";
 
@@ -146,7 +148,7 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
             {order.status === "CANCELLED" ? <span className="text-sm text-muted">Reason: {order.cancelReason}</span> : null}
           </div>
           <DesignPicker templates={templates} value={design?.id ?? null} onChange={setDesignId} />
-          <div className="max-h-[50vh] overflow-auto rounded-xl border border-line bg-cream p-3">
+          <div ref={receiptRef} className="max-h-[50vh] overflow-auto rounded-xl border border-line bg-cream p-3">
             <Receipt order={order} settings={settings} creditNoteId={printCn} template={design} />
           </div>
           {order.creditNotes.length ? (
@@ -166,7 +168,7 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
             </div>
           ) : null}
           <div className="flex flex-wrap gap-3">
-            <Button onClick={() => window.print()}>Print {printCn ? "credit note" : "bill"}</Button>
+            <Button onClick={() => printReceipt(receiptRef.current, receiptPaper(settings, design))}>Print {printCn ? "credit note" : "bill"}</Button>
             {canManage && order.status === "COMPLETED" && order.returnedTotal < order.total ? (
               <Button variant="secondary" onClick={() => setDialog("return")}>
                 Return items

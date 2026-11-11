@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
+import { useTaxWords } from "../hooks/useSettings";
+import { useTaxGroups } from "../hooks/useTaxGroups";
+import { currencySign } from "../lib/money";
+import { productTaxes, taxesLabel, taxWordsFor } from "../lib/taxWords";
 import { Link } from "react-router-dom";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Field, Modal, PageHeader, SelectField } from "../components/ui";
@@ -24,6 +28,8 @@ type Draft = {
   barcode: string;
   hsn: string;
   gstRateBp: number;
+  /** Custom tax mode: "" = the default group. */
+  taxGroupId: string;
   taxInclusive: boolean;
   unit: string;
   price: string;
@@ -33,7 +39,7 @@ type Draft = {
   openingStock: string;
 };
 
-const blank: Draft = { name: "", categoryId: "", newCategory: "", sku: "", barcode: "", hsn: "", gstRateBp: 0, taxInclusive: true, unit: "pcs", price: "", costPrice: "", trackStock: true, lowStock: "", openingStock: "" };
+const blank: Draft = { name: "", categoryId: "", newCategory: "", sku: "", barcode: "", hsn: "", gstRateBp: 0, taxGroupId: "", taxInclusive: true, unit: "pcs", price: "", costPrice: "", trackStock: true, lowStock: "", openingStock: "" };
 const toDraft = (p: Product): Draft => ({
   name: p.name,
   categoryId: p.categoryId ?? "",
@@ -42,6 +48,7 @@ const toDraft = (p: Product): Draft => ({
   barcode: p.barcode,
   hsn: p.hsn,
   gstRateBp: p.gstRateBp,
+  taxGroupId: p.taxGroupId ?? "",
   taxInclusive: p.taxInclusive,
   unit: p.unit,
   price: paiseToInput(p.defaultPrice),
@@ -52,6 +59,9 @@ const toDraft = (p: Product): Draft => ({
 });
 
 function ProductForm({ product, categories, branchId, onDone, onClose }: { product: Product | null; categories: Category[]; branchId: string; onDone: () => void; onClose: () => void }) {
+  const words = useTaxWords();
+  const { groups } = useTaxGroups(words.custom);
+  const dflt = groups.find((g) => g.isDefault);
   const [d, setD] = useState<Draft>(product ? toDraft(product) : blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +94,7 @@ function ProductForm({ product, categories, branchId, onDone, onClose }: { produ
         barcode: d.barcode,
         hsn: d.hsn,
         gstRateBp: d.gstRateBp,
+        ...(words.custom ? { taxGroupId: d.taxGroupId || null } : {}),
         taxInclusive: d.taxInclusive,
         unit: d.unit,
         price: price!,
@@ -93,7 +104,7 @@ function ProductForm({ product, categories, branchId, onDone, onClose }: { produ
       };
       // Saved on this device at once; the cloud gets it in the background (Phase 9b).
       if (product) {
-        const before: Record<string, unknown> = { name: product.name, categoryId: product.categoryId, sku: product.sku, barcode: product.barcode, hsn: product.hsn, gstRateBp: product.gstRateBp, taxInclusive: product.taxInclusive, unit: product.unit, price: product.defaultPrice, costPrice: product.costPrice, trackStock: product.trackStock, lowStockMilli: product.lowStockMilli };
+        const before: Record<string, unknown> = { name: product.name, categoryId: product.categoryId, sku: product.sku, barcode: product.barcode, hsn: product.hsn, gstRateBp: product.gstRateBp, taxGroupId: product.taxGroupId, taxInclusive: product.taxInclusive, unit: product.unit, price: product.defaultPrice, costPrice: product.costPrice, trackStock: product.trackStock, lowStockMilli: product.lowStockMilli };
         const changed = Object.fromEntries(Object.entries(body).filter(([k, v]) => JSON.stringify(v ?? null) !== JSON.stringify(before[k] ?? null)));
         if (Object.keys(changed).length) {
           const base = Object.fromEntries(Object.keys(changed).map((k) => [k, before[k] ?? null]));
@@ -121,20 +132,42 @@ function ProductForm({ product, categories, branchId, onDone, onClose }: { produ
         {error ? <Alert tone="error">{error}</Alert> : null}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Name" required value={d.name} onChange={set("name")} error={errors.name} className="md:col-span-2" />
-          <Field label="Selling price (₹)" inputMode="decimal" required value={d.price} onChange={set("price")} error={errors.price} hint="Default for every branch; a branch can set its own." />
-          <SelectField label="Price includes GST?" value={d.taxInclusive ? "yes" : "no"} onChange={(e) => setD({ ...d, taxInclusive: e.target.value === "yes" })}>
-            <option value="yes">Yes — GST is inside the price (MRP)</option>
-            <option value="no">No — add GST on top</option>
+          <Field label={`Selling price (${currencySign()})`} inputMode="decimal" required value={d.price} onChange={set("price")} error={errors.price} hint="Default for every branch; a branch can set its own." />
+          <SelectField label={`Price includes ${words.tax}?`} value={d.taxInclusive ? "yes" : "no"} onChange={(e) => setD({ ...d, taxInclusive: e.target.value === "yes" })}>
+            <option value="yes">Yes — {words.tax} is inside the price</option>
+            <option value="no">No — add {words.tax} on top</option>
           </SelectField>
-          <SelectField label="GST rate" value={String(d.gstRateBp)} onChange={(e) => setD({ ...d, gstRateBp: Number(e.target.value) })}>
-            {GST_RATES.map((r) => (
-              <option key={r} value={r}>
-                {bpToPercent(r)}%
-              </option>
-            ))}
-          </SelectField>
-          <Field label="HSN code" inputMode="numeric" value={d.hsn} onChange={set("hsn")} error={errors.hsn} hint="4, 6 or 8 digits; printed on GST bills." />
-          <Field label="Cost price (₹)" inputMode="decimal" value={d.costPrice} onChange={set("costPrice")} error={errors.costPrice} hint="Only owners and managers see this." />
+          {words.custom ? (
+            <SelectField label="Tax group" value={d.taxGroupId} onChange={set("taxGroupId")} hint={groups.length ? "Which taxes this product pays." : "Add tax groups in Settings → Billing & receipt."}>
+              <option value="">Default{dflt ? ` (${dflt.name}: ${taxesLabel(dflt.taxes)})` : ""}</option>
+              {groups
+                .filter((g) => !g.isDefault)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}: {taxesLabel(g.taxes)}
+                  </option>
+                ))}
+            </SelectField>
+          ) : (
+            <SelectField label={`${words.tax} rate`} value={String(d.gstRateBp)} onChange={(e) => setD({ ...d, gstRateBp: Number(e.target.value) })}>
+              {GST_RATES.map((r) => (
+                <option key={r} value={r}>
+                  {bpToPercent(r)}%
+                </option>
+              ))}
+            </SelectField>
+          )}
+          {words.code ? (
+            <Field
+              label={`${words.code} code`.replace(/ code code$/i, " code")}
+              inputMode={words.custom ? "text" : "numeric"}
+              value={d.hsn}
+              onChange={set("hsn")}
+              error={errors.hsn}
+              hint={words.custom ? "Optional; printed on bills." : "4, 6 or 8 digits; printed on GST bills."}
+            />
+          ) : null}
+          <Field label={`Cost price (${currencySign()})`} inputMode="decimal" value={d.costPrice} onChange={set("costPrice")} error={errors.costPrice} hint="Only owners and managers see this." />
           <SelectField label="Unit" value={d.unit} onChange={set("unit")}>
             {UNITS.map((u) => (
               <option key={u}>{u}</option>
@@ -244,7 +277,7 @@ function BranchPriceDialog({ product, branchName, branchId, onDone, onClose }: {
       <div className="flex flex-col gap-4">
         <p className="m-0 text-sm text-muted">Default price {formatMoney(product.defaultPrice)}. Set a different one for this branch only.</p>
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <Field label="Branch price (₹)" inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} error={text && parsed === null ? "Enter an amount." : undefined} />
+        <Field label={`Branch price (${currencySign()})`} inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} error={text && parsed === null ? "Enter an amount." : undefined} />
         <div className="flex gap-3">
           <Button disabled={!text || parsed === null} onClick={() => save(parsed)}>
             Save
@@ -273,6 +306,8 @@ export function ProductsPage() {
     apiGet<Settings>("/settings").then(setSettings, () => {});
   }, []);
   const batches = Boolean(settings?.batchTracking);
+  const listWords = taxWordsFor(settings);
+  const { groups: taxGroups } = useTaxGroups(listWords.custom);
   const limit = me.plan.current?.limits.maxProducts ?? null;
 
   const load = useCallback(() => {
@@ -352,7 +387,7 @@ export function ProductsPage() {
       <label htmlFor="p-search" className="sr-only">
         Search products
       </label>
-      <input id="p-search" type="search" placeholder="Search name, SKU, barcode or HSN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
+      <input id="p-search" type="search" placeholder={`Search name, SKU, barcode${listWords.code ? ` or ${listWords.code}` : ""}`} value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
       {products?.length === 0 ? (
         <Alert tone="info">
           No products yet. Add your first one, or bring them in from a spreadsheet or the free Browser POS in <Link to="/settings/import" className="font-semibold underline">Settings → Import &amp; export</Link>.
@@ -363,7 +398,7 @@ export function ProductsPage() {
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">
               <th className="px-4 py-3 font-medium">Product</th>
-              <th className="px-3 py-3 font-medium">HSN · GST</th>
+              <th className="px-3 py-3 font-medium">{listWords.custom ? "Tax" : `${listWords.code || "Code"} · ${listWords.tax}`}</th>
               <th className="px-3 py-3 font-medium">Price here</th>
               <th className="px-3 py-3 font-medium">Cost</th>
               <th className="px-3 py-3 font-medium">Stock here</th>
@@ -382,7 +417,15 @@ export function ProductsPage() {
                   </div>
                 </td>
                 <td className="px-3 py-3 text-muted">
-                  {p.hsn || "—"} · {bpToPercent(p.gstRateBp)}% {p.taxInclusive ? "incl." : "+ GST"}
+                  {listWords.custom ? (
+                    <>
+                      {taxesLabel(productTaxes("CUSTOM", p.taxGroupId, taxGroups) ?? [])} {p.taxInclusive ? "incl." : "+ tax"}
+                    </>
+                  ) : (
+                    <>
+                      {p.hsn || "—"} · {bpToPercent(p.gstRateBp)}% {p.taxInclusive ? "incl." : `+ ${listWords.tax}`}
+                    </>
+                  )}
                 </td>
                 <td className="px-3 py-3">
                   <button type="button" onClick={() => setDialog({ kind: "price", product: p })} className="flex min-h-9 flex-col items-start text-left">

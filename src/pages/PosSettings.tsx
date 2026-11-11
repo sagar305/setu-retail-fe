@@ -4,13 +4,16 @@ import { apiGet, apiPatch, apiPost, type PaymentMethod, type Settings } from "..
 import { setSettings } from "../hooks/useSettings";
 import { errorMessage } from "../lib/format";
 import { bpToPercent, parseMoney } from "../lib/money";
+import { looksLikeUpiId } from "../lib/payments";
 import { SettingsTabs } from "./SettingsTabs";
+import { TaxCard, TaxGroupsCard } from "./TaxSettings";
 
 export function PosSettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [cap, setCap] = useState("");
   const [footer, setFooter] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [newMethod, setNewMethod] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,13 +23,14 @@ export function PosSettingsPage() {
       setS(settings);
       setCap(bpToPercent(settings.cashierMaxDiscountBp));
       setFooter(settings.receiptFooter);
+      setUpiId(settings.upiId);
       setMethods(m.methods);
     }, (err: unknown) => setError(errorMessage(err)));
   useEffect(() => {
     void load();
   }, []);
 
-  async function save(patch: Partial<Settings>, message = "Saved.") {
+  async function save(patch: Partial<Settings> & { currency?: string; timezone?: string }, message = "Saved.") {
     const before = s;
     setError(null);
     setNotice(null);
@@ -45,6 +49,7 @@ export function PosSettingsPage() {
 
   if (!s) return <div className="w-full">{error ? <Alert tone="error">{error}</Alert> : <p className="text-muted">Loading…</p>}</div>;
   const capBp = parseMoney(cap);
+  const upiBad = upiId.trim() !== "" && !looksLikeUpiId(upiId);
 
   return (
     <div className="w-full">
@@ -55,13 +60,6 @@ export function PosSettingsPage() {
       <div className="grid gap-5 xl:grid-cols-2">
         <Card className="flex flex-col gap-4">
           <h2 className="m-0 text-lg font-semibold">Billing</h2>
-          <label className="flex min-h-11 items-start gap-3">
-            <input type="checkbox" checked={s.taxEnabled} onChange={(e) => void save({ taxEnabled: e.target.checked })} className="mt-1 size-[18px] accent-indigo" />
-            <span className="flex flex-col">
-              <span className="font-medium">Charge GST on bills</span>
-              <span className="text-sm text-muted">Turn on if you're GST-registered. Bills then show HSN, CGST/SGST or IGST and say "Tax invoice".</span>
-            </span>
-          </label>
           <label className="flex min-h-11 items-start gap-3">
             <input type="checkbox" checked={s.allowNegativeStock} onChange={(e) => void save({ allowNegativeStock: e.target.checked })} className="mt-1 size-[18px] accent-indigo" />
             <span className="flex flex-col">
@@ -97,6 +95,27 @@ export function PosSettingsPage() {
             </Button>
           </div>
         </Card>
+        {s.business.currency === "INR" ? (
+        <Card className="flex flex-col gap-4">
+          <h2 className="m-0 text-lg font-semibold">UPI QR</h2>
+          <p className="m-0 text-sm text-muted">With your UPI ID, billing shows a QR for the exact amount when the customer pays by UPI, or for the UPI part of a split bill.</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Shop's UPI ID" placeholder="e.g. shopname@okaxis" autoCapitalize="none" spellCheck={false} value={upiId} onChange={(e) => setUpiId(e.target.value)} error={upiBad ? "Enter a UPI ID like shopname@okaxis." : undefined} className="flex-[1_1_240px]" />
+            <Button variant="secondary" disabled={upiBad || upiId.trim() === s.upiId} onClick={() => save({ upiId: upiId.trim() }, upiId.trim() ? "Saved. Billing shows a UPI QR for the amount." : "Saved. Billing won't show a UPI QR.")}>
+              Save
+            </Button>
+          </div>
+          <label className="flex min-h-11 items-start gap-3">
+            <input type="checkbox" checked={s.printUpiQrOnReceipt} disabled={!s.upiId} onChange={(e) => void save({ printUpiQrOnReceipt: e.target.checked })} className="mt-1 size-[18px] accent-indigo" />
+            <span className="flex flex-col">
+              <span className="font-medium">Print a UPI QR on receipts</span>
+              <span className="text-sm text-muted">For the amount paid by UPI (the UPI part of a split bill) or left on udhaar, so the customer can pay later. Bills paid fully in cash or card don't get one. The cashier can switch it off for a receipt.{!s.upiId ? " Save your UPI ID first." : ""}</span>
+            </span>
+          </label>
+        </Card>
+        ) : null}
+        <TaxCard key={`${s.taxLabel}|${s.taxNumberLabel}|${s.itemCodeLabel}|${s.invoiceTitle}`} s={s} save={save} />
+        {s.taxMode === "CUSTOM" ? <TaxGroupsCard s={s} /> : null}
         <Card className="flex flex-col gap-3 xl:col-span-2">
           <h2 className="m-0 text-lg font-semibold">Payment methods</h2>
           {methods.map((m) => (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useTaxWords } from "../hooks/useSettings";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Button, Field, Modal, PageHeader } from "../components/ui";
@@ -11,6 +12,7 @@ type Draft = { name: string; phone: string; email: string; gstin: string; stateC
 const blank: Draft = { name: "", phone: "", email: "", gstin: "", stateCode: "", address: "", notes: "", creditDays: "" };
 
 function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null; onDone: () => void; onClose: () => void }) {
+  const words = useTaxWords();
   const [d, setD] = useState<Draft>(customer ? { name: customer.name, phone: customer.phone, email: customer.email, gstin: customer.gstin ?? "", stateCode: customer.stateCode ?? "", address: customer.address, notes: customer.notes, creditDays: customer.creditDays === null ? "" : String(customer.creditDays) } : blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +60,8 @@ function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null
           <Field label="Name" required value={d.name} onChange={set("name")} error={errors.name} />
           <Field label="Mobile" type="tel" value={d.phone} onChange={set("phone")} error={errors.phone} />
           <Field label="Email" type="email" value={d.email} onChange={set("email")} error={errors.email} />
-          <Field label="GSTIN" value={d.gstin} onChange={set("gstin")} error={errors.gstin} hint="For business customers. Sets their state." />
-          <Field label="GST state code" inputMode="numeric" maxLength={2} value={d.stateCode} onChange={set("stateCode")} error={errors.stateCode} hint="e.g. 27 for Maharashtra; decides CGST/SGST vs IGST." />
+          <Field label={words.number} value={d.gstin} onChange={set("gstin")} error={errors.gstin} hint={words.custom ? "For business customers." : "For business customers. Sets their state."} />
+          {words.custom ? null : <Field label="GST state code" inputMode="numeric" maxLength={2} value={d.stateCode} onChange={set("stateCode")} error={errors.stateCode} hint="e.g. 27 for Maharashtra; decides CGST/SGST vs IGST." />}
           <Field label="Address" value={d.address} onChange={set("address")} />
           <Field label="Credit days (optional)" inputMode="numeric" value={d.creditDays} onChange={(e) => setD({ ...d, creditDays: e.target.value.replace(/\D/g, "").slice(0, 3) })} error={errors.creditDays} hint="When their udhaar is due. Leave blank to use the shop's setting." />
           <Field label="Notes" value={d.notes} onChange={set("notes")} />
@@ -78,6 +80,7 @@ function CustomerForm({ customer, onDone, onClose }: { customer: Customer | null
 }
 
 export function CustomersPage() {
+  const words = useTaxWords();
   const me = useMe();
   const canEdit = me.user.role !== "CASHIER";
   const [q, setQ] = useState("");
@@ -113,7 +116,7 @@ export function CustomersPage() {
               <Button
                 variant="secondary"
                 disabled={!rows?.length}
-                onClick={() => downloadCsv("Customers.csv", toCsv(["Name", "Phone", "Email", "GSTIN", "State Code", "Address", "Notes"], (rows ?? []).map((c) => [c.name, c.phone, c.email, c.gstin ?? "", c.stateCode ?? "", c.address, c.notes])))}
+                onClick={() => downloadCsv("Customers.csv", toCsv(["Name", "Phone", "Email", words.number, "State Code", "Address", "Notes"], (rows ?? []).map((c) => [c.name, c.phone, c.email, c.gstin ?? "", c.stateCode ?? "", c.address, c.notes])))}
               >
                 Export CSV
               </Button>
@@ -126,14 +129,14 @@ export function CustomersPage() {
       <label htmlFor="c-search" className="sr-only">
         Search customers
       </label>
-      <input id="c-search" type="search" placeholder="Search name, mobile or GSTIN" value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
+      <input id="c-search" type="search" placeholder={`Search name, mobile or ${words.number}`} value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
       <div className="overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-3 py-3 font-medium">Mobile</th>
-              <th className="px-3 py-3 font-medium">GSTIN · state</th>
+              <th className="px-3 py-3 font-medium">{words.custom ? words.number : `${words.number} · state`}</th>
               <th className="px-3 py-3 font-medium">Added</th>
               <th className="px-3 py-3">
                 <span className="sr-only">Actions</span>

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, PageHeader, SelectField } from "../components/ui";
-import { apiGet, type GstReport, type SalesReport, type StaffReport, type StockLog, type StockReport } from "../lib/api";
+import { useTaxWords } from "../hooks/useSettings";
+import { apiGet, type Schemas, type GstReport, type SalesReport, type StaffReport, type StockLog, type StockReport } from "../lib/api";
 import { currentBranch } from "../lib/branch";
 import { downloadCsv, toCsv } from "../lib/csv";
 import { errorMessage, formatDate } from "../lib/format";
@@ -10,6 +11,7 @@ import { stateLabel } from "../lib/gstStates";
 import { bpToPercent, formatMoney, formatQty } from "../lib/money";
 import { PRESETS, presetDays, toRange, type Preset } from "../lib/ranges";
 
+type TaxReport = Schemas["TaxReport"];
 type Tab = "sales" | "gst" | "stock" | "staff" | "log";
 const TABS: { id: Tab; label: string }[] = [
   { id: "sales", label: "Sales" },
@@ -79,6 +81,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function ReportsPage() {
   const me = useMe();
   const tz = me.account.timezone;
+  const words = useTaxWords();
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find((t) => t.id === params.get("tab"))?.id ?? "sales") as Tab;
   const [preset, setPreset] = useState<Preset>("today");
@@ -103,8 +106,9 @@ export function ReportsPage() {
       q.set("to", range.to);
     }
     if (effectiveBranch) q.set("branchId", effectiveBranch);
-    const path = { sales: "/reports/sales", gst: "/reports/gst", stock: "/reports/stock", staff: "/reports/staff", log: "/reports/stock-log" }[tab];
-    const key = `${tab}?${q}`;
+    // Custom tax mode: the tax tab shows the shop's own taxes.
+    const path = { sales: "/reports/sales", gst: words.custom ? "/reports/taxes" : "/reports/gst", stock: "/reports/stock", staff: "/reports/staff", log: "/reports/stock-log" }[tab];
+    const key = `${path}?${q}`;
     apiGet(`${path}?${q}`).then(
       (r) => {
         if (!alive) return;
@@ -116,7 +120,7 @@ export function ReportsPage() {
     return () => {
       alive = false;
     };
-  }, [tab, range, effectiveBranch]);
+  }, [tab, range, effectiveBranch, words.custom]);
   const currentKey = (() => {
     const q = new URLSearchParams();
     if (tab !== "stock") {
@@ -124,13 +128,14 @@ export function ReportsPage() {
       q.set("to", range.to);
     }
     if (effectiveBranch) q.set("branchId", effectiveBranch);
-    return `${tab}?${q}`;
+    const path = { sales: "/reports/sales", gst: words.custom ? "/reports/taxes" : "/reports/gst", stock: "/reports/stock", staff: "/reports/staff", log: "/reports/stock-log" }[tab];
+    return `${path}?${q}`;
   })();
   const data = result?.key === currentKey ? result.value : null;
 
   return (
     <div className="w-full">
-      <PageHeader title="Reports" description={me.user.role === "MANAGER" ? "Your branches only" : "All amounts include GST unless marked taxable"} />
+      <PageHeader title="Reports" description={me.user.role === "MANAGER" ? "Your branches only" : `All amounts include ${words.tax} unless marked taxable`} />
       <nav aria-label="Report" className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -140,7 +145,7 @@ export function ReportsPage() {
             onClick={() => setParams({ tab: t.id })}
             className={`min-h-10 rounded-[10px] px-3.5 text-sm ${tab === t.id ? "bg-indigo font-semibold text-white" : "border border-line bg-white"}`}
           >
-            {t.label}
+            {t.id === "gst" ? words.tax : t.label}
           </button>
         ))}
       </nav>
@@ -178,7 +183,8 @@ export function ReportsPage() {
       {error ? <Alert tone="error">{error}</Alert> : null}
       {!data && !error ? <p className="text-muted">Loading…</p> : null}
       {data && tab === "sales" ? <Sales r={data as SalesReport} tag={fileTag} branchName={(id) => me.branches.find((b) => b.id === id)?.name ?? id} /> : null}
-      {data && tab === "gst" ? <Gst r={data as GstReport} tag={fileTag} tz={tz} /> : null}
+      {data && tab === "gst" && !words.custom ? <Gst r={data as GstReport} tag={fileTag} tz={tz} /> : null}
+      {data && tab === "gst" && words.custom ? <Taxes r={data as TaxReport} tag={fileTag} tz={tz} taxNumber={words.number} /> : null}
       {data && tab === "stock" ? <Stock r={data as StockReport} /> : null}
       {data && tab === "staff" ? <Staff r={data as StaffReport} tag={fileTag} /> : null}
       {data && tab === "log" ? <Log r={data as StockLog} tag={fileTag} tz={tz} /> : null}
@@ -214,6 +220,47 @@ function Sales({ r, tag, branchName }: { r: SalesReport; tag: string; branchName
           </Section>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function Taxes({ r, tag, tz, taxNumber }: { r: TaxReport; tag: string; tz: string; taxNumber: string }) {
+  const collected = r.byTax.reduce((s, x) => s + x.collected, 0);
+  const paid = r.byTax.reduce((s, x) => s + x.paid, 0);
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+        <Stat label="Bills" value={String(r.bills)} />
+        <Stat label="Net taxable sales" value={formatMoney(r.taxableSales)} />
+        <Stat label="Tax collected" value={formatMoney(collected)} />
+        <Stat label="Tax paid on purchases" value={formatMoney(paid)} />
+        <Stat label="Collected − paid" value={formatMoney(collected - paid)} />
+      </div>
+      <Section
+        title="By tax (sales − credit notes; purchases − returns)"
+        onCsv={() =>
+          downloadCsv(
+            `Tax_by_rate_${tag}.csv`,
+            toCsv(
+              ["Tax", "Rate %", "On sales", "On credit notes", "Collected", "On purchases", "On purchase returns", "Paid", "Collected - paid"],
+              r.byTax.map((x) => [x.name, bpToPercent(x.rateBp), rupee(x.sales), rupee(x.returns), rupee(x.collected), rupee(x.purchases), rupee(x.purchaseReturns), rupee(x.paid), rupee(x.net)]),
+            ),
+          )
+        }
+      >
+        <Table
+          minW={640}
+          head={["Tax", "Collected", "Paid", "Collected − paid"]}
+          rows={r.byTax.map((x) => [`${x.name} ${bpToPercent(x.rateBp)}%`, formatMoney(x.collected), formatMoney(x.paid), formatMoney(x.net)])}
+          empty="No tax in this range."
+        />
+      </Section>
+      <Section
+        title={`Bills to customers with a ${taxNumber}`}
+        onCsv={() => downloadCsv(`Tax_business_bills_${tag}.csv`, toCsv(["Invoice", "Date", "Customer", taxNumber, "Taxable", "Tax", "Total"], r.invoices.map((b) => [b.invoiceNumber, formatDate(b.date, tz), b.customerName, b.customerTaxNumber ?? "", rupee(b.taxable), rupee(b.tax), rupee(b.total)])))}
+      >
+        <Table minW={720} head={["Bill", "Customer", "Taxable", "Tax", "Total"]} rows={r.invoices.map((b) => [b.invoiceNumber, `${b.customerName} · ${b.customerTaxNumber}`, formatMoney(b.taxable), formatMoney(b.tax), formatMoney(b.total)])} empty={`No bills to customers with a ${taxNumber}.`} />
+      </Section>
     </div>
   );
 }
@@ -317,7 +364,7 @@ function Staff({ r, tag }: { r: StaffReport; tag: string }) {
         <Stat label="Gross margin (where cost is known)" value={formatMoney(totalMargin)} />
       </div>
       <Section title="Margin by product" onCsv={() => downloadCsv(`Margin_${tag}.csv`, toCsv(["Product", "Qty", "Unit", "Sales (taxable)", "Cost", "Margin", "Margin %"], r.margin.map((m) => [m.name, m.qtyMilli / 1000, m.unit, rupee(m.revenue), m.cost === null ? "" : rupee(m.cost), m.margin === null ? "" : rupee(m.margin), m.marginBp === null ? "" : bpToPercent(m.marginBp)])))}>
-        <p className="m-0 text-xs text-muted">Sales are without GST and net of returns. Products sold without a cost price show "—".</p>
+        <p className="m-0 text-xs text-muted">Sales are before tax and net of returns. Products sold without a cost price show "—".</p>
         <Table minW={640} head={["Product", "Qty", "Sales", "Cost", "Margin", "%"]} rows={r.margin.map((m) => [m.name, `${formatQty(m.qtyMilli)} ${m.unit}`, formatMoney(m.revenue), m.cost === null ? "—" : formatMoney(m.cost), m.margin === null ? "—" : formatMoney(m.margin), m.marginBp === null ? "—" : `${bpToPercent(m.marginBp)}%`])} />
       </Section>
     </div>

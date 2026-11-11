@@ -59,8 +59,8 @@ function CsvImport({ kind }: { kind: "products" | "customers" }) {
         <h2 className="m-0 text-lg font-semibold">{title}</h2>
         <p className="m-0 text-sm text-muted">
           {kind === "products"
-            ? "Columns: Name, Selling Price (₹) and optionally SKU, Barcode, Category, HSN, Cost Price, Tax %, Tax Type (inclusive/exclusive), Stock, Low Stock Alert, Unit. The free POS Products.csv works as is. Matching SKU, barcode or name updates the product; Stock sets this branch's stock."
-            : "Columns: Name and optionally Phone, Email, GSTIN, State Code, Address, Notes. The free POS Customers.csv works as is. A matching mobile number updates the customer."}
+            ? "Columns: Name, Selling Price and optionally SKU, Barcode, Category, HSN (item code), Cost Price, Tax %, Tax Type (inclusive/exclusive), Stock, Low Stock Alert, Unit. The free POS Products.csv works as is. Matching SKU, barcode or name updates the product; Stock sets this branch's stock."
+            : "Columns: Name and optionally Phone, Email, GSTIN (tax number), State Code, Address, Notes. The free POS Customers.csv works as is. A matching mobile number updates the customer."}
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">

@@ -4,7 +4,7 @@ import { DataTable, Stat } from "../../components/DataTable";
 import { Alert, Badge, Button, Field, Modal, SelectField } from "../../components/ui";
 import type { PaymentMethod, Statement } from "../../lib/api";
 import { errorMessage, formatDate } from "../../lib/format";
-import { formatMoney, parseMoney } from "../../lib/money";
+import { currencySign, formatMoney, parseMoney } from "../../lib/money";
 
 const TYPE_LABEL: Record<string, string> = {
   bill: "Udhaar bill",
@@ -103,7 +103,7 @@ export function PaymentDialog({ title, owed, methods, branches, defaultBranchId,
     <Modal title={title} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <Field label="Amount (₹)" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} hint={owed > 0 ? `Due now: ${formatMoney(owed)}` : undefined} />
+        <Field label={`Amount (${currencySign()})`} inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} hint={owed > 0 ? `Due now: ${formatMoney(owed)}` : undefined} />
         <div role="group" aria-label="Paid by" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {methods.map((m) => (
             <button key={m.id} type="button" aria-pressed={m.id === methodId} onClick={() => setMethodId(m.id)} className={`min-h-11 rounded-[10px] px-2 text-[13px] ${m.id === methodId ? "border-2 border-indigo bg-indigo-50 font-semibold text-indigo" : "border border-line bg-white"}`}>
@@ -161,7 +161,7 @@ export function OpeningDialog({ title, withDue, onSubmit, onClose }: { title: st
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
         <p className="m-0 text-sm text-muted">Dues from before Setu Retail. They count as the oldest bill, so payments clear them first.</p>
         {error ? <Alert tone="error">{error}</Alert> : null}
-        <Field label="Amount (₹)" inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Field label={`Amount (${currencySign()})`} inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} />
         <Field label="From date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         {withDue ? <Field label="Due by (optional)" type="date" value={due} onChange={(e) => setDue(e.target.value)} /> : null}
         <Field label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. From the old notebook" />
