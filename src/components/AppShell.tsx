@@ -1,3 +1,4 @@
+import { DemoBanner } from "./DemoBanner";
 import { KeyRound, LogOut, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
@@ -187,6 +188,7 @@ export function AppShell() {
             <LogOut size={18} aria-hidden="true" />
           </button>
         </header>
+        <DemoBanner />
         <DeviceBanner />
         <PlanBanner />
         {/* Only the page scrolls, never the menu. Billing scrolls its own lists on wide screens. */}
