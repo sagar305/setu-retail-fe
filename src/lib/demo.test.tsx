@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatCountdown, parseDemoLogin } from "./demo";
+import { formatCountdown, parseDemoLogins } from "./demo";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -12,10 +12,14 @@ afterEach(() => {
 
 describe("demo mode", () => {
   it("reads the demo login as login|password", () => {
-    expect(parseDemoLogin("demo|demo-shop-1234")).toEqual({ login: "demo", password: "demo-shop-1234" });
-    expect(parseDemoLogin("demo|pa|ss")).toEqual({ login: "demo", password: "pa|ss" });
-    expect(parseDemoLogin("demo")).toBeNull();
-    expect(parseDemoLogin(undefined)).toBeNull();
+    expect(parseDemoLogins("Owner=owner|pw-1;Manager=manager|pw=2;Cashier=cashier|p|w")).toEqual([
+      { label: "Owner", login: "owner", password: "pw-1" },
+      { label: "Manager", login: "manager", password: "pw=2" },
+      { label: "Cashier", login: "cashier", password: "p|w" },
+    ]);
+    expect(parseDemoLogins("demo|demo-shop-1234")).toEqual([{ label: "Demo", login: "demo", password: "demo-shop-1234" }]);
+    expect(parseDemoLogins("demo")).toEqual([]);
+    expect(parseDemoLogins(undefined)).toEqual([]);
   });
 
   it("formats the countdown", () => {
@@ -24,13 +28,13 @@ describe("demo mode", () => {
     expect(formatCountdown(-5)).toBe("0:00");
   });
 
-  it("shows the demo login on the sign-in screen and fills it in", async () => {
+  it("signs in as a role with one tap on the demo sign-in screen", async () => {
     vi.stubEnv("VITE_DEMO_MODE", "true");
-    vi.stubEnv("VITE_DEMO_LOGIN", "demo|demo-shop-1234");
+    vi.stubEnv("VITE_DEMO_LOGIN", "Owner=owner|demo-shop-1234;Manager=manager|demo-shop-1234;Cashier=cashier|demo-shop-1234");
     const { SignIn } = await import("../pages/auth/SignIn");
     const { AuthProvider } = await import("../auth/AuthProvider");
-    const { mockApi, NOT_SIGNED_IN } = await import("../test/mockApi");
-    mockApi({ "POST /auth/refresh": NOT_SIGNED_IN });
+    const { makeMe, mockApi, NOT_SIGNED_IN, session } = await import("../test/mockApi");
+    const { calls } = mockApi({ "POST /auth/refresh": NOT_SIGNED_IN, "POST /auth/login": session(makeMe({ role: "CASHIER" })) });
     render(
       <MemoryRouter>
         <AuthProvider>
@@ -38,10 +42,11 @@ describe("demo mode", () => {
         </AuthProvider>
       </MemoryRouter>,
     );
-    expect(screen.getByText("This is a demo shop — anyone can sign in")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Use demo login" }));
-    expect(screen.getByLabelText("Email or username")).toHaveValue("demo");
-    expect(screen.getByLabelText("Password")).toHaveValue("demo-shop-1234");
+    expect(screen.getByText("This is a demo shop — try it as any role")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.getByText("Manager")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Sign in as Cashier" }));
+    await waitFor(() => expect(calls.find((c) => c.path === "/auth/login")?.body).toEqual({ login: "cashier", password: "demo-shop-1234" }));
     expect(screen.getByRole("link", { name: /Create account/ })).toHaveAttribute("href", "https://app.retail-pos.setutechnology.com/sign-up");
   });
 

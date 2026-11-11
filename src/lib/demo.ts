@@ -1,9 +1,9 @@
 // Demo build (demo.retail-pos.setutechnology.com) only.
 //
-// VITE_DEMO_MODE=true shows the shared demo login on the sign-in screen, sends
+// VITE_DEMO_MODE=true shows the shared demo logins on the sign-in screen, sends
 // "Create account" to the real app, and shows when the demo data is next
-// wiped. VITE_DEMO_LOGIN is "login|password", inlined into the bundle and
-// readable by anyone: it must be the throwaway demo shop's login, nothing else.
+// wiped. VITE_DEMO_LOGIN (see parseDemoLogins) is inlined into the bundle and
+// readable by anyone: only the throwaway demo shop's logins, nothing else.
 import { db } from "../offline/db";
 import { clearCache } from "./cache";
 
@@ -12,19 +12,28 @@ export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 /** Where real sign-ups go from the demo. */
 export const PRODUCTION_APP_URL = (import.meta.env.VITE_PRODUCTION_APP_URL ?? "https://app.retail-pos.setutechnology.com").replace(/\/$/, "");
 
-export type DemoLogin = { login: string; password: string };
+export type DemoLogin = { label: string; login: string; password: string };
 
-export function parseDemoLogin(raw: string | undefined): DemoLogin | null {
-  if (!raw) return null;
-  // Split on the first "|" only, so a password containing one survives.
-  const at = raw.indexOf("|");
-  if (at === -1) return null;
-  const login = raw.slice(0, at).trim();
-  const password = raw.slice(at + 1).trim();
-  return login && password ? { login, password } : null;
+/**
+ * VITE_DEMO_LOGIN lists the demo logins, separated by ";", each as
+ * "Label=login|password" (e.g. "Owner=owner|pw;Cashier=cashier|pw"). A bare
+ * "login|password" is one login labelled "Demo".
+ */
+export function parseDemoLogins(raw: string | undefined): DemoLogin[] {
+  if (!raw) return [];
+  return raw.split(";").flatMap((entry) => {
+    const bar = entry.indexOf("|");
+    if (bar === -1) return [];
+    const head = entry.slice(0, bar);
+    const eq = head.indexOf("=");
+    const label = eq === -1 ? "Demo" : head.slice(0, eq).trim();
+    const login = (eq === -1 ? head : head.slice(eq + 1)).trim();
+    const password = entry.slice(bar + 1).trim();
+    return label && login && password ? [{ label, login, password }] : [];
+  });
 }
 
-export const DEMO_LOGIN: DemoLogin | null = DEMO_MODE ? parseDemoLogin(import.meta.env.VITE_DEMO_LOGIN) : null;
+export const DEMO_LOGINS: DemoLogin[] = DEMO_MODE ? parseDemoLogins(import.meta.env.VITE_DEMO_LOGIN) : [];
 
 /** "1:04:09" past an hour, "4:09" under one. */
 export function formatCountdown(totalSeconds: number): string {
