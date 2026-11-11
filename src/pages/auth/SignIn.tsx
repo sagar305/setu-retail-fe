@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { Alert, Button, Field } from "../../components/ui";
 import { ApiError, authApi, lastRefreshProblem } from "../../lib/api";
-import { clearDemoDevice, DEMO_LOGIN, DEMO_MODE, PRODUCTION_APP_URL } from "../../lib/demo";
+import { clearDemoDevice, DEMO_LOGINS, DEMO_MODE, PRODUCTION_APP_URL, type DemoLogin } from "../../lib/demo";
 import { errorMessage } from "../../lib/format";
 import { AuthLayout } from "./AuthLayout";
 
@@ -18,12 +18,22 @@ export function SignIn() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    await signIn(form.login, form.password);
+  }
+
+  /** Demo: one tap signs in as that role. */
+  function signInAs(demo: DemoLogin) {
+    setForm({ login: demo.login, password: demo.password });
+    void signIn(demo.login, demo.password);
+  }
+
+  async function signIn(loginName: string, password: string) {
     setBusy(true);
     setError(null);
     try {
       // The demo is wiped every few hours: start from a clean device copy.
       if (DEMO_MODE) await clearDemoDevice();
-      await login(form.login, form.password);
+      await login(loginName, password);
       // PublicOnly sends the now signed-in user on to where they were going.
     } catch (err) {
       setError(err as Error);
@@ -39,21 +49,27 @@ export function SignIn() {
     <AuthLayout title="Sign in" subtitle="Use your email or username.">
       <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
         {problem && !error ? <Alert tone="warn">{problem}</Alert> : null}
-        {DEMO_LOGIN ? (
+        {DEMO_LOGINS.length ? (
           <div className="flex flex-col gap-3 rounded-xl border border-[#F2C98E] bg-[#FDF1DE] px-4 py-3 text-sm">
             <div>
-              <p className="m-0 font-semibold">This is a demo shop — anyone can sign in</p>
-              <dl className="m-0 mt-1 grid grid-cols-[auto_1fr] gap-x-3 text-muted">
-                <dt>Login</dt>
-                <dd className="m-0 font-medium break-all text-ink">{DEMO_LOGIN.login}</dd>
-                <dt>Password</dt>
-                <dd className="m-0 font-medium break-all text-ink">{DEMO_LOGIN.password}</dd>
-              </dl>
-              <p className="m-0 mt-1.5 text-[13px] text-muted">The sample data is restored every few hours, so changes you make here aren't kept.</p>
+              <p className="m-0 font-semibold">This is a demo shop — try it as any role</p>
+              <p className="m-0 mt-0.5 text-[13px] text-muted">The sample data is restored every few hours, so changes you make here aren't kept.</p>
             </div>
-            <Button type="button" variant="secondary" onClick={() => setForm({ login: DEMO_LOGIN!.login, password: DEMO_LOGIN!.password })}>
-              Use demo login
-            </Button>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {DEMO_LOGINS.map((d) => (
+                <li key={d.label} className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <span className="font-semibold">{d.label}</span>
+                    <span className="block break-all text-[13px] text-muted">
+                      {d.login} · {d.password}
+                    </span>
+                  </div>
+                  <Button type="button" variant="secondary" disabled={busy} onClick={() => signInAs(d)} aria-label={`Sign in as ${d.label}`}>
+                    Sign in
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         {error ? (
