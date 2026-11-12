@@ -400,6 +400,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/session-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read-only: what the API sees of this browser's sign-in cookie (names only, never values); for diagnosing sign-outs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            cookiesReceived: string[];
+                            sessionCookie: boolean;
+                            serverTime: string;
+                            /** @enum {string} */
+                            session: "ok" | "revoked" | "expired" | "token_already_used" | "unknown_token" | "no_session_cookie" | "no_cookies_at_all";
+                            expiresAt?: string;
+                            lastUsedAt?: string | null;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -2362,7 +2424,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Products with this branch's price and stock (?branchId=&q=&categoryId=&limit=&offset=) */
+        /** Products with this branch's price and stock (?branchId=&q=&categoryId= (or none)&stock=out|low|ok&limit=&offset=) */
         get: {
             parameters: {
                 query?: never;
@@ -2839,7 +2901,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Customers (?q= name, phone or GSTIN) */
+        /** Customers (?q= name, phone or GSTIN; &limit=&offset=) */
         get: {
             parameters: {
                 query?: never;
@@ -3060,7 +3122,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bills (?branchId=&from=&to=&status=&q=&before=&limit=); cashiers: own bills today */
+        /** Bills (?branchId=&from=&to=&status=&methodId=&q=&limit=&offset= or &before=); cashiers: own bills today */
         get: {
             parameters: {
                 query?: never;
@@ -3078,6 +3140,8 @@ export interface paths {
                     content: {
                         "application/json": {
                             orders: components["schemas"]["OrderSummary"][];
+                            /** @description Matching bills (null with before=) */
+                            total: number | null;
                         };
                     };
                 };
@@ -9680,6 +9744,74 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/demo/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** When the demo data is next wiped (enabled: false everywhere but the demo) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            enabled: boolean;
+                            intervalHours: number | null;
+                            /** Format: date-time */
+                            nextResetAt: string | null;
+                            secondsUntilReset: number | null;
+                            resetting: boolean;
+                            /** Format: date-time */
+                            lastResetAt: string | null;
+                            /** Format: date-time */
+                            loadedSnapshotAt: string | null;
+                            /** Format: date-time */
+                            deployedSnapshotAt: string | null;
+                            problem: string | null;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

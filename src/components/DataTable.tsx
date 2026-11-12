@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /** A scrollable table: first column left, the rest right-aligned (numbers). */
 export function DataTable({ head, rows, empty = "Nothing here yet.", minW = 640, left = 1 }: { head: ReactNode[]; rows: { key: string; cells: ReactNode[]; muted?: boolean }[]; empty?: string; minW?: number; left?: number }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+    <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
       <table className="w-full border-collapse text-sm" style={{ minWidth: minW }}>
         <thead>
           <tr className="bg-paper text-left text-xs text-muted">
