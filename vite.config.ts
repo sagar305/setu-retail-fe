@@ -17,7 +17,26 @@ function checkApiUrl(mode: string, command: string) {
   if (!ok) throw new Error(`VITE_API_URL "${url}" should be /api or an https:// address with no path.`);
 }
 
-export default defineConfig(({ mode, command }) => (checkApiUrl(mode, command), {
+/**
+ * Says in the build log whether this is the demo build, so a demo deploy whose
+ * VITE_DEMO_MODE didn't reach the build is easy to spot (VITE_* values are
+ * baked in at build time: changing one needs a redeploy).
+ */
+function reportDemo(mode: string, command: string) {
+  if (command !== "build") return;
+  const env = loadEnv(mode, process.cwd(), "VITE_");
+  const clean = (v: string | undefined) => (v ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+  const on = /^(true|1|yes|on)$/i.test(clean(env.VITE_DEMO_MODE));
+  if (!on) {
+    console.log(`Demo build: OFF${env.VITE_DEMO_MODE ? ` (VITE_DEMO_MODE is "${env.VITE_DEMO_MODE}", not true)` : ""}`);
+    return;
+  }
+  const logins = clean(env.VITE_DEMO_LOGIN).split(";").filter((x) => x.includes("|")).length;
+  console.log(`Demo build: ON · ${logins} demo login${logins === 1 ? "" : "s"} · sign-ups go to ${clean(env.VITE_PRODUCTION_APP_URL) || "https://app.retail-pos.setutechnology.com"}`);
+  if (!logins) console.warn("Demo build: VITE_DEMO_LOGIN is empty, so the sign-in page shows no demo logins.");
+}
+
+export default defineConfig(({ mode, command }) => (checkApiUrl(mode, command), reportDemo(mode, command), {
   plugins: [
     react(),
     tailwindcss(),

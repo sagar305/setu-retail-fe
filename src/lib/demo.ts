@@ -7,10 +7,15 @@
 import { db } from "../offline/db";
 import { clearCache } from "./cache";
 
-export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+/** An env value without surrounding spaces or quotes (pasted as "true" in a dashboard). */
+export const unquote = (v: string | undefined) => (v ?? "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+/** true / 1 / yes / on, in any case. */
+export const isOn = (v: string | undefined) => /^(true|1|yes|on)$/i.test(unquote(v));
+
+export const DEMO_MODE = isOn(import.meta.env.VITE_DEMO_MODE);
 
 /** Where real sign-ups go from the demo. */
-export const PRODUCTION_APP_URL = (import.meta.env.VITE_PRODUCTION_APP_URL ?? "https://app.retail-pos.setutechnology.com").replace(/\/$/, "");
+export const PRODUCTION_APP_URL = (unquote(import.meta.env.VITE_PRODUCTION_APP_URL) || "https://app.retail-pos.setutechnology.com").replace(/\/$/, "");
 
 export type DemoLogin = { label: string; login: string; password: string };
 
@@ -21,7 +26,7 @@ export type DemoLogin = { label: string; login: string; password: string };
  */
 export function parseDemoLogins(raw: string | undefined): DemoLogin[] {
   if (!raw) return [];
-  return raw.split(";").flatMap((entry) => {
+  return unquote(raw).split(";").flatMap((entry) => {
     const bar = entry.indexOf("|");
     if (bar === -1) return [];
     const head = entry.slice(0, bar);

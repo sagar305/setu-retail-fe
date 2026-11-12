@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatCountdown, parseDemoLogins } from "./demo";
+import { formatCountdown, isOn, parseDemoLogins } from "./demo";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -20,6 +20,12 @@ describe("demo mode", () => {
     expect(parseDemoLogins("demo|demo-shop-1234")).toEqual([{ label: "Demo", login: "demo", password: "demo-shop-1234" }]);
     expect(parseDemoLogins("demo")).toEqual([]);
     expect(parseDemoLogins(undefined)).toEqual([]);
+  });
+
+  it("accepts the switch however it was typed into the dashboard", () => {
+    for (const v of ["true", "True", " TRUE ", '"true"', "'true'", "1", "yes", "on"]) expect(isOn(v)).toBe(true);
+    for (const v of [undefined, "", "false", "0", "no", "truee"]) expect(isOn(v)).toBe(false);
+    expect(parseDemoLogins('"Owner=owner|pw"')).toEqual([{ label: "Owner", login: "owner", password: "pw" }]);
   });
 
   it("formats the countdown", () => {
