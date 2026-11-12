@@ -54,7 +54,8 @@ describe("billing", () => {
         { productId: PRODUCTS[1]!.id, qtyMilli: 2000 },
         { productId: PRODUCTS[2]!.id, qtyMilli: 1000 },
       ],
-      payments: [{ methodId: METHODS[1]!.id, amount: 69500 }],
+      // Cash is the default payment method.
+      payments: [{ methodId: METHODS[0]!.id, amount: 69500 }],
       total: 69500,
     });
     expect(queued!.id).toMatch(/^[0-9a-f-]{36}$/);

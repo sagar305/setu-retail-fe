@@ -5,6 +5,9 @@ import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } fro
 import { onChangesUpdate, saveChange } from "../lib/changes";
 import { apiGet, type Order, type OrderSummary, type PaymentMethod, type Settings } from "../lib/api";
 import { currentBranch } from "../lib/branch";
+import { toRange } from "../lib/ranges";
+import { Pagination } from "../components/Pagination";
+import { usePageSize } from "../hooks/usePageSize";
 import { ensureCounter } from "../offline/counter";
 import { errorMessage } from "../lib/format";
 import { formatMoney, formatQty, parseQty } from "../lib/money";
@@ -227,46 +230,72 @@ function OrderDetail({ id, settings, methods, onChanged, onClose }: { id: string
 export function OrdersPage() {
   const me = useMe();
   const isCashier = me.user.role === "CASHIER";
+  const tz = me.account.timezone;
   const [branchId, setBranchId] = useState<string>(() => (isCashier ? (currentBranch(me)?.id ?? "") : ""));
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [methodId, setMethodId] = useState("");
+  const [fromDay, setFromDay] = useState("");
+  const [toDay, setToDay] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = usePageSize("orders");
   const [orders, setOrders] = useState<OrderSummary[] | null>(null);
+  const [total, setTotal] = useState(0);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [allMethods, setAllMethods] = useState<PaymentMethod[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [more, setMore] = useState(false);
   const branchCode = new Map(me.branches.map((b) => [b.id, b.code]));
 
-  const load = useCallback(
-    (before?: string) => {
-      const params = new URLSearchParams({ limit: "50" });
-      if (branchId) params.set("branchId", branchId);
-      if (q.trim()) params.set("q", q.trim());
-      if (status) params.set("status", status);
-      if (before) params.set("before", before);
-      apiGet<{ orders: OrderSummary[] }>(`/orders?${params}`).then(
-        (r) => {
-          setOrders((prev) => (before ? [...(prev ?? []), ...r.orders] : r.orders));
-          setMore(r.orders.length === 50);
-        },
-        (err: unknown) => setError(errorMessage(err)),
-      );
-    },
-    [branchId, q, status],
-  );
+  // Any filter change starts again from the first page.
+  const filters = `${branchId}|${q.trim()}|${status}|${methodId}|${fromDay}|${toDay}|${pageSize}`;
+  const lastFilters = useRef(filters);
+  useEffect(() => {
+    if (lastFilters.current !== filters) {
+      lastFilters.current = filters;
+      setPage(0);
+    }
+  }, [filters]);
+
+  const load = useCallback(() => {
+    const params = new URLSearchParams({ limit: String(pageSize), offset: String(page * pageSize) });
+    if (branchId) params.set("branchId", branchId);
+    if (q.trim()) params.set("q", q.trim());
+    if (status) params.set("status", status);
+    if (methodId) params.set("methodId", methodId);
+    if (fromDay) params.set("from", toRange(fromDay, fromDay, tz).from);
+    if (toDay) params.set("to", toRange(toDay, toDay, tz).to);
+    apiGet<{ orders: OrderSummary[]; total: number | null }>(`/orders?${params}`).then(
+      (r) => {
+        setError(null);
+        setOrders(r.orders);
+        setTotal(r.total ?? r.orders.length);
+      },
+      (err: unknown) => setError(errorMessage(err)),
+    );
+  }, [branchId, q, status, methodId, fromDay, toDay, page, pageSize, tz]);
   useEffect(() => {
     const t = window.setTimeout(() => load(), 250);
     return () => window.clearTimeout(t);
   }, [load]);
-  const reloadFirstPage = useCallback(() => load(), [load]);
-  useCacheRefresh(["/orders?"], reloadFirstPage);
+  useCacheRefresh(["/orders?"], load);
   useEffect(() => {
     Promise.all([apiGet<Settings>("/settings"), apiGet<{ methods: PaymentMethod[] }>("/payment-methods")]).then(([s, m]) => {
       setSettings(s);
       setMethods(m.methods.filter((x) => x.active));
+      setAllMethods(m.methods);
     }, () => {});
   }, []);
+  const filtered = Boolean(q.trim() || status || methodId || fromDay || toDay || (!isCashier && branchId));
+  const clear = () => {
+    setQ("");
+    setStatus("");
+    setMethodId("");
+    setFromDay("");
+    setToDay("");
+    if (!isCashier) setBranchId("");
+  };
 
   const totals = (orders ?? []).filter((o) => o.status === "COMPLETED").reduce((s, o) => s + o.total - o.returnedTotal, 0);
 
@@ -288,15 +317,37 @@ export function OrdersPage() {
             </SelectField>
           </div>
         ) : null}
-        <div className="flex-[1_1_160px]">
+        <div className="flex-[1_1_140px]">
           <SelectField label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All</option>
             <option value="COMPLETED">Paid</option>
             <option value="CANCELLED">Cancelled</option>
           </SelectField>
         </div>
+        <div className="flex-[1_1_160px]">
+          <SelectField label="Payment" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
+            <option value="">All methods</option>
+            {allMethods.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+                {m.active ? "" : " (off)"}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        {!isCashier ? (
+          <>
+            <Field label="From" type="date" value={fromDay} max={toDay || undefined} onChange={(e) => setFromDay(e.target.value)} className="flex-[1_1_150px]" />
+            <Field label="To" type="date" value={toDay} min={fromDay || undefined} onChange={(e) => setToDay(e.target.value)} className="flex-[1_1_150px]" />
+          </>
+        ) : null}
+        {filtered ? (
+          <Button variant="ghost" onClick={clear}>
+            Clear filters
+          </Button>
+        ) : null}
       </Card>
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+      <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">
@@ -331,13 +382,7 @@ export function OrdersPage() {
         </table>
         {orders?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">No bills match.</p> : null}
       </div>
-      {more ? (
-        <div className="mt-3">
-          <Button variant="secondary" onClick={() => load(orders?.at(-1)?.createdAt)}>
-            Load older bills
-          </Button>
-        </div>
-      ) : null}
+      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} noun="bills" />
       {open && settings ? <OrderDetail id={open} settings={settings} methods={methods} onChanged={() => load()} onClose={() => setOpen(null)} /> : null}
     </div>
   );

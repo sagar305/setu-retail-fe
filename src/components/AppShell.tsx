@@ -1,4 +1,5 @@
 import { DemoBanner } from "./DemoBanner";
+import { FullscreenButton } from "./FullscreenButton";
 import { KeyRound, LogOut, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
@@ -161,6 +162,7 @@ export function AppShell() {
           </button>
           <span className="min-w-0 flex-1 truncate text-sm text-muted" title={where}>{where}</span>
           <SyncStatus />
+          <FullscreenButton />
           <div className="flex items-center gap-2.5">
             <div className="hidden size-9 shrink-0 items-center justify-center rounded-full bg-cream text-sm font-semibold sm:flex" aria-hidden="true">
               {initials}

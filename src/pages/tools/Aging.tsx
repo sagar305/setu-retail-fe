@@ -101,7 +101,7 @@ export function AgingPage({ kind }: { kind: Kind }) {
           Due in the next 7 days: {data.dueThisWeek.map((d) => `${d.name} ${d.ref} ${formatMoney(d.open)} on ${day(d.dueDay, tz)}`).join(" · ")}
         </Alert>
       ) : null}
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+      <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">

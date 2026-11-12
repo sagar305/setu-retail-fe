@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useTaxWords } from "../hooks/useSettings";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Button, Field, Modal, PageHeader } from "../components/ui";
 import { ApiError, apiGet, type Customer } from "../lib/api";
+import { Pagination } from "../components/Pagination";
+import { usePageSize } from "../hooks/usePageSize";
 import { newUuid, saveChange } from "../lib/changes";
 import { errorMessage, formatDate } from "../lib/format";
 import { downloadCsv, toCsv } from "../lib/csv";
@@ -86,19 +88,53 @@ export function CustomersPage() {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [matching, setMatching] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = usePageSize("customers");
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | { customer: Customer | null }>(null);
   const limit = me.plan.current?.limits.maxCustomers ?? null;
 
+  // A new search or page size starts again from the first page.
+  const filters = `${q.trim()}|${pageSize}`;
+  const lastFilters = useRef(filters);
+  useEffect(() => {
+    if (lastFilters.current !== filters) {
+      lastFilters.current = filters;
+      setPage(0);
+    }
+  }, [filters]);
+
   const load = useCallback(() => {
-    apiGet<{ customers: Customer[]; total: number }>(`/customers?q=${encodeURIComponent(q)}&limit=200`).then(
+    apiGet<{ customers: Customer[]; total: number }>(`/customers?q=${encodeURIComponent(q.trim())}&limit=${pageSize}&offset=${page * pageSize}`).then(
       (r) => {
+        setError(null);
         setRows(r.customers);
-        if (!q) setTotal(r.total);
+        setMatching(r.total);
+        if (!q.trim()) setTotal(r.total);
       },
       (err: unknown) => setError(errorMessage(err)),
     );
-  }, [q]);
+  }, [q, page, pageSize]);
+
+  /** Every customer that matches the search, not just this page. */
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const all: Customer[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const r = await apiGet<{ customers: Customer[]; total: number }>(`/customers?q=${encodeURIComponent(q.trim())}&limit=500&offset=${offset}`);
+        all.push(...r.customers);
+        if (all.length >= r.total || r.customers.length === 0) break;
+      }
+      downloadCsv("Customers.csv", toCsv(["Name", "Phone", "Email", words.number, "State Code", "Address", "Notes"], all.map((c) => [c.name, c.phone, c.email, c.gstin ?? "", c.stateCode ?? "", c.address, c.notes])));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  }
   useCacheRefresh(["/customers?"], load);
   useEffect(() => {
     const t = window.setTimeout(load, 200);
@@ -113,11 +149,7 @@ export function CustomersPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             {canEdit ? (
-              <Button
-                variant="secondary"
-                disabled={!rows?.length}
-                onClick={() => downloadCsv("Customers.csv", toCsv(["Name", "Phone", "Email", words.number, "State Code", "Address", "Notes"], (rows ?? []).map((c) => [c.name, c.phone, c.email, c.gstin ?? "", c.stateCode ?? "", c.address, c.notes])))}
-              >
+              <Button variant="secondary" disabled={!matching} busy={exporting} onClick={() => void exportCsv()}>
                 Export CSV
               </Button>
             ) : null}
@@ -130,7 +162,7 @@ export function CustomersPage() {
         Search customers
       </label>
       <input id="c-search" type="search" placeholder={`Search name, mobile or ${words.number}`} value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+      <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[640px] border-collapse text-sm">
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">
@@ -161,8 +193,9 @@ export function CustomersPage() {
             ))}
           </tbody>
         </table>
-        {rows?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">No customers yet.</p> : null}
+        {rows?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">{q.trim() ? "No customers match." : "No customers yet."}</p> : null}
       </div>
+      <Pagination page={page} pageSize={pageSize} total={matching} onPage={setPage} onPageSize={setPageSize} noun="customers" />
       {dialog ? (
         <CustomerForm
           customer={dialog.customer}

@@ -205,7 +205,7 @@ export function BillingPage() {
   // Split takes any methods but udhaar (it needs the whole bill on the customer's account).
   const splitMethods = methods.filter((m) => m.kind !== "CREDIT");
   const isSplit = methodId === SPLIT && splitMethods.length >= 2;
-  const activeMethodId = isSplit ? SPLIT : (methods.find((m) => m.id === methodId)?.id ?? methods.find((m) => m.kind === "UPI")?.id ?? methods[0]?.id ?? null);
+  const activeMethodId = isSplit ? SPLIT : (methods.find((m) => m.id === methodId)?.id ?? methods.find((m) => m.kind === "CASH")?.id ?? methods[0]?.id ?? null);
   const method = isSplit ? undefined : methods.find((m) => m.id === activeMethodId);
   const isCashier = s.user.role === "CASHIER";
   const canTryOnline = s.mode === "online" && online;
@@ -307,7 +307,8 @@ export function BillingPage() {
     setDiscount({ type: "flat", value: 0 });
     setTendered("");
     setError(null);
-    if (methodId === SPLIT) setMethodId(null);
+    // Every new bill starts on Cash (the default), whatever the last one used.
+    setMethodId(null);
     setSplitRows([]);
   }
 

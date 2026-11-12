@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useTaxWords } from "../hooks/useSettings";
 import { useTaxGroups } from "../hooks/useTaxGroups";
@@ -16,6 +16,8 @@ import { downloadCsv, toCsv } from "../lib/csv";
 import { BatchesDialog } from "../pos/Batches";
 import { fmtDay } from "../lib/batches";
 import type { Settings } from "../lib/api";
+import { Pagination } from "../components/Pagination";
+import { usePageSize } from "../hooks/usePageSize";
 
 const GST_RATES = [0, 25, 300, 500, 1200, 1800, 2800, 4000];
 const UNITS = ["pcs", "kg", "g", "l", "ml", "m", "box", "pack", "dozen"];
@@ -299,6 +301,12 @@ export function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [stock, setStock] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = usePageSize("products");
+  const [allCount, setAllCount] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | { kind: "new" } | { kind: "edit" | "stock" | "price" | "batches"; product: Product }>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -310,24 +318,78 @@ export function ProductsPage() {
   const { groups: taxGroups } = useTaxGroups(listWords.custom);
   const limit = me.plan.current?.limits.maxProducts ?? null;
 
+  // Any filter change starts again from the first page.
+  const filters = `${branch?.id}|${q.trim()}|${categoryId}|${stock}|${pageSize}`;
+  const lastFilters = useRef(filters);
+  useEffect(() => {
+    if (lastFilters.current !== filters) {
+      lastFilters.current = filters;
+      setPage(0);
+    }
+  }, [filters]);
+
+  const query = useCallback(
+    (limit: number, offset: number) => {
+      const params = new URLSearchParams({ branchId: branch?.id ?? "", limit: String(limit), offset: String(offset) });
+      if (q.trim()) params.set("q", q.trim());
+      if (categoryId) params.set("categoryId", categoryId);
+      if (stock) params.set("stock", stock);
+      return `/products?${params}`;
+    },
+    [branch, q, categoryId, stock],
+  );
   const load = useCallback(() => {
     if (!branch) return;
-    Promise.all([apiGet<{ products: Product[]; total: number }>(`/products?branchId=${branch.id}&limit=2000`), apiGet<{ categories: Category[] }>("/categories")]).then(
+    Promise.all([apiGet<{ products: Product[]; total: number }>(query(pageSize, page * pageSize)), apiGet<{ categories: Category[] }>("/categories")]).then(
       ([p, c]) => {
+        setError(null);
         setProducts(p.products);
         setTotal(p.total);
         setCategories(c.categories);
       },
       (err: unknown) => setError(errorMessage(err)),
     );
+  }, [branch, query, page, pageSize]);
+  useEffect(() => {
+    const t = window.setTimeout(load, 250);
+    return () => window.clearTimeout(t);
+  }, [load]);
+  // How many products the shop has in all (for the plan limit), whatever the filters.
+  const loadCount = useCallback(() => {
+    if (branch) apiGet<{ total: number }>(`/products?branchId=${branch.id}&limit=1`).then((r) => setAllCount(r.total), () => {});
   }, [branch]);
-  useEffect(load, [load]);
-  useCacheRefresh(["/products"], load);
+  useEffect(loadCount, [loadCount]);
+  useCacheRefresh(["/products"], () => {
+    load();
+    loadCount();
+  });
+  const shown = products ?? [];
+  const filtered = Boolean(q.trim() || categoryId || stock);
 
-  const shown = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return (products ?? []).filter((p) => !t || p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t) || p.barcode.includes(t) || p.hsn.startsWith(t));
-  }, [products, q]);
+  /** Every product that matches the filters, not just this page. */
+  async function exportCsv() {
+    if (!branch) return;
+    setExporting(true);
+    try {
+      const all: Product[] = [];
+      for (let offset = 0; ; offset += 2000) {
+        const r = await apiGet<{ products: Product[]; total: number }>(query(2000, offset));
+        all.push(...r.products);
+        if (all.length >= r.total || r.products.length === 0) break;
+      }
+      downloadCsv(
+        `Products_${branch.code}.csv`,
+        toCsv(
+          ["Name", "SKU", "Barcode", "Category", "HSN", "Selling Price", "Cost Price", "Tax %", "Tax Type", "Stock", "Low Stock Alert", "Unit"],
+          all.map((p) => [p.name, p.sku, p.barcode, p.categoryId ? (catName.get(p.categoryId) ?? "") : "", p.hsn, (p.price / 100).toFixed(2), p.costPrice === null || p.costPrice === undefined ? "" : (p.costPrice / 100).toFixed(2), p.gstRateBp / 100, p.taxInclusive ? "inclusive" : "exclusive", p.trackStock ? p.stockMilli / 1000 : "", p.trackStock && p.lowStockMilli !== null ? p.lowStockMilli / 1000 : "", p.unit]),
+        ),
+      );
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  }
   const catName = new Map(categories.map((c) => [c.id, c.name]));
   const done = () => {
     setDialog(null);
@@ -340,7 +402,7 @@ export function ProductsPage() {
     <div className="w-full">
       <PageHeader
         title="Products"
-        description={`${total.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} products · prices and stock for ${branch.name} (${branch.code})`}
+        description={`${allCount.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} products · prices and stock for ${branch.name} (${branch.code})`}
         actions={
           <div className="flex flex-wrap gap-2">
             {usable.length > 1 ? (
@@ -361,19 +423,7 @@ export function ProductsPage() {
                 ))}
               </select>
             ) : null}
-            <Button
-              variant="secondary"
-              disabled={!products?.length}
-              onClick={() =>
-                downloadCsv(
-                  `Products_${branch.code}.csv`,
-                  toCsv(
-                    ["Name", "SKU", "Barcode", "Category", "HSN", "Selling Price", "Cost Price", "Tax %", "Tax Type", "Stock", "Low Stock Alert", "Unit"],
-                    (products ?? []).map((p) => [p.name, p.sku, p.barcode, p.categoryId ? (catName.get(p.categoryId) ?? "") : "", p.hsn, (p.price / 100).toFixed(2), p.costPrice === null || p.costPrice === undefined ? "" : (p.costPrice / 100).toFixed(2), p.gstRateBp / 100, p.taxInclusive ? "inclusive" : "exclusive", p.trackStock ? p.stockMilli / 1000 : "", p.trackStock && p.lowStockMilli !== null ? p.lowStockMilli / 1000 : "", p.unit]),
-                  ),
-                )
-              }
-            >
+            <Button variant="secondary" disabled={!total} busy={exporting} onClick={() => void exportCsv()}>
               Export CSV
             </Button>
             <Link to="/settings/import" className="flex min-h-11 items-center rounded-[10px] border border-indigo bg-white px-4 text-sm font-semibold text-indigo no-underline">
@@ -387,13 +437,43 @@ export function ProductsPage() {
       <label htmlFor="p-search" className="sr-only">
         Search products
       </label>
-      <input id="p-search" type="search" placeholder={`Search name, SKU, barcode${listWords.code ? ` or ${listWords.code}` : ""}`} value={q} onChange={(e) => setQ(e.target.value)} className="mb-4 h-11 w-full max-w-xl rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
-      {products?.length === 0 ? (
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input id="p-search" type="search" placeholder={`Search name, SKU, barcode${listWords.code ? ` or ${listWords.code}` : ""}`} value={q} onChange={(e) => setQ(e.target.value)} className="h-11 min-w-0 flex-[2_1_260px] rounded-[10px] border border-line-strong bg-white px-3.5 text-sm" />
+        <select aria-label="Category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-11 min-w-0 flex-[1_1_160px] rounded-[10px] border border-line-strong bg-white px-2 text-sm">
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+          <option value="none">No category</option>
+        </select>
+        <select aria-label="Stock" value={stock} onChange={(e) => setStock(e.target.value)} className="h-11 min-w-0 flex-[1_1_150px] rounded-[10px] border border-line-strong bg-white px-2 text-sm">
+          <option value="">All stock</option>
+          <option value="low">Low stock</option>
+          <option value="out">Out of stock</option>
+          <option value="ok">In stock</option>
+        </select>
+        {filtered ? (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setQ("");
+              setCategoryId("");
+              setStock("");
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+      {products?.length === 0 && filtered ? <Alert tone="info">No products match these filters.</Alert> : null}
+      {products?.length === 0 && !filtered ? (
         <Alert tone="info">
           No products yet. Add your first one, or bring them in from a spreadsheet or the free Browser POS in <Link to="/settings/import" className="font-semibold underline">Settings → Import &amp; export</Link>.
         </Alert>
       ) : null}
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+      <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead>
             <tr className="bg-paper text-left text-xs text-muted">
@@ -469,6 +549,7 @@ export function ProductsPage() {
           </tbody>
         </table>
       </div>
+      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} noun="products" />
       {dialog?.kind === "new" || dialog?.kind === "edit" ? (
         <ProductForm product={dialog.kind === "edit" ? dialog.product : null} categories={categories} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} />
       ) : null}

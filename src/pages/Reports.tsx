@@ -25,7 +25,7 @@ const rupee = (p: number) => (p / 100).toFixed(2);
 
 function Table({ head, rows, empty = "Nothing in this range.", minW = 640 }: { head: ReactNode[]; rows: ReactNode[][]; empty?: string; minW?: number }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+    <div className="relative overflow-x-auto rounded-2xl border border-line bg-white">
       <table className="w-full border-collapse text-sm" style={{ minWidth: minW }}>
         <thead>
           <tr className="bg-paper text-left text-xs text-muted">
