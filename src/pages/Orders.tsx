@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocalList } from "../hooks/useLocalList";
+import { filterOrders, ORDER_WINDOW_DAYS, ordersFrom } from "../lib/listData";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
 import { Alert, Badge, Button, Card, Field, Modal, PageHeader, SelectField } from "../components/ui";
@@ -258,7 +260,22 @@ export function OrdersPage() {
     }
   }, [filters]);
 
+  // The last few months of bills on this device (loaded after sign-in): search,
+  // filters and pages work here with no API call. A date before that, or a
+  // search with nothing in those months, asks the API (all bills).
+  const local = useLocalList("orders", ordersFrom());
+  const fromIso = fromDay ? toRange(fromDay, fromDay, tz).from : null;
+  const toIso = toDay ? toRange(toDay, toDay, tz).to : null;
+  const covered = Boolean(local) && (!fromIso || fromIso >= local!.key);
+  const localFound = useMemo(
+    () => (covered && local ? filterOrders(local.rows, { branchId, q, status, methodId, from: fromIso, to: toIso }) : null),
+    [covered, local, branchId, q, status, methodId, fromIso, toIso],
+  );
+  const searchAll = Boolean(localFound && q.trim() && localFound.length === 0);
+  const useLocal = localFound !== null && !searchAll;
+
   const load = useCallback(() => {
+    if (useLocal) return;
     const params = new URLSearchParams({ limit: String(pageSize), offset: String(page * pageSize) });
     if (branchId) params.set("branchId", branchId);
     if (q.trim()) params.set("q", q.trim());
@@ -274,7 +291,7 @@ export function OrdersPage() {
       },
       (err: unknown) => setError(errorMessage(err)),
     );
-  }, [branchId, q, status, methodId, fromDay, toDay, page, pageSize, tz]);
+  }, [branchId, q, status, methodId, fromDay, toDay, page, pageSize, tz, useLocal]);
   useEffect(() => {
     const t = window.setTimeout(() => load(), 250);
     return () => window.clearTimeout(t);
@@ -297,12 +314,16 @@ export function OrdersPage() {
     if (!isCashier) setBranchId("");
   };
 
-  const totals = (orders ?? []).filter((o) => o.status === "COMPLETED").reduce((s, o) => s + o.total - o.returnedTotal, 0);
+  const shownOrders = useLocal && localFound ? localFound.slice(page * pageSize, (page + 1) * pageSize) : orders;
+  const shownTotal = useLocal && localFound ? localFound.length : total;
+  const totals = (shownOrders ?? []).filter((o) => o.status === "COMPLETED").reduce((s, o) => s + o.total - o.returnedTotal, 0);
 
   return (
     <div className="w-full">
       <PageHeader title={isCashier ? "My sales today" : "Orders"} description={isCashier ? `Your bills since the start of today · ${formatMoney(totals)} net` : "Every bill, with returns and cancellations"} />
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {searchAll ? <div className="mb-3"><Alert tone="info">Nothing in the last {Math.round(ORDER_WINDOW_DAYS / 30)} months matches “{q.trim()}”: showing matches from all bills.</Alert></div> : null}
+      {useLocal && !isCashier && !fromDay ? <p className="m-0 mb-2 text-xs text-muted">Bills from the last {Math.round(ORDER_WINDOW_DAYS / 30)} months. Pick a From date to see older ones.</p> : null}
       <Card className="mb-4 flex flex-wrap items-end gap-3">
         <Field label="Search" placeholder="Bill no., customer name or mobile" value={q} onChange={(e) => setQ(e.target.value)} className="min-w-[220px] flex-[2_1_260px]" />
         {!isCashier && me.branches.length > 1 ? (
@@ -360,7 +381,7 @@ export function OrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {(orders ?? []).map((o) => (
+            {(shownOrders ?? []).map((o) => (
               <tr key={o.id} className="border-t border-line">
                 <td className="px-4 py-3">
                   <button type="button" onClick={() => setOpen(o.id)} className="min-h-9 font-semibold text-indigo underline">
@@ -380,9 +401,9 @@ export function OrdersPage() {
             ))}
           </tbody>
         </table>
-        {orders?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">No bills match.</p> : null}
+        {shownOrders?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">No bills match.</p> : null}
       </div>
-      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} noun="bills" />
+      <Pagination page={page} pageSize={pageSize} total={shownTotal} onPage={setPage} onPageSize={setPageSize} noun="bills" />
       {open && settings ? <OrderDetail id={open} settings={settings} methods={methods} onChanged={() => load()} onClose={() => setOpen(null)} /> : null}
     </div>
   );

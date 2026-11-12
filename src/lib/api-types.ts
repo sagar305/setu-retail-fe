@@ -10256,6 +10256,7 @@ export interface components {
             /** Format: uuid */
             branchId: string;
             customerName: string;
+            customerPhone: string;
             total: number;
             returnedTotal: number;
             /** Format: uuid */
@@ -10263,6 +10264,7 @@ export interface components {
             offline: boolean;
             priceDiffers: boolean;
             paymentMethods: string[];
+            paymentMethodIds: string[];
         };
         HeldCart: {
             /** Format: uuid */

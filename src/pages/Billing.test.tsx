@@ -218,7 +218,7 @@ describe("billing", () => {
     await user.click(screen.getByRole("button", { name: "Charge ₹145.00" }));
     expect(await screen.findByRole("dialog", { name: "Bill B1-C1-00007 saved" })).toBeInTheDocument();
     expect(screen.getByText(/syncs automatically when the internet is back/)).toBeInTheDocument();
-    expect(calls.some((c) => c.path === "/orders")).toBe(false);
+    expect(calls.some((c) => c.method === "POST" && c.path === "/orders")).toBe(false);
 
     const [queued] = await db.outbox.toArray();
     expect(queued).toMatchObject({ invoiceNumber: "B1-C1-00007", status: "pending", counterId: COUNTER });
