@@ -77,9 +77,18 @@ export async function writeCache<T>(path: string, fresh: T): Promise<T> {
   return data as T;
 }
 
+const effectListeners = new Set<(effects: readonly Effect[]) => void>();
+/** Called with the effects of every change saved on this device (lists held in memory apply them too). */
+export function onLocalEffects(fn: (effects: readonly Effect[]) => void) {
+  effectListeners.add(fn);
+  return () => effectListeners.delete(fn);
+}
+
 /** A change was just saved on this device: show it on every cached screen at once. */
 export async function applyToCache(effects: readonly Effect[]) {
-  if (!owner || !effects.length) return;
+  if (!effects.length) return;
+  for (const l of effectListeners) l(effects);
+  if (!owner) return;
   const rows = await db.responses.where("owner").equals(owner).toArray().catch(() => [] as CachedResponse[]);
   for (const r of rows) {
     const data = applyEffects(r.path, r.data, effects);

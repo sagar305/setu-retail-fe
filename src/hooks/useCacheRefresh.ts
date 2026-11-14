@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { onCacheUpdate } from "../lib/cache";
+import { isListLoadPath } from "../lib/listData";
 
 /**
  * Re-read a screen's data when a fresher copy reaches this device (background
@@ -17,6 +18,8 @@ export function useCacheRefresh(prefixes: readonly string[], reload: () => void)
     let timer: number | undefined;
     const off = onCacheUpdate((path) => {
       if (!key.split("|").some((p) => path.startsWith(p))) return;
+      // The background list load saving its chunks isn't news for the screen.
+      if (isListLoadPath(path)) return;
       // Several answers often land together: re-read once.
       window.clearTimeout(timer);
       timer = window.setTimeout(() => fn.current(), 150);

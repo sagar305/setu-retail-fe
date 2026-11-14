@@ -14,6 +14,9 @@ import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { lastCloudContact } from "../lib/cache";
 import { PREFETCH_EVERY_MS, prefetchAll } from "../lib/prefetch";
 import { useSync } from "../offline/SyncProvider";
+import { currentBranch } from "../lib/branch";
+import { resetListData, startListLoad } from "../lib/listData";
+import { ListLoadBar, ListLoadedSnackbar } from "./ListLoad";
 
 /** Changes waiting this long get a warning (decision v1.9). */
 export const UNSYNCED_WARN_MS = 6 * 3600_000;
@@ -113,6 +116,12 @@ export function AppShell() {
   const { logout } = useAuth();
   const sync = useSync();
   useBackgroundRefresh();
+  // Right after sign-in: load the whole Products, Customers and Orders lists in the background.
+  const firstBranch = currentBranch(me)?.id ?? null;
+  useEffect(() => {
+    void startListLoad({ productsBranch: firstBranch, orders: true });
+    return () => resetListData();
+  }, [firstBranch]);
   const signOut = () => {
     if (sync.pending && !window.confirm(`${sync.pending} change${sync.pending === 1 ? " hasn't" : "s haven't"} reached the cloud yet. They stay on this device and sync when you're back online. Sign out anyway?`)) return;
     void logout();
@@ -191,6 +200,7 @@ export function AppShell() {
           </button>
         </header>
         <DemoBanner />
+        <ListLoadBar />
         <DeviceBanner />
         <PlanBanner />
         {/* Only the page scrolls, never the menu. Billing scrolls its own lists on wide screens. */}
@@ -198,6 +208,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <ListLoadedSnackbar />
     </div>
   );
 }

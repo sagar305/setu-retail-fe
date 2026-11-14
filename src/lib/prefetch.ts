@@ -28,7 +28,9 @@ export async function prefetchAll(me: Me): Promise<number> {
   if (running || (typeof navigator !== "undefined" && !navigator.onLine)) return 0;
   running = true;
   try {
-    const paths = [...new Set([...seedPaths(me), ...(await recentPaths())])].slice(0, 120);
+    // The whole-list loader refreshes its own reads (lib/listData.ts, "all=1").
+    const recent = (await recentPaths()).filter((p) => !/[?&]all=1(&|$)/.test(p));
+    const paths = [...new Set([...seedPaths(me), ...recent])].slice(0, 120);
     let done = 0;
     const queue = [...paths];
     const worker = async () => {

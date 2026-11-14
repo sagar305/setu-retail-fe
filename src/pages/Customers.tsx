@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useLocalList } from "../hooks/useLocalList";
+import { filterCustomers } from "../lib/listData";
 import { useTaxWords } from "../hooks/useSettings";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useMe } from "../auth/AuthProvider";
@@ -106,7 +108,14 @@ export function CustomersPage() {
     }
   }, [filters]);
 
+  // The whole list on this device (loaded after sign-in): search and pages work
+  // here with no API call. Until then, the API page by page.
+  const local = useLocalList("customers", "");
+  const isLocal = Boolean(local);
+  const found = useMemo(() => (local ? filterCustomers(local.rows, q) : null), [local, q]);
+
   const load = useCallback(() => {
+    if (isLocal) return;
     apiGet<{ customers: Customer[]; total: number }>(`/customers?q=${encodeURIComponent(q.trim())}&limit=${pageSize}&offset=${page * pageSize}`).then(
       (r) => {
         setError(null);
@@ -116,14 +125,14 @@ export function CustomersPage() {
       },
       (err: unknown) => setError(errorMessage(err)),
     );
-  }, [q, page, pageSize]);
+  }, [q, page, pageSize, isLocal]);
 
   /** Every customer that matches the search, not just this page. */
   async function exportCsv() {
     setExporting(true);
     try {
-      const all: Customer[] = [];
-      for (let offset = 0; ; offset += 500) {
+      const all: Customer[] = found ? [...found] : [];
+      for (let offset = 0; !found; offset += 500) {
         const r = await apiGet<{ customers: Customer[]; total: number }>(`/customers?q=${encodeURIComponent(q.trim())}&limit=500&offset=${offset}`);
         all.push(...r.customers);
         if (all.length >= r.total || r.customers.length === 0) break;
@@ -136,6 +145,8 @@ export function CustomersPage() {
     }
   }
   useCacheRefresh(["/customers?"], load);
+  const shownRows = found ? found.slice(page * pageSize, (page + 1) * pageSize) : rows;
+  const shownMatching = found ? found.length : matching;
   useEffect(() => {
     const t = window.setTimeout(load, 200);
     return () => window.clearTimeout(t);
@@ -145,11 +156,11 @@ export function CustomersPage() {
     <div className="w-full">
       <PageHeader
         title="Customers"
-        description={`${total.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} customers`}
+        description={`${(local ? local.rows.length : total).toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} customers`}
         actions={
           <div className="flex flex-wrap gap-2">
             {canEdit ? (
-              <Button variant="secondary" disabled={!matching} busy={exporting} onClick={() => void exportCsv()}>
+              <Button variant="secondary" disabled={!shownMatching} busy={exporting} onClick={() => void exportCsv()}>
                 Export CSV
               </Button>
             ) : null}
@@ -176,7 +187,7 @@ export function CustomersPage() {
             </tr>
           </thead>
           <tbody>
-            {(rows ?? []).map((c) => (
+            {(shownRows ?? []).map((c) => (
               <tr key={c.id} className="border-t border-line">
                 <td className="px-4 py-3 font-semibold">{c.name}</td>
                 <td className="px-3 py-3">{c.phone || "—"}</td>
@@ -193,9 +204,9 @@ export function CustomersPage() {
             ))}
           </tbody>
         </table>
-        {rows?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">{q.trim() ? "No customers match." : "No customers yet."}</p> : null}
+        {shownRows?.length === 0 ? <p className="m-0 px-4 py-6 text-center text-muted">{q.trim() ? "No customers match." : "No customers yet."}</p> : null}
       </div>
-      <Pagination page={page} pageSize={pageSize} total={matching} onPage={setPage} onPageSize={setPageSize} noun="customers" />
+      <Pagination page={page} pageSize={pageSize} total={shownMatching} onPage={setPage} onPageSize={setPageSize} noun="customers" />
       {dialog ? (
         <CustomerForm
           customer={dialog.customer}

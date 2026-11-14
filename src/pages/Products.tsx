@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useLocalList } from "../hooks/useLocalList";
+import { ensureProducts, filterProducts, refreshList } from "../lib/listData";
 import { useCacheRefresh } from "../hooks/useCacheRefresh";
 import { useTaxWords } from "../hooks/useSettings";
 import { useTaxGroups } from "../hooks/useTaxGroups";
@@ -338,32 +340,45 @@ export function ProductsPage() {
     },
     [branch, q, categoryId, stock],
   );
+  // The whole list on this device (loaded after sign-in): search, filters and
+  // pages then work here with no API call. Until then, the API page by page.
+  const local = useLocalList("products", branch?.id);
+  const isLocal = Boolean(local);
+  useEffect(() => {
+    if (branch && !local) ensureProducts(branch.id);
+  }, [branch, local]);
+  const matching = useMemo(() => (local ? filterProducts(local.rows, { q, categoryId, stock }) : null), [local, q, categoryId, stock]);
+  useEffect(() => {
+    apiGet<{ categories: Category[] }>("/categories").then((c) => setCategories(c.categories), () => {});
+  }, []);
+
   const load = useCallback(() => {
-    if (!branch) return;
-    Promise.all([apiGet<{ products: Product[]; total: number }>(query(pageSize, page * pageSize)), apiGet<{ categories: Category[] }>("/categories")]).then(
-      ([p, c]) => {
+    if (!branch || isLocal) return;
+    apiGet<{ products: Product[]; total: number }>(query(pageSize, page * pageSize)).then(
+      (p) => {
         setError(null);
         setProducts(p.products);
         setTotal(p.total);
-        setCategories(c.categories);
       },
       (err: unknown) => setError(errorMessage(err)),
     );
-  }, [branch, query, page, pageSize]);
+  }, [branch, query, page, pageSize, isLocal]);
   useEffect(() => {
     const t = window.setTimeout(load, 250);
     return () => window.clearTimeout(t);
   }, [load]);
   // How many products the shop has in all (for the plan limit), whatever the filters.
   const loadCount = useCallback(() => {
-    if (branch) apiGet<{ total: number }>(`/products?branchId=${branch.id}&limit=1`).then((r) => setAllCount(r.total), () => {});
-  }, [branch]);
+    if (branch && !isLocal) apiGet<{ total: number }>(`/products?branchId=${branch.id}&limit=1`).then((r) => setAllCount(r.total), () => {});
+  }, [branch, isLocal]);
   useEffect(loadCount, [loadCount]);
   useCacheRefresh(["/products"], () => {
     load();
     loadCount();
   });
-  const shown = products ?? [];
+  const shown = matching ? matching.slice(page * pageSize, (page + 1) * pageSize) : (products ?? []);
+  const shownTotal = matching ? matching.length : total;
+  const shownAll = local ? local.rows.length : allCount;
   const filtered = Boolean(q.trim() || categoryId || stock);
 
   /** Every product that matches the filters, not just this page. */
@@ -371,8 +386,8 @@ export function ProductsPage() {
     if (!branch) return;
     setExporting(true);
     try {
-      const all: Product[] = [];
-      for (let offset = 0; ; offset += 2000) {
+      const all: Product[] = matching ? [...matching] : [];
+      for (let offset = 0; !matching; offset += 2000) {
         const r = await apiGet<{ products: Product[]; total: number }>(query(2000, offset));
         all.push(...r.products);
         if (all.length >= r.total || r.products.length === 0) break;
@@ -392,6 +407,8 @@ export function ProductsPage() {
   }
   const catName = new Map(categories.map((c) => [c.id, c.name]));
   const done = () => {
+    // Batches are saved straight to the API: fetch the list again quietly.
+    if (local && dialog?.kind === "batches") refreshList("products");
     setDialog(null);
     load();
   };
@@ -402,7 +419,7 @@ export function ProductsPage() {
     <div className="w-full">
       <PageHeader
         title="Products"
-        description={`${allCount.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} products · prices and stock for ${branch.name} (${branch.code})`}
+        description={`${shownAll.toLocaleString("en-IN")}${limit === null ? "" : ` of ${limit.toLocaleString("en-IN")}`} products · prices and stock for ${branch.name} (${branch.code})`}
         actions={
           <div className="flex flex-wrap gap-2">
             {usable.length > 1 ? (
@@ -423,7 +440,7 @@ export function ProductsPage() {
                 ))}
               </select>
             ) : null}
-            <Button variant="secondary" disabled={!total} busy={exporting} onClick={() => void exportCsv()}>
+            <Button variant="secondary" disabled={!shownTotal} busy={exporting} onClick={() => void exportCsv()}>
               Export CSV
             </Button>
             <Link to="/settings/import" className="flex min-h-11 items-center rounded-[10px] border border-indigo bg-white px-4 text-sm font-semibold text-indigo no-underline">
@@ -467,8 +484,8 @@ export function ProductsPage() {
           </Button>
         ) : null}
       </div>
-      {products?.length === 0 && filtered ? <Alert tone="info">No products match these filters.</Alert> : null}
-      {products?.length === 0 && !filtered ? (
+      {(matching ?? products)?.length === 0 && filtered ? <Alert tone="info">No products match these filters.</Alert> : null}
+      {(matching ?? products)?.length === 0 && !filtered ? (
         <Alert tone="info">
           No products yet. Add your first one, or bring them in from a spreadsheet or the free Browser POS in <Link to="/settings/import" className="font-semibold underline">Settings → Import &amp; export</Link>.
         </Alert>
@@ -549,7 +566,7 @@ export function ProductsPage() {
           </tbody>
         </table>
       </div>
-      <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={setPageSize} noun="products" />
+      <Pagination page={page} pageSize={pageSize} total={shownTotal} onPage={setPage} onPageSize={setPageSize} noun="products" />
       {dialog?.kind === "new" || dialog?.kind === "edit" ? (
         <ProductForm product={dialog.kind === "edit" ? dialog.product : null} categories={categories} branchId={branch.id} onDone={done} onClose={() => setDialog(null)} />
       ) : null}
